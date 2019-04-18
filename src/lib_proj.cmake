@@ -203,6 +203,7 @@ set(SRC_LIBPROJ_ISO19111
 )
 
 set(SRC_LIBPROJ_CORE
+  ${CMAKE_SOURCE_DIR}/sqlite3/sqlite3.c
   4D_api.cpp
   aasincos.cpp
   adjlon.cpp
@@ -428,7 +429,7 @@ if(USE_THREAD AND Threads_FOUND AND CMAKE_USE_PTHREADS_INIT)
 endif()
 
 include_directories(${SQLITE3_INCLUDE_DIR})
-target_link_libraries(${PROJ_CORE_TARGET} ${SQLITE3_LIBRARY})
+#target_link_libraries(${PROJ_CORE_TARGET} ${SQLITE3_LIBRARY})
 
 if(MSVC)
   target_compile_definitions(${PROJ_CORE_TARGET}

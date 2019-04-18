@@ -112,16 +112,17 @@ include(policies)
 ################################################################################
 # Check for sqlite3
 ################################################################################
-find_program(EXE_SQLITE3 sqlite3)
-if(NOT EXE_SQLITE3)
-  message(SEND_ERROR "sqlite3 binary not found!")
-endif()
+# find_program(EXE_SQLITE3 sqlite3)
+# if(NOT EXE_SQLITE3)
+#   message(SEND_ERROR "sqlite3 binary not found!")
+# endif()
 
-find_package(Sqlite3 REQUIRED)
-if(NOT SQLITE3_FOUND)
-  message(SEND_ERROR "sqlite3 dependency not found!")
-endif()
-
+# find_package(Sqlite3 REQUIRED)
+# if(NOT SQLITE3_FOUND)
+#   message(SEND_ERROR "sqlite3 dependency not found!")
+# endif()
+set(SQLITE3_INCLUDE_DIR ${PROJ4_SOURCE_DIR}/sqlite3)
+set(EXE_SQLITE3 ${PROJECT_BINARY_DIR}/bin/sqlite3)
 ################################################################################
 # threading configuration
 ################################################################################
@@ -183,8 +184,8 @@ endif()
 
 if(MSVC OR CMAKE_CONFIGURATION_TYPES)
   # For multi-config systems and for Visual Studio, the debug version of
-  # the library has _d appended.
-  set(CMAKE_DEBUG_POSTFIX _d)
+  # the library has d appended.
+  set(CMAKE_DEBUG_POSTFIX d)
 endif()
 
 option(PROJ_TESTS "Enable build of collection of PROJ tests" ON)
@@ -226,6 +227,7 @@ set(CMAKECONFIGDIR "${DEFAULT_CMAKEDIR}"
 include_directories(${PROJ4_SOURCE_DIR}/src)
 
 message(STATUS "")
+add_subdirectory(sqlite3)
 add_subdirectory(data)
 add_subdirectory(include)
 add_subdirectory(src)
