@@ -108,6 +108,7 @@ else()
 endif()
 
 add_executable(proj_test_cpp_api
+  ${CMAKE_SOURCE_DIR}/sqlite3/sqlite3.c
   main.cpp
   test_util.cpp
   test_common.cpp
