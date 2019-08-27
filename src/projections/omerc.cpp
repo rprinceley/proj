@@ -45,7 +45,7 @@ struct pj_opaque {
 #define EPS 1.e-10
 
 
-static PJ_XY e_forward (PJ_LP lp, PJ *P) {          /* Ellipsoidal, forward */
+static PJ_XY omerc_e_forward (PJ_LP lp, PJ *P) {          /* Ellipsoidal, forward */
     PJ_XY xy = {0.0,0.0};
     struct pj_opaque *Q = static_cast<struct pj_opaque*>(P->opaque);
     double S, T, U, V, W, temp, u, v;
@@ -84,7 +84,7 @@ static PJ_XY e_forward (PJ_LP lp, PJ *P) {          /* Ellipsoidal, forward */
 }
 
 
-static PJ_LP e_inverse (PJ_XY xy, PJ *P) {          /* Ellipsoidal, inverse */
+static PJ_LP omerc_e_inverse (PJ_XY xy, PJ *P) {          /* Ellipsoidal, inverse */
     PJ_LP lp = {0.0,0.0};
     struct pj_opaque *Q = static_cast<struct pj_opaque*>(P->opaque);
     double  u, v, Qp, Sp, Tp, Vp, Up;
@@ -154,6 +154,8 @@ PJ *PROJECTION(omerc) {
         phi1 = pj_param(P->ctx, P->params, "rlat_1").f;
         lam2 = pj_param(P->ctx, P->params, "rlon_2").f;
         phi2 = pj_param(P->ctx, P->params, "rlat_2").f;
+        if (fabs(phi1) > M_HALFPI || fabs(phi2) > M_HALFPI)
+            return pj_default_destructor(P, PJD_ERR_LAT_LARGER_THAN_90);
         if (fabs(phi1 - phi2) <= TOL ||
             (con = fabs(phi1)) <= TOL ||
             fabs(con - M_HALFPI) <= TOL ||
@@ -236,8 +238,8 @@ PJ *PROJECTION(omerc) {
     F = 0.5 * gamma0;
     Q->v_pole_n = Q->ArB * log(tan(M_FORTPI - F));
     Q->v_pole_s = Q->ArB * log(tan(M_FORTPI + F));
-    P->inv = e_inverse;
-    P->fwd = e_forward;
+    P->inv = omerc_e_inverse;
+    P->fwd = omerc_e_forward;
 
     return P;
 }

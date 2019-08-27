@@ -3,6 +3,7 @@
 set -e
 
 export CCACHE_CPP2=yes
+export PROJ_DB_CACHE_DIR="$HOME/.ccache"
 
 # prepare wine environment
 wine64 cmd /c dir
@@ -30,7 +31,7 @@ find /tmp/proj_autoconf_install
 test/unit/test_cpp_api.exe
 cd ..
 # Now with grids
-wget http://download.osgeo.org/proj/proj-datumgrid-1.5.zip
+wget https://download.osgeo.org/proj/proj-datumgrid-1.5.zip
 cd data
 unzip -o ../proj-datumgrid-1.5.zip
 cd ..

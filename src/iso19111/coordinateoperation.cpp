@@ -564,7 +564,14 @@ GridDescription::~GridDescription() = default;
 
 GridDescription::GridDescription(const GridDescription &) = default;
 
-GridDescription::GridDescription(GridDescription &&) noexcept = default;
+GridDescription::GridDescription(GridDescription &&other) noexcept
+    : shortName(std::move(other.shortName)),
+      fullName(std::move(other.fullName)),
+      packageName(std::move(other.packageName)),
+      url(std::move(other.url)),
+      directDownload(other.directDownload),
+      openLicense(other.openLicense),
+      available(other.available) {}
 
 //! @endcond
 
@@ -984,6 +991,24 @@ void OperationMethod::_exportToWKT(io::WKTFormatter *formatter) const {
 // ---------------------------------------------------------------------------
 
 //! @cond Doxygen_Suppress
+void OperationMethod::_exportToJSON(
+    io::JSONFormatter *formatter) const // throw(FormattingException)
+{
+    auto &writer = formatter->writer();
+    auto objectContext(formatter->MakeObjectContext("OperationMethod",
+                                                    !identifiers().empty()));
+
+    writer.AddObjKey("name");
+    writer.Add(nameStr());
+
+    if (formatter->outputId()) {
+        formatID(formatter);
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
 bool OperationMethod::_isEquivalentTo(
     const util::IComparable *other,
     util::IComparable::Criterion criterion) const {
@@ -1155,6 +1180,42 @@ void OperationParameterValue::_exportToWKT(io::WKTFormatter *formatter,
         parameter()->formatID(formatter);
     }
     formatter->endNode();
+}
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
+void OperationParameterValue::_exportToJSON(
+    io::JSONFormatter *formatter) const {
+    auto &writer = formatter->writer();
+    auto objectContext(formatter->MakeObjectContext(
+        "ParameterValue", !parameter()->identifiers().empty()));
+
+    writer.AddObjKey("name");
+    writer.Add(parameter()->nameStr());
+
+    const auto &l_value(parameterValue());
+    if (l_value->type() == ParameterValue::Type::MEASURE) {
+        writer.AddObjKey("value");
+        writer.Add(l_value->value().value(), 15);
+        writer.AddObjKey("unit");
+        const auto &l_unit(l_value->value().unit());
+        if (l_unit == common::UnitOfMeasure::METRE ||
+            l_unit == common::UnitOfMeasure::DEGREE ||
+            l_unit == common::UnitOfMeasure::SCALE_UNITY) {
+            writer.Add(l_unit.name());
+        } else {
+            l_unit._exportToJSON(formatter);
+        }
+    } else if (l_value->type() == ParameterValue::Type::FILENAME) {
+        writer.AddObjKey("value");
+        writer.Add(l_value->valueFile());
+    }
+
+    if (formatter->outputId()) {
+        parameter()->formatID(formatter);
+    }
 }
 //! @endcond
 
@@ -2700,7 +2761,7 @@ createParams(const common::Measure &m1, const common::Measure &m2,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a [Universal Transverse Mercator]
- *(https://proj4.org/operations/projections/utm.html) conversion.
+ *(https://proj.org/operations/projections/utm.html) conversion.
  *
  * UTM is a family of conversions, of EPSG codes from 16001 to 16060 for the
  * northern hemisphere, and 17001 to 17060 for the southern hemisphere,
@@ -2729,7 +2790,7 @@ ConversionNNPtr Conversion::createUTM(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Transverse Mercator]
- *(https://proj4.org/operations/projections/tmerc.html) projection method.
+ *(https://proj.org/operations/projections/tmerc.html) projection method.
  *
  * This method is defined as [EPSG:9807]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9807)
@@ -2756,7 +2817,7 @@ ConversionNNPtr Conversion::createTransverseMercator(
 
 /** \brief Instantiate a conversion based on the [Gauss Schreiber Transverse
  *Mercator]
- *(https://proj4.org/operations/projections/gstmerc.html) projection method.
+ *(https://proj.org/operations/projections/gstmerc.html) projection method.
  *
  * This method is also known as Gauss-Laborde Reunion.
  *
@@ -2785,7 +2846,7 @@ ConversionNNPtr Conversion::createGaussSchreiberTransverseMercator(
 
 /** \brief Instantiate a conversion based on the [Transverse Mercator South
  *Orientated]
- *(https://proj4.org/operations/projections/tmerc.html) projection method.
+ *(https://proj.org/operations/projections/tmerc.html) projection method.
  *
  * This method is defined as [EPSG:9808]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9808)
@@ -2812,7 +2873,7 @@ ConversionNNPtr Conversion::createTransverseMercatorSouthOriented(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the  [Two Point Equidistant]
- *(https://proj4.org/operations/projections/tpeqd.html) projection method.
+ *(https://proj.org/operations/projections/tpeqd.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -2870,7 +2931,7 @@ ConversionNNPtr Conversion::createTunisiaMappingGrid(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Albers Conic Equal Area]
- *(https://proj4.org/operations/projections/aea.html) projection method.
+ *(https://proj.org/operations/projections/aea.html) projection method.
  *
  * This method is defined as [EPSG:9822]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9822)
@@ -2905,7 +2966,7 @@ Conversion::createAlbersEqualArea(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Lambert Conic Conformal 1SP]
- *(https://proj4.org/operations/projections/lcc.html) projection method.
+ *(https://proj.org/operations/projections/lcc.html) projection method.
  *
  * This method is defined as [EPSG:9801]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9801)
@@ -2931,7 +2992,7 @@ ConversionNNPtr Conversion::createLambertConicConformal_1SP(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Lambert Conic Conformal (2SP)]
- *(https://proj4.org/operations/projections/lcc.html) projection method.
+ *(https://proj.org/operations/projections/lcc.html) projection method.
  *
  * This method is defined as [EPSG:9802]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9802)
@@ -2967,7 +3028,7 @@ ConversionNNPtr Conversion::createLambertConicConformal_2SP(
 
 /** \brief Instantiate a conversion based on the [Lambert Conic Conformal (2SP
  *Michigan)]
- *(https://proj4.org/operations/projections/lcc.html) projection method.
+ *(https://proj.org/operations/projections/lcc.html) projection method.
  *
  * This method is defined as [EPSG:1051]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::1051)
@@ -3004,7 +3065,7 @@ ConversionNNPtr Conversion::createLambertConicConformal_2SP_Michigan(
 
 /** \brief Instantiate a conversion based on the [Lambert Conic Conformal (2SP
  *Belgium)]
- *(https://proj4.org/operations/projections/lcc.html) projection method.
+ *(https://proj.org/operations/projections/lcc.html) projection method.
  *
  * This method is defined as [EPSG:9803]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9803)
@@ -3045,7 +3106,7 @@ ConversionNNPtr Conversion::createLambertConicConformal_2SP_Belgium(
 
 /** \brief Instantiate a conversion based on the [Modified Azimuthal
  *Equidistant]
- *(https://proj4.org/operations/projections/aeqd.html) projection method.
+ *(https://proj.org/operations/projections/aeqd.html) projection method.
  *
  * This method is defined as [EPSG:9832]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9832)
@@ -3070,7 +3131,7 @@ ConversionNNPtr Conversion::createAzimuthalEquidistant(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Guam Projection]
- *(https://proj4.org/operations/projections/aeqd.html) projection method.
+ *(https://proj.org/operations/projections/aeqd.html) projection method.
  *
  * This method is defined as [EPSG:9831]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9831)
@@ -3096,7 +3157,7 @@ ConversionNNPtr Conversion::createGuamProjection(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Bonne]
- *(https://proj4.org/operations/projections/bonne.html) projection method.
+ *(https://proj.org/operations/projections/bonne.html) projection method.
  *
  * This method is defined as [EPSG:9827]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9827)
@@ -3124,7 +3185,7 @@ ConversionNNPtr Conversion::createBonne(const util::PropertyMap &properties,
 
 /** \brief Instantiate a conversion based on the [Lambert Cylindrical Equal Area
  *(Spherical)]
- *(https://proj4.org/operations/projections/cea.html) projection method.
+ *(https://proj.org/operations/projections/cea.html) projection method.
  *
  * This method is defined as [EPSG:9834]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9834)
@@ -3155,7 +3216,7 @@ ConversionNNPtr Conversion::createLambertCylindricalEqualAreaSpherical(
 
 /** \brief Instantiate a conversion based on the [Lambert Cylindrical Equal Area
  *(ellipsoidal form)]
- *(https://proj4.org/operations/projections/cea.html) projection method.
+ *(https://proj.org/operations/projections/cea.html) projection method.
  *
  * This method is defined as [EPSG:9835]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9835)
@@ -3181,7 +3242,7 @@ ConversionNNPtr Conversion::createLambertCylindricalEqualArea(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Cassini-Soldner]
- * (https://proj4.org/operations/projections/cass.html) projection method.
+ * (https://proj.org/operations/projections/cass.html) projection method.
  *
  * This method is defined as [EPSG:9806]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9806)
@@ -3206,7 +3267,7 @@ ConversionNNPtr Conversion::createCassiniSoldner(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Equidistant Conic]
- *(https://proj4.org/operations/projections/eqdc.html) projection method.
+ *(https://proj.org/operations/projections/eqdc.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3238,7 +3299,7 @@ ConversionNNPtr Conversion::createEquidistantConic(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert I]
- * (https://proj4.org/operations/projections/eck1.html) projection method.
+ * (https://proj.org/operations/projections/eck1.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3260,7 +3321,7 @@ ConversionNNPtr Conversion::createEckertI(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert II]
- * (https://proj4.org/operations/projections/eck2.html) projection method.
+ * (https://proj.org/operations/projections/eck2.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3281,7 +3342,7 @@ ConversionNNPtr Conversion::createEckertII(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert III]
- * (https://proj4.org/operations/projections/eck3.html) projection method.
+ * (https://proj.org/operations/projections/eck3.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3302,7 +3363,7 @@ ConversionNNPtr Conversion::createEckertIII(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert IV]
- * (https://proj4.org/operations/projections/eck4.html) projection method.
+ * (https://proj.org/operations/projections/eck4.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3323,7 +3384,7 @@ ConversionNNPtr Conversion::createEckertIV(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert V]
- * (https://proj4.org/operations/projections/eck5.html) projection method.
+ * (https://proj.org/operations/projections/eck5.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3345,7 +3406,7 @@ ConversionNNPtr Conversion::createEckertV(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Eckert VI]
- * (https://proj4.org/operations/projections/eck6.html) projection method.
+ * (https://proj.org/operations/projections/eck6.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3366,7 +3427,7 @@ ConversionNNPtr Conversion::createEckertVI(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Equidistant Cylindrical]
- *(https://proj4.org/operations/projections/eqc.html) projection method.
+ *(https://proj.org/operations/projections/eqc.html) projection method.
  *
  * This is also known as the Equirectangular method, and in the particular case
  * where the latitude of first parallel is 0.
@@ -3400,7 +3461,7 @@ ConversionNNPtr Conversion::createEquidistantCylindrical(
 
 /** \brief Instantiate a conversion based on the [Equidistant Cylindrical
  *(Spherical)]
- *(https://proj4.org/operations/projections/eqc.html) projection method.
+ *(https://proj.org/operations/projections/eqc.html) projection method.
  *
  * This is also known as the Equirectangular method, and in the particular case
  * where the latitude of first parallel is 0.
@@ -3434,7 +3495,7 @@ ConversionNNPtr Conversion::createEquidistantCylindricalSpherical(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Gall (Stereographic)]
- * (https://proj4.org/operations/projections/gall.html) projection method.
+ * (https://proj.org/operations/projections/gall.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3456,7 +3517,7 @@ ConversionNNPtr Conversion::createGall(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Goode Homolosine]
- * (https://proj4.org/operations/projections/goode.html) projection method.
+ * (https://proj.org/operations/projections/goode.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3477,7 +3538,7 @@ ConversionNNPtr Conversion::createGoodeHomolosine(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Interrupted Goode Homolosine]
- * (https://proj4.org/operations/projections/igh.html) projection method.
+ * (https://proj.org/operations/projections/igh.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3503,7 +3564,7 @@ ConversionNNPtr Conversion::createInterruptedGoodeHomolosine(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Geostationary Satellite View]
- * (https://proj4.org/operations/projections/geos.html) projection method,
+ * (https://proj.org/operations/projections/geos.html) projection method,
  * with the sweep angle axis of the viewing instrument being x
  *
  * There is no equivalent in EPSG.
@@ -3528,7 +3589,7 @@ ConversionNNPtr Conversion::createGeostationarySatelliteSweepX(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Geostationary Satellite View]
- * (https://proj4.org/operations/projections/geos.html) projection method,
+ * (https://proj.org/operations/projections/geos.html) projection method,
  * with the sweep angle axis of the viewing instrument being y.
  *
  * There is no equivalent in EPSG.
@@ -3553,7 +3614,7 @@ ConversionNNPtr Conversion::createGeostationarySatelliteSweepY(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Gnomonic]
- *(https://proj4.org/operations/projections/gnom.html) projection method.
+ *(https://proj.org/operations/projections/gnom.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3578,7 +3639,7 @@ ConversionNNPtr Conversion::createGnomonic(
 
 /** \brief Instantiate a conversion based on the [Hotine Oblique Mercator
  *(Variant A)]
- *(https://proj4.org/operations/projections/omerc.html) projection method
+ *(https://proj.org/operations/projections/omerc.html) projection method
  *
  * This is the variant with the no_uoff parameter, which corresponds to
  * GDAL &gt;=2.3 Hotine_Oblique_Mercator projection.
@@ -3593,7 +3654,7 @@ ConversionNNPtr Conversion::createGnomonic(
  * \note In the case where azimuthInitialLine = angleFromRectifiedToSkrewGrid =
  *90deg,
  * this maps to the  [Swiss Oblique Mercator]
- *(https://proj4.org/operations/projections/somerc.html) formulas.
+ *(https://proj.org/operations/projections/somerc.html) formulas.
  *
  * @param properties See \ref general_properties of the conversion. If the name
  * is not provided, it is automatically set.
@@ -3626,7 +3687,7 @@ ConversionNNPtr Conversion::createHotineObliqueMercatorVariantA(
 
 /** \brief Instantiate a conversion based on the [Hotine Oblique Mercator
  *(Variant B)]
- *(https://proj4.org/operations/projections/omerc.html) projection method
+ *(https://proj.org/operations/projections/omerc.html) projection method
  *
  * This is the variant without the no_uoff parameter, which corresponds to
  * GDAL &gt;=2.3 Hotine_Oblique_Mercator_Azimuth_Center projection.
@@ -3639,7 +3700,7 @@ ConversionNNPtr Conversion::createHotineObliqueMercatorVariantA(
  * \note In the case where azimuthInitialLine = angleFromRectifiedToSkrewGrid =
  *90deg,
  * this maps to the  [Swiss Oblique Mercator]
- *(https://proj4.org/operations/projections/somerc.html) formulas.
+ *(https://proj.org/operations/projections/somerc.html) formulas.
  *
  * @param properties See \ref general_properties of the conversion. If the name
  * is not provided, it is automatically set.
@@ -3672,7 +3733,7 @@ ConversionNNPtr Conversion::createHotineObliqueMercatorVariantB(
 
 /** \brief Instantiate a conversion based on the [Hotine Oblique Mercator Two
  *Point Natural Origin]
- *(https://proj4.org/operations/projections/omerc.html) projection method.
+ *(https://proj.org/operations/projections/omerc.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3713,7 +3774,7 @@ ConversionNNPtr Conversion::createHotineObliqueMercatorTwoPointNaturalOrigin(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Laborde Oblique Mercator]
- *(https://proj4.org/operations/projections/labrd.html) projection method.
+ *(https://proj.org/operations/projections/labrd.html) projection method.
  *
  * This method is defined as [EPSG:9813]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9813)
@@ -3744,7 +3805,7 @@ ConversionNNPtr Conversion::createLabordeObliqueMercator(
 
 /** \brief Instantiate a conversion based on the [International Map of the World
  *Polyconic]
- *(https://proj4.org/operations/projections/imw_p.html) projection method.
+ *(https://proj.org/operations/projections/imw_p.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3775,7 +3836,7 @@ ConversionNNPtr Conversion::createInternationalMapWorldPolyconic(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Krovak (north oriented)]
- *(https://proj4.org/operations/projections/krovak.html) projection method.
+ *(https://proj.org/operations/projections/krovak.html) projection method.
  *
  * This method is defined as [EPSG:1041]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::1041)
@@ -3825,7 +3886,7 @@ ConversionNNPtr Conversion::createKrovakNorthOriented(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Krovak]
- *(https://proj4.org/operations/projections/krovak.html) projection method.
+ *(https://proj.org/operations/projections/krovak.html) projection method.
  *
  * This method is defined as [EPSG:9819]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9819)
@@ -3877,7 +3938,7 @@ Conversion::createKrovak(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Lambert Azimuthal Equal Area]
- *(https://proj4.org/operations/projections/laea.html) projection method.
+ *(https://proj.org/operations/projections/laea.html) projection method.
  *
  * This method is defined as [EPSG:9820]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9820)
@@ -3902,7 +3963,7 @@ ConversionNNPtr Conversion::createLambertAzimuthalEqualArea(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Miller Cylindrical]
- *(https://proj4.org/operations/projections/mill.html) projection method.
+ *(https://proj.org/operations/projections/mill.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -3923,7 +3984,7 @@ ConversionNNPtr Conversion::createMillerCylindrical(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Mercator]
- *(https://proj4.org/operations/projections/merc.html) projection method.
+ *(https://proj.org/operations/projections/merc.html) projection method.
  *
  * This is the variant, also known as Mercator (1SP), defined with the scale
  * factor. Note that latitude of natural origin (centerLat) is a parameter,
@@ -3953,7 +4014,7 @@ ConversionNNPtr Conversion::createMercatorVariantA(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Mercator]
- *(https://proj4.org/operations/projections/merc.html) projection method.
+ *(https://proj.org/operations/projections/merc.html) projection method.
  *
  * This is the variant, also known as Mercator (2SP), defined with the latitude
  * of the first standard parallel (the second standard parallel is implicitly
@@ -3983,7 +4044,7 @@ ConversionNNPtr Conversion::createMercatorVariantB(
 
 /** \brief Instantiate a conversion based on the [Popular Visualisation Pseudo
  *Mercator]
- *(https://proj4.org/operations/projections/webmerc.html) projection method.
+ *(https://proj.org/operations/projections/webmerc.html) projection method.
  *
  * Also known as WebMercator. Mostly/only used for Projected CRS EPSG:3857
  * (WGS 84 / Pseudo-Mercator)
@@ -4011,7 +4072,7 @@ ConversionNNPtr Conversion::createPopularVisualisationPseudoMercator(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Mollweide]
- * (https://proj4.org/operations/projections/moll.html) projection method.
+ * (https://proj.org/operations/projections/moll.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4032,7 +4093,7 @@ ConversionNNPtr Conversion::createMollweide(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [New Zealand Map Grid]
- * (https://proj4.org/operations/projections/nzmg.html) projection method.
+ * (https://proj.org/operations/projections/nzmg.html) projection method.
  *
  * This method is defined as [EPSG:9811]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9811)
@@ -4058,7 +4119,7 @@ ConversionNNPtr Conversion::createNewZealandMappingGrid(
 
 /** \brief Instantiate a conversion based on the [Oblique Stereographic
  *(Alternative)]
- *(https://proj4.org/operations/projections/sterea.html) projection method.
+ *(https://proj.org/operations/projections/sterea.html) projection method.
  *
  * This method is defined as [EPSG:9809]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9809)
@@ -4084,7 +4145,7 @@ ConversionNNPtr Conversion::createObliqueStereographic(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Orthographic]
- *(https://proj4.org/operations/projections/ortho.html) projection method.
+ *(https://proj.org/operations/projections/ortho.html) projection method.
  *
  * This method is defined as [EPSG:9840]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9840)
@@ -4111,7 +4172,7 @@ ConversionNNPtr Conversion::createOrthographic(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [American Polyconic]
- *(https://proj4.org/operations/projections/poly.html) projection method.
+ *(https://proj.org/operations/projections/poly.html) projection method.
  *
  * This method is defined as [EPSG:9818]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9818)
@@ -4137,7 +4198,7 @@ ConversionNNPtr Conversion::createAmericanPolyconic(
 
 /** \brief Instantiate a conversion based on the [Polar Stereographic (Variant
  *A)]
- *(https://proj4.org/operations/projections/stere.html) projection method.
+ *(https://proj.org/operations/projections/stere.html) projection method.
  *
  * This method is defined as [EPSG:9810]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9810)
@@ -4166,7 +4227,7 @@ ConversionNNPtr Conversion::createPolarStereographicVariantA(
 
 /** \brief Instantiate a conversion based on the [Polar Stereographic (Variant
  *B)]
- *(https://proj4.org/operations/projections/stere.html) projection method.
+ *(https://proj.org/operations/projections/stere.html) projection method.
  *
  * This method is defined as [EPSG:9829]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::9829)
@@ -4195,7 +4256,7 @@ ConversionNNPtr Conversion::createPolarStereographicVariantB(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Robinson]
- * (https://proj4.org/operations/projections/robin.html) projection method.
+ * (https://proj.org/operations/projections/robin.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4216,7 +4277,7 @@ ConversionNNPtr Conversion::createRobinson(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Sinusoidal]
- * (https://proj4.org/operations/projections/sinu.html) projection method.
+ * (https://proj.org/operations/projections/sinu.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4237,7 +4298,7 @@ ConversionNNPtr Conversion::createSinusoidal(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Stereographic]
- *(https://proj4.org/operations/projections/stere.html) projection method.
+ *(https://proj.org/operations/projections/stere.html) projection method.
  *
  * There is no equivalent in EPSG. This method implements the original "Oblique
  * Stereographic" method described in "Snyder's Map Projections - A Working
@@ -4266,7 +4327,7 @@ ConversionNNPtr Conversion::createStereographic(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Van der Grinten]
- * (https://proj4.org/operations/projections/vandg.html) projection method.
+ * (https://proj.org/operations/projections/vandg.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4287,7 +4348,7 @@ ConversionNNPtr Conversion::createVanDerGrinten(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner I]
- * (https://proj4.org/operations/projections/wag1.html) projection method.
+ * (https://proj.org/operations/projections/wag1.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4309,7 +4370,7 @@ ConversionNNPtr Conversion::createWagnerI(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner II]
- * (https://proj4.org/operations/projections/wag2.html) projection method.
+ * (https://proj.org/operations/projections/wag2.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4330,7 +4391,7 @@ ConversionNNPtr Conversion::createWagnerII(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner III]
- * (https://proj4.org/operations/projections/wag3.html) projection method.
+ * (https://proj.org/operations/projections/wag3.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4354,7 +4415,7 @@ ConversionNNPtr Conversion::createWagnerIII(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner IV]
- * (https://proj4.org/operations/projections/wag4.html) projection method.
+ * (https://proj.org/operations/projections/wag4.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4375,7 +4436,7 @@ ConversionNNPtr Conversion::createWagnerIV(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner V]
- * (https://proj4.org/operations/projections/wag5.html) projection method.
+ * (https://proj.org/operations/projections/wag5.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4397,7 +4458,7 @@ ConversionNNPtr Conversion::createWagnerV(const util::PropertyMap &properties,
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner VI]
- * (https://proj4.org/operations/projections/wag6.html) projection method.
+ * (https://proj.org/operations/projections/wag6.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4418,7 +4479,7 @@ ConversionNNPtr Conversion::createWagnerVI(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Wagner VII]
- * (https://proj4.org/operations/projections/wag7.html) projection method.
+ * (https://proj.org/operations/projections/wag7.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4440,7 +4501,7 @@ ConversionNNPtr Conversion::createWagnerVII(
 
 /** \brief Instantiate a conversion based on the [Quadrilateralized Spherical
  *Cube]
- *(https://proj4.org/operations/projections/qsc.html) projection method.
+ *(https://proj.org/operations/projections/qsc.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4464,7 +4525,7 @@ ConversionNNPtr Conversion::createQuadrilateralizedSphericalCube(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Spherical Cross-Track Height]
- *(https://proj4.org/operations/projections/sch.html) projection method.
+ *(https://proj.org/operations/projections/sch.html) projection method.
  *
  * There is no equivalent in EPSG.
  *
@@ -4489,7 +4550,7 @@ ConversionNNPtr Conversion::createSphericalCrossTrackHeight(
 // ---------------------------------------------------------------------------
 
 /** \brief Instantiate a conversion based on the [Equal Earth]
- * (https://proj4.org/operations/projections/eqearth.html) projection method.
+ * (https://proj.org/operations/projections/eqearth.html) projection method.
  *
  * This method is defined as [EPSG:1078]
  * (https://www.epsg-registry.org/export.htm?gml=urn:ogc:def:method:EPSG::1078)
@@ -5120,10 +5181,11 @@ static void getESRIMethodNameAndParams(const Conversion *conv,
             }
         } else if (esriMapping->epsg_code ==
                    EPSG_CODE_METHOD_TRANSVERSE_MERCATOR) {
-            if (l_targetCRS &&
-                (ci_find(l_targetCRS->nameStr(), "Gauss") !=
-                     std::string::npos ||
-                 ci_find(l_targetCRS->nameStr(), "GK_") != std::string::npos)) {
+            if (ci_find(conv->nameStr(), "Gauss Kruger") != std::string::npos ||
+                (l_targetCRS && (ci_find(l_targetCRS->nameStr(), "Gauss") !=
+                                     std::string::npos ||
+                                 ci_find(l_targetCRS->nameStr(), "GK_") !=
+                                     std::string::npos))) {
                 esriParams = paramsESRI_Gauss_Kruger;
                 esriMethodName = "Gauss_Kruger";
             } else {
@@ -5397,6 +5459,49 @@ void Conversion::_exportToWKT(io::WKTFormatter *formatter) const {
         formatter->leave();
     }
 }
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
+void Conversion::_exportToJSON(
+    io::JSONFormatter *formatter) const // throw(FormattingException)
+{
+    auto &writer = formatter->writer();
+    auto objectContext(
+        formatter->MakeObjectContext("Conversion", !identifiers().empty()));
+
+    writer.AddObjKey("name");
+    auto l_name = nameStr();
+    if (l_name.empty()) {
+        writer.Add("unnamed");
+    } else {
+        writer.Add(l_name);
+    }
+
+    writer.AddObjKey("method");
+    formatter->setOmitTypeInImmediateChild();
+    formatter->setAllowIDInImmediateChild();
+    method()->_exportToJSON(formatter);
+
+    const auto &l_parameterValues = parameterValues();
+    if (!l_parameterValues.empty()) {
+        writer.AddObjKey("parameters");
+        {
+            auto parametersContext(writer.MakeArrayContext(false));
+            for (const auto &genOpParamvalue : l_parameterValues) {
+                formatter->setAllowIDInImmediateChild();
+                formatter->setOmitTypeInImmediateChild();
+                genOpParamvalue->_exportToJSON(formatter);
+            }
+        }
+    }
+
+    if (formatter->outputId()) {
+        formatID(formatter);
+    }
+}
+
 //! @endcond
 
 // ---------------------------------------------------------------------------
@@ -5885,7 +5990,7 @@ void Conversion::_exportToPROJString(
 // ---------------------------------------------------------------------------
 
 /** \brief Return whether a conversion is a [Universal Transverse Mercator]
- * (https://proj4.org/operations/projections/utm.html) conversion.
+ * (https://proj.org/operations/projections/utm.html) conversion.
  *
  * @param[out] zone UTM zone number between 1 and 60.
  * @param[out] north true for UTM northern hemisphere, false for UTM southern
@@ -6957,11 +7062,11 @@ TransformationNNPtr Transformation::createNTv2(
 static TransformationNNPtr _createGravityRelatedHeightToGeographic3D(
     const util::PropertyMap &properties, bool inverse,
     const crs::CRSNNPtr &sourceCRSIn, const crs::CRSNNPtr &targetCRSIn,
-    const std::string &filename,
+    const crs::CRSPtr &interpolationCRSIn, const std::string &filename,
     const std::vector<metadata::PositionalAccuracyNNPtr> &accuracies) {
 
     return Transformation::create(
-        properties, sourceCRSIn, targetCRSIn, nullptr,
+        properties, sourceCRSIn, targetCRSIn, interpolationCRSIn,
         util::PropertyMap().set(
             common::IdentifiedObject::NAME_KEY,
             inverse ? INVERSE_OF + PROJ_WKT2_NAME_METHOD_HEIGHT_TO_GEOG3D
@@ -6980,17 +7085,20 @@ static TransformationNNPtr _createGravityRelatedHeightToGeographic3D(
  * At minimum the name should be defined.
  * @param sourceCRSIn Source CRS.
  * @param targetCRSIn Target CRS.
+ * @param interpolationCRSIn Interpolation CRS. (might be null)
  * @param filename GRID filename.
  * @param accuracies Vector of positional accuracy (might be empty).
  * @return new Transformation.
  */
 TransformationNNPtr Transformation::createGravityRelatedHeightToGeographic3D(
     const util::PropertyMap &properties, const crs::CRSNNPtr &sourceCRSIn,
-    const crs::CRSNNPtr &targetCRSIn, const std::string &filename,
+    const crs::CRSNNPtr &targetCRSIn, const crs::CRSPtr &interpolationCRSIn,
+    const std::string &filename,
     const std::vector<metadata::PositionalAccuracyNNPtr> &accuracies) {
 
     return _createGravityRelatedHeightToGeographic3D(
-        properties, false, sourceCRSIn, targetCRSIn, filename, accuracies);
+        properties, false, sourceCRSIn, targetCRSIn, interpolationCRSIn,
+        filename, accuracies);
 }
 
 // ---------------------------------------------------------------------------
@@ -7301,8 +7409,20 @@ createPropertiesForInverse(const CoordinateOperation *op, bool derivedFrom,
     auto targetCRS = op->targetCRS();
     std::string name;
     if (!forwardName.empty()) {
-        if (starts_with(forwardName, INVERSE_OF)) {
-            name = forwardName.substr(INVERSE_OF.size());
+        if (starts_with(forwardName, INVERSE_OF) ||
+            forwardName.find(" + ") != std::string::npos) {
+            auto tokens = split(forwardName, " + ");
+            for (size_t i = tokens.size(); i > 0;) {
+                i--;
+                if (!name.empty()) {
+                    name += " + ";
+                }
+                if (starts_with(tokens[i], INVERSE_OF)) {
+                    name += tokens[i].substr(INVERSE_OF.size());
+                } else {
+                    name += INVERSE_OF + tokens[i];
+                }
+            }
         } else if (!sourceCRS || !targetCRS ||
                    forwardName != buildOpName(opType, sourceCRS, targetCRS)) {
             name = INVERSE_OF + forwardName;
@@ -7317,6 +7437,11 @@ createPropertiesForInverse(const CoordinateOperation *op, bool derivedFrom,
 
     if (!name.empty()) {
         map.set(common::IdentifiedObject::NAME_KEY, name);
+    }
+
+    const std::string &remarks = op->remarks();
+    if (!remarks.empty()) {
+        map.set(common::IdentifiedObject::REMARKS_KEY, remarks);
     }
 
     addModifiedIdentifier(map, op, true, derivedFrom);
@@ -7484,6 +7609,8 @@ Transformation::Private::registerInv(util::BaseObjectNNPtr thisIn,
                                      TransformationNNPtr invTransform) {
     invTransform->d->forwardOperation_ =
         util::nn_dynamic_pointer_cast<Transformation>(thisIn);
+    invTransform->setHasBallparkTransformation(
+        invTransform->d->forwardOperation_->hasBallparkTransformation());
     return invTransform;
 }
 //! @endcond
@@ -7734,6 +7861,76 @@ CoordinateOperationNNPtr InverseTransformation::_shallowClone() const {
 void Transformation::_exportToWKT(io::WKTFormatter *formatter) const {
     exportTransformationToWKT(formatter);
 }
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
+void Transformation::_exportToJSON(
+    io::JSONFormatter *formatter) const // throw(FormattingException)
+{
+    auto &writer = formatter->writer();
+    auto objectContext(formatter->MakeObjectContext(
+        formatter->abridgedTransformation() ? "AbridgedTransformation"
+                                            : "Transformation",
+        !identifiers().empty()));
+
+    writer.AddObjKey("name");
+    auto l_name = nameStr();
+    if (l_name.empty()) {
+        writer.Add("unnamed");
+    } else {
+        writer.Add(l_name);
+    }
+
+    if (!formatter->abridgedTransformation()) {
+        writer.AddObjKey("source_crs");
+        formatter->setAllowIDInImmediateChild();
+        sourceCRS()->_exportToJSON(formatter);
+
+        writer.AddObjKey("target_crs");
+        formatter->setAllowIDInImmediateChild();
+        targetCRS()->_exportToJSON(formatter);
+
+        const auto &l_interpolationCRS = interpolationCRS();
+        if (l_interpolationCRS) {
+            writer.AddObjKey("interpolation_crs");
+            formatter->setAllowIDInImmediateChild();
+            l_interpolationCRS->_exportToJSON(formatter);
+        }
+    }
+
+    writer.AddObjKey("method");
+    formatter->setOmitTypeInImmediateChild();
+    formatter->setAllowIDInImmediateChild();
+    method()->_exportToJSON(formatter);
+
+    writer.AddObjKey("parameters");
+    {
+        auto parametersContext(writer.MakeArrayContext(false));
+        for (const auto &genOpParamvalue : parameterValues()) {
+            formatter->setAllowIDInImmediateChild();
+            formatter->setOmitTypeInImmediateChild();
+            genOpParamvalue->_exportToJSON(formatter);
+        }
+    }
+
+    if (!formatter->abridgedTransformation()) {
+        if (!coordinateOperationAccuracies().empty()) {
+            writer.AddObjKey("accuracy");
+            writer.Add(coordinateOperationAccuracies()[0]->value());
+        }
+    }
+
+    if (formatter->abridgedTransformation()) {
+        if (formatter->outputId()) {
+            formatID(formatter);
+        }
+    } else {
+        ObjectUsage::baseExportToJSON(formatter);
+    }
+}
+
 //! @endcond
 
 // ---------------------------------------------------------------------------
@@ -8192,13 +8389,14 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                 return createGravityRelatedHeightToGeographic3D(
                            createPropertiesForInverse(self.as_nullable().get(),
                                                       true, false),
-                           targetCRS(), sourceCRS(), projFilename,
-                           coordinateOperationAccuracies())
+                           targetCRS(), sourceCRS(), interpolationCRS(),
+                           projFilename, coordinateOperationAccuracies())
                     ->inverseAsTransformation();
             } else {
                 return createGravityRelatedHeightToGeographic3D(
                     createSimilarPropertiesTransformation(self), sourceCRS(),
-                    targetCRS(), projFilename, coordinateOperationAccuracies());
+                    targetCRS(), interpolationCRS(), projFilename,
+                    coordinateOperationAccuracies());
             }
         }
     }
@@ -9490,6 +9688,7 @@ CoordinateOperationNNPtr ConcatenatedOperation::inverse() const {
     auto op =
         create(properties, inversedOperations, coordinateOperationAccuracies());
     op->d->computedName_ = d->computedName_;
+    op->setHasBallparkTransformation(hasBallparkTransformation());
     return op;
 }
 
@@ -9552,9 +9751,54 @@ void ConcatenatedOperation::_exportToWKT(io::WKTFormatter *formatter) const {
 // ---------------------------------------------------------------------------
 
 //! @cond Doxygen_Suppress
+void ConcatenatedOperation::_exportToJSON(
+    io::JSONFormatter *formatter) const // throw(FormattingException)
+{
+    auto &writer = formatter->writer();
+    auto objectContext(formatter->MakeObjectContext("ConcatenatedOperation",
+                                                    !identifiers().empty()));
+
+    writer.AddObjKey("name");
+    auto l_name = nameStr();
+    if (l_name.empty()) {
+        writer.Add("unnamed");
+    } else {
+        writer.Add(l_name);
+    }
+
+    writer.AddObjKey("source_crs");
+    formatter->setAllowIDInImmediateChild();
+    sourceCRS()->_exportToJSON(formatter);
+
+    writer.AddObjKey("target_crs");
+    formatter->setAllowIDInImmediateChild();
+    targetCRS()->_exportToJSON(formatter);
+
+    writer.AddObjKey("steps");
+    {
+        auto parametersContext(writer.MakeArrayContext(false));
+        for (const auto &operation : operations()) {
+            formatter->setAllowIDInImmediateChild();
+            operation->_exportToJSON(formatter);
+        }
+    }
+
+    ObjectUsage::baseExportToJSON(formatter);
+}
+
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
 CoordinateOperationNNPtr ConcatenatedOperation::_shallowClone() const {
     auto op =
         ConcatenatedOperation::nn_make_shared<ConcatenatedOperation>(*this);
+    std::vector<CoordinateOperationNNPtr> ops;
+    for (const auto &subOp : d->operations_) {
+        ops.emplace_back(subOp->shallowClone());
+    }
+    op->d->operations_ = ops;
     op->assignSelf(op);
     op->setCRSs(this, false);
     return util::nn_static_pointer_cast<CoordinateOperation>(op);
@@ -9956,6 +10200,9 @@ struct CoordinateOperationFactory::Private {
     static ConversionNNPtr
     createGeographicGeocentric(const crs::CRSNNPtr &sourceCRS,
                                const crs::CRSNNPtr &targetCRS);
+
+    static void setCRSs(CoordinateOperation *co, const crs::CRSNNPtr &sourceCRS,
+                        const crs::CRSNNPtr &targetCRS);
 };
 //! @endcond
 
@@ -10198,7 +10445,8 @@ struct FilterResults {
         // results
         // ...
         removeSyntheticNullTransforms();
-        removeUninterestingOps();
+        if (context->getDiscardSuperseded())
+            removeUninterestingOps();
         removeDuplicateOps();
         removeSyntheticNullTransforms();
         return *this;
@@ -10850,6 +11098,31 @@ static std::vector<CoordinateOperationNNPtr> findsOpsInRegistryWithIntermediate(
                     context->getDiscardSuperseded(),
                     context->getIntermediateCRS());
                 if (!res.empty()) {
+
+                    // If doing GeogCRS --> GeogCRS, only use GeogCRS as
+                    // intermediate CRS
+                    // Avoid weird behaviour when doing NAD83 -> NAD83(2011)
+                    // that would go through NAVD88 otherwise.
+                    if (context->getIntermediateCRS().empty() &&
+                        dynamic_cast<const crs::GeographicCRS *>(
+                            sourceCRS.get()) &&
+                        dynamic_cast<const crs::GeographicCRS *>(
+                            targetCRS.get())) {
+                        std::vector<CoordinateOperationNNPtr> res2;
+                        for (const auto &op : res) {
+                            auto concatOp =
+                                dynamic_cast<ConcatenatedOperation *>(op.get());
+                            if (concatOp &&
+                                dynamic_cast<const crs::GeographicCRS *>(
+                                    concatOp->operations()
+                                        .front()
+                                        ->targetCRS()
+                                        .get())) {
+                                res2.emplace_back(op);
+                            }
+                        }
+                        res = std::move(res2);
+                    }
                     return res;
                 }
             }
@@ -10968,19 +11241,19 @@ struct MyPROJStringExportableHorizVertical final
         // cppcheck-suppress functionStatic
         _exportToPROJString(io::PROJStringFormatter *formatter) const override {
 
-        formatter->setOmitZUnitConversion(true);
+        formatter->pushOmitZUnitConversion();
         horizTransform->_exportToPROJString(formatter);
 
         formatter->startInversion();
         geogDst->addAngularUnitConvertAndAxisSwap(formatter);
         formatter->stopInversion();
-        formatter->setOmitZUnitConversion(false);
+        formatter->popOmitZUnitConversion();
 
         verticalTransform->_exportToPROJString(formatter);
 
-        formatter->setOmitZUnitConversion(true);
+        formatter->pushOmitZUnitConversion();
         geogDst->addAngularUnitConvertAndAxisSwap(formatter);
-        formatter->setOmitZUnitConversion(false);
+        formatter->popOmitZUnitConversion();
     }
 };
 
@@ -11012,7 +11285,7 @@ struct MyPROJStringExportableHorizVerticalHorizPROJBased final
         // cppcheck-suppress functionStatic
         _exportToPROJString(io::PROJStringFormatter *formatter) const override {
 
-        formatter->setOmitZUnitConversion(true);
+        formatter->pushOmitZUnitConversion();
 
         opSrcCRSToGeogCRS->_exportToPROJString(formatter);
 
@@ -11020,17 +11293,17 @@ struct MyPROJStringExportableHorizVerticalHorizPROJBased final
         interpolationGeogCRS->addAngularUnitConvertAndAxisSwap(formatter);
         formatter->stopInversion();
 
-        formatter->setOmitZUnitConversion(false);
+        formatter->popOmitZUnitConversion();
 
         verticalTransform->_exportToPROJString(formatter);
 
-        formatter->setOmitZUnitConversion(true);
+        formatter->pushOmitZUnitConversion();
 
         interpolationGeogCRS->addAngularUnitConvertAndAxisSwap(formatter);
 
         opGeogCRStoDstCRS->_exportToPROJString(formatter);
 
-        formatter->setOmitZUnitConversion(false);
+        formatter->popOmitZUnitConversion();
     }
 };
 
@@ -11249,12 +11522,38 @@ CoordinateOperationFactory::Private::createOperationsGeogToGeog(
         geogSrc->datum()->_isEquivalentTo(
             geogDst->datum().get(), util::IComparable::Criterion::EQUIVALENT);
 
+    // Do the CRS differ by their axis order ?
+    bool axisReversal2D = false;
+    bool axisReversal3D = false;
+    if (!srcCS->_isEquivalentTo(dstCS.get(),
+                                util::IComparable::Criterion::EQUIVALENT)) {
+        auto srcOrder = srcCS->axisOrder();
+        auto dstOrder = dstCS->axisOrder();
+        if (((srcOrder == cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST ||
+              srcOrder == cs::EllipsoidalCS::AxisOrder::
+                              LAT_NORTH_LONG_EAST_HEIGHT_UP) &&
+             (dstOrder == cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH ||
+              dstOrder == cs::EllipsoidalCS::AxisOrder::
+                              LONG_EAST_LAT_NORTH_HEIGHT_UP)) ||
+            ((srcOrder == cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH ||
+              srcOrder == cs::EllipsoidalCS::AxisOrder::
+                              LONG_EAST_LAT_NORTH_HEIGHT_UP) &&
+             (dstOrder == cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST ||
+              dstOrder == cs::EllipsoidalCS::AxisOrder::
+                              LAT_NORTH_LONG_EAST_HEIGHT_UP))) {
+            if (srcAxisList.size() == 3 || dstAxisList.size() == 3)
+                axisReversal3D = true;
+            else
+                axisReversal2D = true;
+        }
+    }
+
     // Do they differ by vertical units ?
     if (vconvSrc != vconvDst &&
         geogSrc->ellipsoid()->_isEquivalentTo(
             geogDst->ellipsoid().get(),
             util::IComparable::Criterion::EQUIVALENT)) {
-        if (offset_pm.value() == 0) {
+        if (offset_pm.value() == 0 && !axisReversal2D && !axisReversal3D) {
             // If only by vertical units, use a Change of Vertical
             // Unit
             // transformation
@@ -11276,33 +11575,11 @@ CoordinateOperationFactory::Private::createOperationsGeogToGeog(
     }
 
     // Do the CRS differ only by their axis order ?
-    if (sameDatum &&
-        !srcCS->_isEquivalentTo(dstCS.get(),
-                                util::IComparable::Criterion::EQUIVALENT)) {
-        auto srcOrder = srcCS->axisOrder();
-        auto dstOrder = dstCS->axisOrder();
-        if ((srcOrder == cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST &&
-             dstOrder == cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH) ||
-            (srcOrder == cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH &&
-             dstOrder == cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST)) {
-            auto conv = Conversion::createAxisOrderReversal(false);
-            conv->setCRSs(sourceCRS, targetCRS, nullptr);
-            res.emplace_back(conv);
-            return res;
-        }
-        if ((srcOrder ==
-                 cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST_HEIGHT_UP &&
-             dstOrder ==
-                 cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH_HEIGHT_UP) ||
-            (srcOrder ==
-                 cs::EllipsoidalCS::AxisOrder::LONG_EAST_LAT_NORTH_HEIGHT_UP &&
-             dstOrder ==
-                 cs::EllipsoidalCS::AxisOrder::LAT_NORTH_LONG_EAST_HEIGHT_UP)) {
-            auto conv = Conversion::createAxisOrderReversal(true);
-            conv->setCRSs(sourceCRS, targetCRS, nullptr);
-            res.emplace_back(conv);
-            return res;
-        }
+    if (sameDatum && (axisReversal2D || axisReversal3D)) {
+        auto conv = Conversion::createAxisOrderReversal(axisReversal3D);
+        conv->setCRSs(sourceCRS, targetCRS, nullptr);
+        res.emplace_back(conv);
+        return res;
     }
 
     std::vector<CoordinateOperationNNPtr> steps;
@@ -11492,6 +11769,37 @@ static std::string objectAsStr(const common::IdentifiedObject *obj) {
 
 // ---------------------------------------------------------------------------
 
+void CoordinateOperationFactory::Private::setCRSs(
+    CoordinateOperation *co, const crs::CRSNNPtr &sourceCRS,
+    const crs::CRSNNPtr &targetCRS) {
+    co->setCRSs(sourceCRS, targetCRS, nullptr);
+    auto concat = dynamic_cast<ConcatenatedOperation *>(co);
+    if (concat) {
+        auto first = concat->operations().front().get();
+        auto &firstTarget(first->targetCRS());
+        if (firstTarget) {
+            setCRSs(first, sourceCRS, NN_NO_CHECK(firstTarget));
+            auto invCO = dynamic_cast<InverseCoordinateOperation *>(first);
+            if (invCO) {
+                setCRSs(invCO->forwardOperation().get(),
+                        NN_NO_CHECK(firstTarget), sourceCRS);
+            }
+        }
+        auto last = concat->operations().back().get();
+        auto &lastSource(last->sourceCRS());
+        if (lastSource) {
+            setCRSs(last, NN_NO_CHECK(lastSource), targetCRS);
+            auto invCO = dynamic_cast<InverseCoordinateOperation *>(last);
+            if (invCO) {
+                setCRSs(invCO->forwardOperation().get(), targetCRS,
+                        NN_NO_CHECK(lastSource));
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+
 void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
     std::vector<CoordinateOperationNNPtr> &res, const crs::CRSNNPtr &sourceCRS,
     const crs::CRSNNPtr &targetCRS, const crs::GeodeticCRS *geodSrc,
@@ -11584,18 +11892,18 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
             }
             if (isNullFirst) {
                 auto oldTarget(NN_CHECK_ASSERT(opSecondCloned->targetCRS()));
-                opSecondCloned->setCRSs(sourceCRS, oldTarget, nullptr);
+                setCRSs(opSecondCloned.get(), sourceCRS, oldTarget);
                 if (invCOForward) {
-                    invCOForward->setCRSs(oldTarget, sourceCRS, nullptr);
+                    setCRSs(invCOForward, oldTarget, sourceCRS);
                 }
             } else {
                 subOps.emplace_back(opFirst);
             }
             if (isNullThird) {
                 auto oldSource(NN_CHECK_ASSERT(opSecondCloned->sourceCRS()));
-                opSecondCloned->setCRSs(oldSource, targetCRS, nullptr);
+                setCRSs(opSecondCloned.get(), oldSource, targetCRS);
                 if (invCOForward) {
-                    invCOForward->setCRSs(targetCRS, oldSource, nullptr);
+                    setCRSs(invCOForward, targetCRS, oldSource);
                 }
                 subOps.emplace_back(opSecondCloned);
             } else {
@@ -11756,7 +12064,7 @@ CoordinateOperationFactory::Private::createOperations(
         }
         auto projFormatter = io::PROJStringFormatter::create();
         projFormatter->setCRSExport(true);
-        projFormatter->setDropEarlyBindingsTerms(true);
+        projFormatter->setLegacyCRSToCRSContext(true);
         projFormatter->startInversion();
         sourceProjExportable->_exportToPROJString(projFormatter.get());
         auto geogSrc =
@@ -12131,6 +12439,37 @@ CoordinateOperationFactory::Private::createOperations(
             }
         }
 
+        auto vertCRSOfBaseOfBoundSrc =
+            dynamic_cast<const crs::VerticalCRS *>(boundSrc->baseCRS().get());
+        if (vertCRSOfBaseOfBoundSrc && hubSrcGeog &&
+            hubSrcGeog->coordinateSystem()->axisList().size() == 3 &&
+            geogDst->coordinateSystem()->axisList().size() == 3) {
+            auto opsFirst = createOperations(sourceCRS, hubSrc, context);
+            auto opsSecond = createOperations(hubSrc, targetCRS, context);
+            if (!opsFirst.empty() && !opsSecond.empty()) {
+                for (const auto &opFirst : opsFirst) {
+                    for (const auto &opLast : opsSecond) {
+                        // Exclude artificial transformations from the hub
+                        // to the target CRS
+                        if (!opLast->hasBallparkTransformation()) {
+                            try {
+                                res.emplace_back(
+                                    ConcatenatedOperation::
+                                        createComputeMetadata(
+                                            {opFirst, opLast},
+                                            !allowEmptyIntersection));
+                            } catch (
+                                const InvalidOperationEmptyIntersection &) {
+                            }
+                        }
+                    }
+                }
+                if (!res.empty()) {
+                    return res;
+                }
+            }
+        }
+
         return createOperations(boundSrc->baseCRS(), targetCRS, context);
     }
 
@@ -12345,7 +12684,8 @@ CoordinateOperationFactory::Private::createOperations(
         const auto &componentsSrc = compoundSrc->componentReferenceSystems();
         if (!componentsSrc.empty()) {
             std::vector<CoordinateOperationNNPtr> horizTransforms;
-            if (componentsSrc[0]->extractGeographicCRS()) {
+            auto srcGeogCRS = componentsSrc[0]->extractGeographicCRS();
+            if (srcGeogCRS) {
                 horizTransforms =
                     createOperations(componentsSrc[0], targetCRS, context);
             }
@@ -12359,11 +12699,61 @@ CoordinateOperationFactory::Private::createOperations(
                 for (const auto &horizTransform : horizTransforms) {
                     for (const auto &verticalTransform : verticalTransforms) {
 
-                        auto op = createHorizVerticalPROJBased(
-                            sourceCRS, targetCRS, horizTransform,
-                            verticalTransform);
+                        crs::GeographicCRSPtr interpolationGeogCRS;
+                        auto transformationVerticalTransform =
+                            dynamic_cast<const Transformation *>(
+                                verticalTransform.get());
+                        if (transformationVerticalTransform) {
+                            auto interpTransformCRS =
+                                transformationVerticalTransform
+                                    ->interpolationCRS();
+                            if (interpTransformCRS) {
+                                auto nn_interpTransformCRS =
+                                    NN_NO_CHECK(interpTransformCRS);
+                                if (dynamic_cast<const crs::GeographicCRS *>(
+                                        nn_interpTransformCRS.get())) {
+                                    interpolationGeogCRS =
+                                        util::nn_dynamic_pointer_cast<
+                                            crs::GeographicCRS>(
+                                            nn_interpTransformCRS);
+                                }
+                            }
+                        }
+                        bool done = false;
+                        if (interpolationGeogCRS &&
+                            (interpolationGeogCRS->_isEquivalentTo(
+                                 srcGeogCRS.get(),
+                                 util::IComparable::Criterion::EQUIVALENT) ||
+                             interpolationGeogCRS->is2DPartOf3D(
+                                 NN_NO_CHECK(srcGeogCRS.get())))) {
+                            auto srcToInterp = createOperations(
+                                componentsSrc[0],
+                                NN_NO_CHECK(interpolationGeogCRS), context);
+                            auto interpToCompoundHoriz = createOperations(
+                                NN_NO_CHECK(interpolationGeogCRS),
+                                componentsSrc[0], context);
+                            if (!srcToInterp.empty() &&
+                                !interpToCompoundHoriz.empty()) {
+                                auto op = createHorizVerticalHorizPROJBased(
+                                    sourceCRS, componentsSrc[0],
+                                    srcToInterp.front(), verticalTransform,
+                                    interpToCompoundHoriz.front(),
+                                    interpolationGeogCRS);
+                                done = true;
+                                res.emplace_back(
+                                    ConcatenatedOperation::
+                                        createComputeMetadata(
+                                            {op, horizTransform},
+                                            !allowEmptyIntersection));
+                            }
+                        }
+                        if (!done) {
+                            auto op = createHorizVerticalPROJBased(
+                                sourceCRS, targetCRS, horizTransform,
+                                verticalTransform);
 
-                        res.emplace_back(op);
+                            res.emplace_back(op);
+                        }
                     }
                 }
                 return res;
@@ -12584,11 +12974,11 @@ getResolvedCRS(const crs::CRSNNPtr &crs,
             const auto tmpAuthFactory = io::AuthorityFactory::create(
                 authFactory->databaseContext(), *ids.front()->codeSpace());
             try {
-                crs::CRSNNPtr resolvedCrs(
+                auto resolvedCrs(
                     tmpAuthFactory->createProjectedCRS(ids.front()->code()));
-                if (resolvedCrs->_isEquivalentTo(
+                if (resolvedCrs->isEquivalentTo(
                         crs.get(), util::IComparable::Criterion::EQUIVALENT)) {
-                    return resolvedCrs;
+                    return util::nn_static_pointer_cast<crs::CRS>(resolvedCrs);
                 }
             } catch (const std::exception &) {
             }
@@ -12616,12 +13006,13 @@ getResolvedCRS(const crs::CRSNNPtr &crs,
                 const auto tmpAuthFactory = io::AuthorityFactory::create(
                     authFactory->databaseContext(), *ids.front()->codeSpace());
                 try {
-                    crs::CRSNNPtr resolvedCrs(
+                    auto resolvedCrs(
                         tmpAuthFactory->createCompoundCRS(ids.front()->code()));
-                    if (resolvedCrs->_isEquivalentTo(
+                    if (resolvedCrs->isEquivalentTo(
                             crs.get(),
                             util::IComparable::Criterion::EQUIVALENT)) {
-                        return resolvedCrs;
+                        return util::nn_static_pointer_cast<crs::CRS>(
+                            resolvedCrs);
                     }
                 } catch (const std::exception &) {
                 }
@@ -12665,6 +13056,17 @@ CoordinateOperationFactory::createOperations(
     auto l_resolvedTargetCRS = getResolvedCRS(l_targetCRS, context);
     Private::Context contextPrivate(l_resolvedSourceCRS, l_resolvedTargetCRS,
                                     context);
+
+    if (context->getSourceAndTargetCRSExtentUse() ==
+        CoordinateOperationContext::SourceTargetCRSExtentUse::INTERSECTION) {
+        auto sourceCRSExtent(getExtent(l_resolvedSourceCRS));
+        auto targetCRSExtent(getExtent(l_resolvedTargetCRS));
+        if (sourceCRSExtent && targetCRSExtent &&
+            !sourceCRSExtent->intersects(NN_NO_CHECK(targetCRSExtent))) {
+            return std::vector<CoordinateOperationNNPtr>();
+        }
+    }
+
     return filterAndSort(Private::createOperations(l_resolvedSourceCRS,
                                                    l_resolvedTargetCRS,
                                                    contextPrivate),
@@ -12703,6 +13105,8 @@ void InverseCoordinateOperation::setPropertiesFromForward() {
     if (forwardOperation_->sourceCRS() && forwardOperation_->targetCRS()) {
         setCRSs(forwardOperation_.get(), true);
     }
+    setHasBallparkTransformation(
+        forwardOperation_->hasBallparkTransformation());
 }
 
 // ---------------------------------------------------------------------------
@@ -12785,7 +13189,7 @@ PROJBasedOperationNNPtr PROJBasedOperation::create(
 
     auto method = OperationMethod::create(
         util::PropertyMap().set(common::IdentifiedObject::NAME_KEY,
-                                "PROJ-based operation method (approximate) : " +
+                                "PROJ-based operation method (approximate): " +
                                     projString),
         std::vector<GeneralOperationParameterNNPtr>{});
     auto op = PROJBasedOperation::nn_make_shared<PROJBasedOperation>(method);
@@ -12854,6 +13258,53 @@ void PROJBasedOperation::_exportToWKT(io::WKTFormatter *formatter) const {
         paramValue->_exportToWKT(formatter);
     }
     formatter->endNode();
+}
+
+// ---------------------------------------------------------------------------
+
+void PROJBasedOperation::_exportToJSON(
+    io::JSONFormatter *formatter) const // throw(FormattingException)
+{
+    auto &writer = formatter->writer();
+    auto objectContext(formatter->MakeObjectContext(
+        (sourceCRS() && targetCRS()) ? "Transformation" : "Conversion",
+        !identifiers().empty()));
+
+    writer.AddObjKey("name");
+    auto l_name = nameStr();
+    if (l_name.empty()) {
+        writer.Add("unnamed");
+    } else {
+        writer.Add(l_name);
+    }
+
+    if (sourceCRS() && targetCRS()) {
+        writer.AddObjKey("source_crs");
+        formatter->setAllowIDInImmediateChild();
+        sourceCRS()->_exportToJSON(formatter);
+
+        writer.AddObjKey("target_crs");
+        formatter->setAllowIDInImmediateChild();
+        targetCRS()->_exportToJSON(formatter);
+    }
+
+    writer.AddObjKey("method");
+    formatter->setOmitTypeInImmediateChild();
+    formatter->setAllowIDInImmediateChild();
+    method()->_exportToJSON(formatter);
+
+    const auto &l_parameterValues = parameterValues();
+    if (!l_parameterValues.empty()) {
+        writer.AddObjKey("parameters");
+        {
+            auto parametersContext(writer.MakeArrayContext(false));
+            for (const auto &genOpParamvalue : l_parameterValues) {
+                formatter->setAllowIDInImmediateChild();
+                formatter->setOmitTypeInImmediateChild();
+                genOpParamvalue->_exportToJSON(formatter);
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

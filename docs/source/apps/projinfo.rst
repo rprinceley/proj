@@ -26,22 +26,37 @@ Synopsis
     |    [--main-db-path path] [--aux-db-path path]*
     |    [--identify]
     |    [--c-ify] [--single-line]
-    |    {object_definition} | (-s {srs_def} -t {srs_def})
+    |    {object_definition} | {object_reference} | (-s {srs_def} -t {srs_def})
     |
 
-    where {object_definition} or {object_definition} is a PROJ string, a
-    WKT string, an object name, AUTHORITY:CODE
-    (where AUTHORITY is the name of a CRS authority and CODE the code of a CRS
-    found in the proj.db database) or a OGC URN (such as  "urn:ogc:def:crs:EPSG::4326",
-    "urn:ogc:def:coordinateOperation:EPSG::1671", "urn:ogc:def:ellipsoid:EPSG::7001"
-    or "urn:ogc:def:datum:EPSG::6326")
+    where {object_definition} or {srs_def} is
+
+    - a proj-string,
+    - a WKT string,
+    - an object code (like "EPSG:4326", "urn:ogc:def:crs:EPSG::4326",
+      "urn:ogc:def:coordinateOperation:EPSG::1671"),
+    - a OGC URN combining references for compound coordinate reference systems
+      (e.g "urn:ogc:def:crs,crs:EPSG::2393,crs:EPSG::5717" or custom abbreviated
+      syntax "EPSG:2393+5717"),
+    - a OGC URN combining references for references for projected or derived CRSs
+      e.g. for Projected 3D CRS "UTM zone 31N / WGS 84 (3D)":
+      "urn:ogc:def:crs,crs:EPSG::4979,cs:PROJ::ENh,coordinateOperation:EPSG::16031"
+      (*added in 6.2*)
+    - a OGC URN combining references for concatenated operations
+      (e.g. "urn:ogc:def:coordinateOperation,coordinateOperation:EPSG::3895,coordinateOperation:EPSG::1618")
+    - a PROJJSON string. The jsonschema is at https://proj.org/schemas/v0.1/projjson.schema.json (*added in 6.2*)
+
+    {object_reference} is a filename preceded by the '@' character.  The
+    file referenced by the {object_reference} must contain a valid
+    {object_definition}.
 
 Description
 ***********
 
 :program:`projinfo` is a program that can query information on a geodetic object,
 coordinate reference system (CRS) or coordinate operation, when the ``-s`` and ``-t``
-options are specified, and display it under different formats (PROJ string, WKT string).
+options are specified, and display it under different formats (PROJ string, WKT string
+or PROJJSON string).
 
 It can also be used to query coordinate operations available between two CRS.
 
@@ -56,7 +71,7 @@ The following control parameters can appear in any order:
 .. option:: -o formats
 
     formats is a comma separated combination of:
-    ``all``, ``default``, ``PROJ``, ``WKT_ALL``, ``WKT2_2015``, ``WKT2_2018``, ``WKT1_GDAL``, ``WKT1_ESRI``.
+    ``all``, ``default``, ``PROJ``, ``WKT_ALL``, ``WKT2_2015``, ``WKT2_2018``, ``WKT1_GDAL``, ``WKT1_ESRI``, ``PROJJSON``.
 
     Except ``all`` and ``default``, other formats can be preceded by ``-`` to disable them.
 
@@ -77,7 +92,7 @@ The following control parameters can appear in any order:
 .. option:: -q
 
     Turn on quiet mode. Quiet mode is only available for queries on single objects,
-    and only one output format is selected. In that mode, only the PROJ or WKT
+    and only one output format is selected. In that mode, only the PROJ, WKT or PROJJSON
     string is displayed, without other introduction output. The output is then
     potentially compatible of being piped in other utilities.
 
@@ -210,7 +225,7 @@ The following control parameters can appear in any order:
 
 .. option:: --single-line
 
-    Output WKT strings on a single line, instead of multiple intended lines by
+    Output WKT or PROJJSON strings on a single line, instead of multiple intended lines by
     default.
 
 Examples
@@ -307,6 +322,59 @@ Output:
             BBOX[23.81,-129.17,49.38,-65.69]],
         ID["DERIVED_FROM(EPSG)",1241]]
 
+3. Export an object as a PROJJSON string
+
+.. code-block:: console
+
+      projinfo GDA94 -o PROJJSON -q
+
+Output:
+
+.. code-block:: json
+
+    {
+        "type": "GeographicCRS",
+        "name": "GDA94",
+        "datum": {
+            "type": "GeodeticReferenceFrame",
+            "name": "Geocentric Datum of Australia 1994",
+            "ellipsoid": {
+                "name": "GRS 1980",
+                "semi_major_axis": 6378137,
+                "inverse_flattening": 298.257222101
+            }
+        },
+        "coordinate_system": {
+            "subtype": "ellipsoidal",
+            "axis": [
+            {
+                "name": "Geodetic latitude",
+                "abbreviation": "Lat",
+                "direction": "north",
+                "unit": "degree"
+            },
+            {
+                "name": "Geodetic longitude",
+                "abbreviation": "Lon",
+                "direction": "east",
+                "unit": "degree"
+            }
+            ]
+        },
+        "area": "Australia - GDA",
+        "bbox": {
+            "south_latitude": -60.56,
+            "west_longitude": 93.41,
+            "north_latitude": -8.47,
+            "east_longitude": 173.35
+        },
+        "id": {
+            "authority": "EPSG",
+            "code": 4283
+        }
+    }
+
+
 .. only:: man
 
     See also
@@ -317,10 +385,10 @@ Output:
     Bugs
     ****
 
-    A list of know bugs can be found at https://github.com/OSGeo/proj.4/issues
+    A list of know bugs can be found at https://github.com/OSGeo/PROJ/issues
     where new bug reports can be submitted to.
 
     Home page
     *********
 
-    https://proj4.org/
+    https://proj.org/

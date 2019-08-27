@@ -19,8 +19,6 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.1)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
-add_definitions(-DPROJ_COMPILATION=1)
-
 # Set C++ version
 # Make CMAKE_CXX_STANDARD available as cache option overridable by user
 set(CMAKE_CXX_STANDARD 11
@@ -97,14 +95,13 @@ colormsg(_HIBLUE_ "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 6 MINOR 1 PATCH 0)
-set(PROJ_API_VERSION "15")
-set(PROJ_BUILD_VERSION "15.0.0")
+proj_version(MAJOR 6 MINOR 2 PATCH 0)
+set(PROJ_API_VERSION "17")
+set(PROJ_BUILD_VERSION "17.0.2")
 
 ################################################################################
 # Build features and variants
 ################################################################################
-include(ProjSystemInfo)
 include(ProjConfig)
 include(ProjMac)
 include(policies)
@@ -172,9 +169,6 @@ int main(int argc, char* argv[]) {
     add_definitions(-DHAVE_PTHREAD_MUTEX_RECURSIVE=1)
   endif()
 endif()
-
-boost_report_value(PROJ_PLATFORM_NAME)
-boost_report_value(PROJ_COMPILER_NAME)
 
 # Set a default build type for single-configuration cmake generators if
 # no build type is set.

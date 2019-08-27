@@ -29,9 +29,17 @@ paragraph for more details.
 
 .. c:function:: PJ* proj_create(PJ_CONTEXT *ctx, const char *definition)
 
-    Create a transformation object, or a CRS object, from a proj-string,
-    a WKT string, or object code (like "EPSG:4326", "urn:ogc:def:crs:EPSG::4326",
-    "urn:ogc:def:coordinateOperation:EPSG::1671").
+    Create a transformation object, or a CRS object, from:
+
+    - a proj-string,
+    - a WKT string,
+    - an object code (like "EPSG:4326", "urn:ogc:def:crs:EPSG::4326",
+      "urn:ogc:def:coordinateOperation:EPSG::1671"),
+    - a OGC URN combining references for compound coordinate reference systems
+      (e.g "urn:ogc:def:crs,crs:EPSG::2393,crs:EPSG::5717" or custom abbreviated
+      syntax "EPSG:2393+5717"),
+    - a OGC URN combining references for concatenated operations
+      (e.g. "urn:ogc:def:coordinateOperation,coordinateOperation:EPSG::3895,coordinateOperation:EPSG::1618")
 
     Example call:
 
@@ -110,7 +118,8 @@ paragraph for more details.
 
         - the name of a CRS as found in the PROJ database, e.g "WGS84", "NAD27", etc.
 
-        - more generally any string accepted by :c:func:`proj_create`
+        - more generally any string accepted by :c:func:`proj_create` representing
+          a CRS
 
     An "area of use" can be specified in area. When it is supplied, the more
     accurate transformation between two given systems can be chosen.
@@ -143,6 +152,37 @@ paragraph for more details.
     :param `area`: Descriptor of the desired area for the transformation.
     :type `area`: PJ_AREA
     :returns: :c:type:`PJ*`
+
+.. c:function:: PJ* proj_create_crs_to_crs_from_pj(PJ_CONTEXT *ctx, PJ *source_crs, PJ *target_crs, PJ_AREA *area, const char* const *options)
+
+    .. versionadded:: 6.2.0
+
+    Create a transformation object that is a pipeline between two known
+    coordinate reference systems.
+
+    This is the same as :c:func:`proj_create_crs_to_crs` except that the source and
+    target CRS are passed as PJ* objects which must of the CRS variety.
+
+    :param `options`: should be set to NULL currently.
+
+.. c:function:: PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ* obj)
+
+    .. versionadded:: 6.1.0
+
+    Returns a PJ* object whose axis order is the one expected for
+    visualization purposes.
+
+    The input object must be a coordinate operation, that has been created with
+    proj_create_crs_to_crs().
+    If the axis order of its source or target CRS is northing,easting, then an
+    axis swap operation will be inserted.
+
+    The returned :c:type:`PJ`-pointer should be deallocated with :c:func:`proj_destroy`.
+
+    :param PJ_CONTEXT* ctx: Threading context.
+    :param `obj`: Object of type CoordinateOperation
+    :returns: :c:type:`PJ*`
+
 
 .. c:function:: PJ* proj_destroy(PJ *P)
 
@@ -655,6 +695,19 @@ Various
     :param `direction`: Starting direction of transformation
     :type `direction`: PJ_DIRECTION
     :returns: :c:type:`int` 1 if output units is expected in radians, otherwise 0
+
+
+Cleanup
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+.. c:function:: void proj_cleanup()
+
+    .. versionadded:: 6.2.0
+
+    This function frees global resources (grids, cache of +init files). It
+    should be called typically before process termination, and *after* having
+    freed PJ and PJ_CONTEXT objects.
+
 
 C API for ISO-19111 functionality
 +++++++++++++++++++++++++++++++++

@@ -45,6 +45,7 @@
 #include "proj.h"
 #include "proj_internal.h"
 #include "emess.h"
+#include "utils.h"
 // clang-format on
 
 #define MAX_LINE 1000
@@ -122,6 +123,8 @@ static void process(FILE *fid)
         /* is forward verbatim from the input.                               */
         char *before_time = s;
         double t = strtod(s, &s);
+        if( s == before_time )
+            t = HUGE_VAL;
         s = before_time;
 
         if (data.v == HUGE_VAL)
@@ -522,6 +525,13 @@ int main(int argc, char **argv) {
     if (eargc == 0) /* if no specific files force sysin */
         eargv[eargc++] = const_cast<char *>("-");
 
+    if( oform ) {
+        if( !validate_form_string_for_numbers(oform) ) {
+            emess(3, "invalid format string");
+            exit(0);
+        }
+    }
+
     /*
      * If the user has requested inverse, then just reverse the
      * coordinate systems.
@@ -635,7 +645,7 @@ int main(int argc, char **argv) {
 
     proj_destroy(transformation);
 
-    pj_deallocate_grids();
+    proj_cleanup();
 
     exit(0); /* normal completion */
 }

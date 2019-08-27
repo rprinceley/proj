@@ -39,7 +39,7 @@ pj_err_list[] = {
     "W <= 0 or M <= 0",                                                /* -27 */
     "lsat not in 1-5 range",                                           /* -28 */
     "path not in range",                                               /* -29 */
-    "h <= 0",                                                          /* -30 */
+    "h <= 0 or h > 1e10 * a",                                          /* -30 */
     "k <= 0",                                                          /* -31 */
     "lat_1=lat_2 or lat_1=0 or lat_2=90",                              /* -32 */
     "lat_0 = 0 or 90 or alpha = 90",                                   /* -33 */
@@ -70,7 +70,7 @@ pj_err_list[] = {
     "argument not numerical or out of range",                          /* -58 */
     "inconsistent unit type between input and output",                 /* -59 */
     "arguments are mutually exclusive",                                /* -60 */
-    "generic error of unknow origin",                                  /* -61 */
+    "generic error of unknown origin",                                 /* -61 */
 
     /* When adding error messages, remember to update ID defines in
        projects.h, and transient_error array in pj_transform                  */
