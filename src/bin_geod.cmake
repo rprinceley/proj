@@ -3,6 +3,7 @@ set(GEOD_SRC
   apps/geod_set.cpp
   apps/geod_interface.cpp
   apps/emess.cpp
+  windows/resource.rc
 )
 set(GEOD_INCLUDE apps/geod_interface.h)
 

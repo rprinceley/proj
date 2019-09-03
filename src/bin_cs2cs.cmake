@@ -2,6 +2,7 @@ set(CS2CS_SRC
   apps/cs2cs.cpp
   apps/emess.cpp
   apps/utils.cpp
+  windows/resource.rc
 )
 
 source_group("Source Files\\Bin" FILES ${CS2CS_SRC})

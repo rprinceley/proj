@@ -1,4 +1,7 @@
-set(PROJINFO_SRC apps/projinfo.cpp)
+set(PROJINFO_SRC 
+	apps/projinfo.cpp
+    windows/resource.rc
+)
 
 source_group("Source Files\\Bin" FILES ${PROJINFO_SRC})
 

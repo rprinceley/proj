@@ -2,6 +2,7 @@ set(GIE_SRC
   apps/gie.cpp
   apps/proj_strtod.cpp
   apps/proj_strtod.h
+  windows/resource.rc
 )
 set(GIE_INCLUDE apps/optargpm.h)
 

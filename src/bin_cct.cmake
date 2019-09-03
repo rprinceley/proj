@@ -2,6 +2,7 @@ set(CCT_SRC
   apps/cct.cpp
   apps/proj_strtod.cpp
   apps/proj_strtod.h
+  windows/resource.rc
 )
 set(CCT_INCLUDE apps/optargpm.h)
 

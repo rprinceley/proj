@@ -299,6 +299,10 @@ set(HEADERS_LIBPROJ
   geodesic.h
 )
 
+set(RESOURCE_LIBPROJ
+  windows/resource.rc
+)
+
 # Group source files for IDE source explorers (e.g. Visual Studio)
 source_group("Header Files"
   FILES ${HEADERS_LIBPROJ})
@@ -312,6 +316,8 @@ source_group("Source Files\\Transformations"
   FILES ${SRC_LIBPROJ_TRANSFORMATIONS})
 source_group("Source Files\\ISO19111"
   FILES ${SRC_LIBPROJ_ISO19111})
+source_group("Source Files\\Resource"
+  FILES ${RESOURCE_LIBPROJ})
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -351,6 +357,7 @@ set(ALL_LIBPROJ_SOURCES
   ${SRC_LIBPROJ_PROJECTIONS}
   ${SRC_LIBPROJ_TRANSFORMATIONS}
   ${SRC_LIBPROJ_ISO19111}
+  ${RESOURCE_LIBPROJ}
 )
 set(ALL_LIBPROJ_HEADERS ${HEADERS_LIBPROJ})
 
