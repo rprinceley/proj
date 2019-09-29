@@ -22,8 +22,9 @@ We start by writing the program for PROJ 4:
     #include <proj_api.h>
 
     main(int argc, char **argv) {
-        projPJ pj_merc, pj_latlong;
+        projPJ pj_merc, pj_longlat;
         double x, y;
+        int p;
 
         if (!(pj_longlat = pj_init_plus("+proj=longlat +ellps=clrk66")) )
             return 1;
@@ -33,7 +34,7 @@ We start by writing the program for PROJ 4:
         while (scanf("%lf %lf", &x, &y) == 2) {
             x *= DEG_TO_RAD; /* longitude */
             y *= DEG_TO_RAD; /* latitude */
-            p = pj_transform(pj_longlat, pj_merc, 1, 1, &x, &y, NULL );
+            p = pj_transform(pj_longlat, pj_merc, 1, 1, &x, &y, NULL);
             printf("%.2f\t%.2f\n", x, y);
         }
 
@@ -51,7 +52,7 @@ The same program implemented using PROJ 6:
 
     main(int argc, char **argv) {
         PJ *P;
-        PJ_COORD c;
+        PJ_COORD c, c_out;
 
         /* NOTE: the use of PROJ strings to describe CRS is strongly discouraged */
         /* in PROJ 6, as PROJ strings are a poor way of describing a CRS, and */
@@ -74,7 +75,7 @@ The same program implemented using PROJ 6:
             /* latitude for geographic CRS, and easting, northing for projected */
             /* CRS. If instead of using PROJ strings as above, "EPSG:XXXX" codes */
             /* had been used, this might had been necessary. */
-            PJ* P_for_GIS = proj_normalize_for_visualization(C, P);
+            PJ* P_for_GIS = proj_normalize_for_visualization(PJ_DEFAULT_CTX, P);
             if( 0 == P_for_GIS )  {
                 proj_destroy(P);
                 return 1;
@@ -83,13 +84,22 @@ The same program implemented using PROJ 6:
             P = P_for_GIS;
         }
 
-        while (scanf("%lf %lf", &c.lp.lam, &c.lp.phi) == 2) {
+        /* For reliable geographic <--> geocentric conversions, z shall not */
+        /* be some random value. Also t shall be initialized to HUGE_VAL to */
+        /* allow for proper selection of time-dependent operations if one of */
+        /* the CRS is dynamic. */
+        c.lpzt.z = 0.0;
+        c.lpzt.t = HUGE_VAL;
+
+        while (scanf("%lf %lf", &c.lpzt.lam, &c.lpzt.phi) == 2) {
             /* No need to convert to radian */
-            c = proj_trans(P, PJ_FWD, c);
-            printf("%.2f\t%.2f\n", c.xy.x, c.xy.y);
+            c_out = proj_trans(P, PJ_FWD, c);
+            printf("%.2f\t%.2f\n", c_out.xy.x, c_out.xy.y);
         }
 
         proj_destroy(P);
+
+        return 0;
     }
 
 
@@ -107,7 +117,8 @@ Function mapping from old to new API
 +---------------------------------------+-------------------------------------------------+
 | pj_inv3                               | :c:func:`proj_trans`                            |
 +---------------------------------------+-------------------------------------------------+
-| pj_transform                          | :c:func:`proj_create_crs_to_crs` +              |
+| pj_transform                          | :c:func:`proj_create_crs_to_crs`                |
+|                                       | or :c:func:`proj_create_crs_to_crs_from_pj` +   |
 |                                       | (:c:func:`proj_normalize_for_visualization` +)  |
 |                                       | :c:func:`proj_trans`,                           |
 |                                       | :c:func:`proj_trans_array` or                   |
@@ -144,6 +155,31 @@ Function mapping from old to new API
 +---------------------------------------+-------------------------------------------------+
 | pj_get_release                        | :c:func:`proj_info`                             |
 +---------------------------------------+-------------------------------------------------+
+
+
+Backward incompatibilities
+###############################################################################
+
+Access to the proj_api.h is still possible but requires to define the
+``ACCEPT_USE_OF_DEPRECATED_PROJ_API_H`` macro.
+
+The emulation of the now deprecated ``+init=epsg:XXXX`` syntax in PROJ 6 is not
+fully compatible with previous versions.
+
+In particular, when used with the ``pj_transform()`` function, no datum shift term
+(``towgs84``, ``nadgrids``, ``geoidgrids``) will be added during the expansion of the
+``+init=epsg:XXXX`` string to ``+proj=YYYY ....``. If you still uses ``pj_transform()``
+and want datum shift to be applied, then you need to provide a fully expanded
+string with appropriate ``towgs84``, ``nadgrids`` or ``geoidgrids`` terms to ``pj_init()``.
+
+To use the ``+init=epsg:XXXX`` syntax with :c:func:`proj_create` and then
+:c:func:`proj_create_crs_to_crs`, ``proj_context_use_proj4_init_rules(ctx, TRUE)``
+or the ``PROJ_USE_PROJ4_INIT_RULES=YES`` environment variable must have been
+previously set. In that context, datum shift will be researched. However they
+might be different than with PROJ 4 or PROJ 5, since a "late-binding" approach
+will be used (that is trying to find as much as possible the most direct
+transformation between the source and target datum), whereas PROJ 4 or PROJ 5
+used an "early-binding" approach consisting in always going to EPSG:4326 / WGS 84.
 
 ================================================================================
 Version 4 to 5 API Migration

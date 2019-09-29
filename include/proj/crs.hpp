@@ -107,6 +107,10 @@ class PROJ_GCC_DLL CRS : public common::ObjectUsage,
     PROJ_DLL std::list<CRSNNPtr>
     getNonDeprecated(const io::DatabaseContextNNPtr &dbContext) const;
 
+    PROJ_DLL CRSNNPtr
+    promoteTo3D(const std::string &newName,
+                const io::DatabaseContextPtr &dbContext) const;
+
     PROJ_PRIVATE :
         //! @cond Doxygen_Suppress
         PROJ_INTERNAL const GeodeticCRS *
@@ -1352,7 +1356,7 @@ struct PROJ_GCC_DLL DerivedEngineeringCRSTraits {
     inline static const std::string &CRSName();
     inline static const std::string &WKTKeyword();
     inline static const std::string &WKTBaseKeyword();
-    static const bool wkt2_2018_only = true;
+    static const bool wkt2_2019_only = true;
 };
 //! @endcond
 
@@ -1390,7 +1394,7 @@ struct PROJ_GCC_DLL DerivedParametricCRSTraits {
     inline static const std::string &CRSName();
     inline static const std::string &WKTKeyword();
     inline static const std::string &WKTBaseKeyword();
-    static const bool wkt2_2018_only = false;
+    static const bool wkt2_2019_only = false;
 };
 //! @endcond
 
@@ -1427,7 +1431,7 @@ struct PROJ_GCC_DLL DerivedTemporalCRSTraits {
     inline static const std::string &CRSName();
     inline static const std::string &WKTKeyword();
     inline static const std::string &WKTBaseKeyword();
-    static const bool wkt2_2018_only = false;
+    static const bool wkt2_2019_only = false;
 };
 //! @endcond
 

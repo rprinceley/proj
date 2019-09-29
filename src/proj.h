@@ -358,11 +358,12 @@ PJ PROJ_DLL *proj_create (PJ_CONTEXT *ctx, const char *definition);
 PJ PROJ_DLL *proj_create_argv (PJ_CONTEXT *ctx, int argc, char **argv);
 PJ PROJ_DLL *proj_create_crs_to_crs(PJ_CONTEXT *ctx, const char *source_crs, const char *target_crs, PJ_AREA *area);
 PJ PROJ_DLL *proj_create_crs_to_crs_from_pj(PJ_CONTEXT *ctx,
-                                            PJ *source_crs,
-                                            PJ *target_crs,
+                                            const PJ *source_crs,
+                                            const PJ *target_crs,
                                             PJ_AREA *area,
                                             const char* const *options);
 PJ PROJ_DLL *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ* obj);
+void PROJ_DLL proj_assign_context(PJ* pj, PJ_CONTEXT* ctx);
 PJ PROJ_DLL *proj_destroy (PJ *P);
 
 
@@ -478,8 +479,11 @@ typedef char **PROJ_STRING_LIST;
 /** \brief Guessed WKT "dialect". */
 typedef enum
 {
-    /** \ref WKT2_2018 */
-    PJ_GUESSED_WKT2_2018,
+    /** \ref WKT2_2019 */
+    PJ_GUESSED_WKT2_2019,
+
+    /** Deprecated alias for PJ_GUESSED_WKT2_2019 */
+    PJ_GUESSED_WKT2_2018 = PJ_GUESSED_WKT2_2019,
 
     /** \ref WKT2_2015 */
     PJ_GUESSED_WKT2_2015,
@@ -575,10 +579,14 @@ typedef enum
     PJ_WKT2_2015,
     /** cf osgeo::proj::io::WKTFormatter::Convention::WKT2_SIMPLIFIED */
     PJ_WKT2_2015_SIMPLIFIED,
-    /** cf osgeo::proj::io::WKTFormatter::Convention::WKT2_2018 */
-    PJ_WKT2_2018,
-    /** cf osgeo::proj::io::WKTFormatter::Convention::WKT2_2018_SIMPLIFIED */
-    PJ_WKT2_2018_SIMPLIFIED,
+    /** cf osgeo::proj::io::WKTFormatter::Convention::WKT2_2019 */
+    PJ_WKT2_2019,
+    /** Deprecated alias for PJ_WKT2_2019 */
+    PJ_WKT2_2018 = PJ_WKT2_2019,
+    /** cf osgeo::proj::io::WKTFormatter::Convention::WKT2_2019_SIMPLIFIED */
+    PJ_WKT2_2019_SIMPLIFIED,
+    /** Deprecated alias for PJ_WKT2_2019 */
+    PJ_WKT2_2018_SIMPLIFIED = PJ_WKT2_2019_SIMPLIFIED,
     /** cf osgeo::proj::io::WKTFormatter::Convention::WKT1_GDAL */
     PJ_WKT1_GDAL,
     /** cf osgeo::proj::io::WKTFormatter::Convention::WKT1_ESRI */

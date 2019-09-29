@@ -24,7 +24,7 @@ Synopsis
     |    [--pivot-crs always|if_no_direct_transformation|never|{auth:code[,auth:code]*}]
     |    [--boundcrs-to-wgs84]
     |    [--main-db-path path] [--aux-db-path path]*
-    |    [--identify]
+    |    [--identify] [--3d]
     |    [--c-ify] [--single-line]
     |    {object_definition} | {object_reference} | (-s {srs_def} -t {srs_def})
     |
@@ -71,9 +71,11 @@ The following control parameters can appear in any order:
 .. option:: -o formats
 
     formats is a comma separated combination of:
-    ``all``, ``default``, ``PROJ``, ``WKT_ALL``, ``WKT2_2015``, ``WKT2_2018``, ``WKT1_GDAL``, ``WKT1_ESRI``, ``PROJJSON``.
+    ``all``, ``default``, ``PROJ``, ``WKT_ALL``, ``WKT2:2015``, ``WKT2:2019``, ``WKT1:GDAL``, ``WKT1:ESRI``, ``PROJJSON``.
 
     Except ``all`` and ``default``, other formats can be preceded by ``-`` to disable them.
+
+    .. note:: WKT2_2019 was previously called WKT2_2018.
 
 .. option:: -k crs|operation|ellipsoid
 
@@ -218,6 +220,17 @@ The following control parameters can appear in any order:
     For example, `+proj=utm +zone=31 +datum=WGS84 +type=crs` will be identified
     with a likelihood of 70% to EPSG:32631
 
+.. option:: --3d
+
+    .. versionadded:: 7.0
+
+    "Promote" the CRS(s) to their 3D version. In the context of researching
+    available coordinate transformations, explicitly specifying this option is
+    not necessary, because when one of the source or target CRS has a vertical
+    component but not the other one, the one that has no vertical component is
+    automatically promoted to a 3D version, where its vertical axis is the
+    ellipsoidal height in metres, using the ellipsoid of the base geodetic CRS.
+
 .. option:: --c-ify
 
     For developers only. Modify the string output of the utility so that it
@@ -244,7 +257,7 @@ Output:
     PROJ.4 string:
     +proj=longlat +datum=WGS84 +no_defs +type=crs
 
-    WKT2_2018 string:
+    WKT2:2019 string:
     GEOGCRS["WGS 84",
         DATUM["World Geodetic System 1984",
             ELLIPSOID["WGS 84",6378137,298.257223563,
@@ -283,7 +296,7 @@ Output:
     +xy_in=deg +xy_out=rad +step +proj=hgridshift +grids=conus \
     +step +proj=unitconvert +xy_in=rad +xy_out=deg +step +proj=axisswap +order=2,1
 
-    WKT2_2018 string:
+    WKT2:2019 string:
     COORDINATEOPERATION["NAD27 to NAD83 (1)",
         SOURCECRS[
             GEOGCRS["NAD27",

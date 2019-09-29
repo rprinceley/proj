@@ -756,6 +756,96 @@ CRS::getNonDeprecated(const io::DatabaseContextNNPtr &dbContext) const {
 
 // ---------------------------------------------------------------------------
 
+/** \brief Return a variant of this CRS "promoted" to a 3D one, if not already
+ * the case.
+ *
+ * The new axis will be ellipsoidal height, oriented upwards, and with metre
+ * units.
+ *
+ * @param newName Name of the new CRS. If empty, nameStr() will be used.
+ * @param dbContext Database context to look for potentially already registered
+ *                  3D CRS. May be nullptr.
+ * @return a new CRS promoted to 3D, or the current one if already 3D or not
+ * applicable.
+ * @since 7.0
+ */
+CRSNNPtr CRS::promoteTo3D(const std::string &newName,
+                          const io::DatabaseContextPtr &dbContext) const {
+
+    const auto geogCRS = dynamic_cast<const GeographicCRS *>(this);
+    if (geogCRS) {
+        const auto &axisList = geogCRS->coordinateSystem()->axisList();
+        if (axisList.size() == 2) {
+            const auto &l_identifiers = identifiers();
+            // First check if there is a Geographic 3D CRS in the database
+            // of the same name.
+            // This is the common practice in the EPSG dataset.
+            if (dbContext && l_identifiers.size() == 1) {
+                auto authFactory = io::AuthorityFactory::create(
+                    NN_NO_CHECK(dbContext), *(l_identifiers[0]->codeSpace()));
+                auto res = authFactory->createObjectsFromName(
+                    nameStr(),
+                    {io::AuthorityFactory::ObjectType::GEOGRAPHIC_3D_CRS},
+                    false);
+                if (!res.empty()) {
+                    const auto &firstRes = res.front();
+                    if (geogCRS->is2DPartOf3D(NN_NO_CHECK(
+                            dynamic_cast<GeographicCRS *>(firstRes.get())))) {
+                        return NN_NO_CHECK(
+                            util::nn_dynamic_pointer_cast<CRS>(firstRes));
+                    }
+                }
+            }
+
+            auto upAxis = cs::CoordinateSystemAxis::create(
+                util::PropertyMap().set(IdentifiedObject::NAME_KEY,
+                                        cs::AxisName::Ellipsoidal_height),
+                cs::AxisAbbreviation::h, cs::AxisDirection::UP,
+                common::UnitOfMeasure::METRE);
+            auto cs = cs::EllipsoidalCS::create(
+                util::PropertyMap(), axisList[0], axisList[1], upAxis);
+            return util::nn_static_pointer_cast<CRS>(GeographicCRS::create(
+                util::PropertyMap().set(common::IdentifiedObject::NAME_KEY,
+                                        !newName.empty() ? newName : nameStr()),
+                geogCRS->datum(), geogCRS->datumEnsemble(), cs));
+        }
+    }
+
+    const auto projCRS = dynamic_cast<const ProjectedCRS *>(this);
+    if (projCRS) {
+        const auto &axisList = projCRS->coordinateSystem()->axisList();
+        if (axisList.size() == 2) {
+            auto base3DCRS =
+                projCRS->baseCRS()->promoteTo3D(std::string(), dbContext);
+            auto upAxis = cs::CoordinateSystemAxis::create(
+                util::PropertyMap().set(IdentifiedObject::NAME_KEY,
+                                        cs::AxisName::Ellipsoidal_height),
+                cs::AxisAbbreviation::h, cs::AxisDirection::UP,
+                common::UnitOfMeasure::METRE);
+            auto cs = cs::CartesianCS::create(util::PropertyMap(), axisList[0],
+                                              axisList[1], upAxis);
+            return util::nn_static_pointer_cast<CRS>(ProjectedCRS::create(
+                util::PropertyMap().set(common::IdentifiedObject::NAME_KEY,
+                                        !newName.empty() ? newName : nameStr()),
+                NN_NO_CHECK(
+                    util::nn_dynamic_pointer_cast<GeodeticCRS>(base3DCRS)),
+                projCRS->derivingConversionRef(), cs));
+        }
+    }
+
+    const auto boundCRS = dynamic_cast<const BoundCRS *>(this);
+    if (boundCRS) {
+        return BoundCRS::create(
+            boundCRS->baseCRS()->promoteTo3D(newName, dbContext),
+            boundCRS->hubCRS(), boundCRS->transformation());
+    }
+
+    return NN_NO_CHECK(
+        std::static_pointer_cast<CRS>(shared_from_this().as_nullable()));
+}
+
+// ---------------------------------------------------------------------------
+
 //! @cond Doxygen_Suppress
 
 std::list<std::pair<CRSNNPtr, int>>
@@ -1148,7 +1238,7 @@ void GeodeticCRS::_exportToWKT(io::WKTFormatter *formatter) const {
     const bool isGeographic =
         dynamic_cast<const GeographicCRS *>(this) != nullptr;
     formatter->startNode(isWKT2
-                             ? ((formatter->use2018Keywords() && isGeographic)
+                             ? ((formatter->use2019Keywords() && isGeographic)
                                     ? io::WKTConstants::GEOGCRS
                                     : io::WKTConstants::GEODCRS)
                              : isGeocentric() ? io::WKTConstants::GEOCCS
@@ -1898,14 +1988,18 @@ bool GeographicCRS::is2DPartOf3D(util::nn<const GeographicCRS *> other)
     const auto &secondAxis = axis[1];
     const auto &otherFirstAxis = otherAxis[0];
     const auto &otherSecondAxis = otherAxis[1];
-    if (!(firstAxis->_isEquivalentTo(otherFirstAxis.get()) &&
-          secondAxis->_isEquivalentTo(otherSecondAxis.get()))) {
+    if (!(firstAxis->_isEquivalentTo(
+              otherFirstAxis.get(), util::IComparable::Criterion::EQUIVALENT) &&
+          secondAxis->_isEquivalentTo(
+              otherSecondAxis.get(),
+              util::IComparable::Criterion::EQUIVALENT))) {
         return false;
     }
     const auto &thisDatum = GeodeticCRS::getPrivate()->datum_;
     const auto &otherDatum = other->GeodeticCRS::getPrivate()->datum_;
     if (thisDatum && otherDatum) {
-        return thisDatum->_isEquivalentTo(otherDatum.get());
+        return thisDatum->_isEquivalentTo(
+            otherDatum.get(), util::IComparable::Criterion::EQUIVALENT);
     }
     return false;
 }
@@ -2698,11 +2792,11 @@ void DerivedCRS::baseExportToWKT(io::WKTFormatter *formatter,
     formatter->addQuotedString(nameStr());
 
     const auto &l_baseCRS = d->baseCRS_;
-    formatter->startNode(baseKeyword, formatter->use2018Keywords() &&
+    formatter->startNode(baseKeyword, formatter->use2019Keywords() &&
                                           !l_baseCRS->identifiers().empty());
     formatter->addQuotedString(l_baseCRS->nameStr());
     l_baseCRS->exportDatumOrDatumEnsembleToWkt(formatter);
-    if (formatter->use2018Keywords() &&
+    if (formatter->use2019Keywords() &&
         !(formatter->idOnTopLevelOnly() && formatter->topLevelHasId())) {
         l_baseCRS->formatID(formatter);
     }
@@ -2883,9 +2977,9 @@ void ProjectedCRS::_exportToWKT(io::WKTFormatter *formatter) const {
 
     const auto &l_coordinateSystem = d->coordinateSystem();
     const auto &axisList = l_coordinateSystem->axisList();
-    if (axisList.size() == 3 && !(isWKT2 && formatter->use2018Keywords())) {
+    if (axisList.size() == 3 && !(isWKT2 && formatter->use2019Keywords())) {
         io::FormattingException::Throw(
-            "Projected 3D CRS can only be exported since WKT2:2018");
+            "Projected 3D CRS can only be exported since WKT2:2019");
     }
 
     const auto exportAxis = [&l_coordinateSystem, &axisList, &formatter]() {
@@ -2962,11 +3056,11 @@ void ProjectedCRS::_exportToWKT(io::WKTFormatter *formatter) const {
 
     if (isWKT2) {
         formatter->startNode(
-            (formatter->use2018Keywords() &&
+            (formatter->use2019Keywords() &&
              dynamic_cast<const GeographicCRS *>(l_baseCRS.get()))
                 ? io::WKTConstants::BASEGEOGCRS
                 : io::WKTConstants::BASEGEODCRS,
-            formatter->use2018Keywords() && !l_baseCRS->identifiers().empty());
+            formatter->use2019Keywords() && !l_baseCRS->identifiers().empty());
         formatter->addQuotedString(l_baseCRS->nameStr());
         l_baseCRS->exportDatumOrDatumEnsembleToWkt(formatter);
         // insert ellipsoidal cs unit when the units of the map
@@ -2977,7 +3071,7 @@ void ProjectedCRS::_exportToWKT(io::WKTFormatter *formatter) const {
             geodeticCRSAxisList[0]->unit()._exportToWKT(formatter);
         }
         l_baseCRS->primeMeridian()->_exportToWKT(formatter);
-        if (formatter->use2018Keywords() &&
+        if (formatter->use2019Keywords() &&
             !(formatter->idOnTopLevelOnly() && formatter->topLevelHasId())) {
             l_baseCRS->formatID(formatter);
         }
@@ -4422,7 +4516,7 @@ void DerivedGeodeticCRS::_exportToWKT(io::WKTFormatter *formatter) const {
     formatter->addQuotedString(nameStr());
 
     auto l_baseCRS = baseCRS();
-    formatter->startNode((formatter->use2018Keywords() &&
+    formatter->startNode((formatter->use2019Keywords() &&
                           dynamic_cast<const GeographicCRS *>(l_baseCRS.get()))
                              ? io::WKTConstants::BASEGEOGCRS
                              : io::WKTConstants::BASEGEODCRS,
@@ -4560,14 +4654,14 @@ void DerivedGeographicCRS::_exportToWKT(io::WKTFormatter *formatter) const {
         io::FormattingException::Throw(
             "DerivedGeographicCRS can only be exported to WKT2");
     }
-    formatter->startNode(formatter->use2018Keywords()
+    formatter->startNode(formatter->use2019Keywords()
                              ? io::WKTConstants::GEOGCRS
                              : io::WKTConstants::GEODCRS,
                          !identifiers().empty());
     formatter->addQuotedString(nameStr());
 
     auto l_baseCRS = baseCRS();
-    formatter->startNode((formatter->use2018Keywords() &&
+    formatter->startNode((formatter->use2019Keywords() &&
                           dynamic_cast<const GeographicCRS *>(l_baseCRS.get()))
                              ? io::WKTConstants::BASEGEOGCRS
                              : io::WKTConstants::BASEGEODCRS,
@@ -4693,9 +4787,9 @@ DerivedProjectedCRSNNPtr DerivedProjectedCRS::create(
 //! @cond Doxygen_Suppress
 void DerivedProjectedCRS::_exportToWKT(io::WKTFormatter *formatter) const {
     const bool isWKT2 = formatter->version() == io::WKTFormatter::Version::WKT2;
-    if (!isWKT2 || !formatter->use2018Keywords()) {
+    if (!isWKT2 || !formatter->use2019Keywords()) {
         io::FormattingException::Throw(
-            "DerivedProjectedCRS can only be exported to WKT2:2018");
+            "DerivedProjectedCRS can only be exported to WKT2:2019");
     }
     formatter->startNode(io::WKTConstants::DERIVEDPROJCRS,
                          !identifiers().empty());
@@ -5348,12 +5442,12 @@ const char *DerivedCRSTemplate<DerivedCRSTraits>::className() const {
 
 static void DerivedCRSTemplateCheckExportToWKT(io::WKTFormatter *formatter,
                                                const std::string &crsName,
-                                               bool wkt2_2018_only) {
+                                               bool wkt2_2019_only) {
     const bool isWKT2 = formatter->version() == io::WKTFormatter::Version::WKT2;
-    if (!isWKT2 || (wkt2_2018_only && !formatter->use2018Keywords())) {
+    if (!isWKT2 || (wkt2_2019_only && !formatter->use2019Keywords())) {
         io::FormattingException::Throw(crsName +
                                        " can only be exported to WKT2" +
-                                       (wkt2_2018_only ? ":2018" : ""));
+                                       (wkt2_2019_only ? ":2019" : ""));
     }
 }
 
@@ -5363,7 +5457,7 @@ template <class DerivedCRSTraits>
 void DerivedCRSTemplate<DerivedCRSTraits>::_exportToWKT(
     io::WKTFormatter *formatter) const {
     DerivedCRSTemplateCheckExportToWKT(formatter, DerivedCRSTraits::CRSName(),
-                                       DerivedCRSTraits::wkt2_2018_only);
+                                       DerivedCRSTraits::wkt2_2019_only);
     baseExportToWKT(formatter, DerivedCRSTraits::WKTKeyword(),
                     DerivedCRSTraits::WKTBaseKeyword());
 }

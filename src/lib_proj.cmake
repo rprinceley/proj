@@ -250,7 +250,6 @@ set(SRC_LIBPROJ_CORE
   list.cpp
   log.cpp
   malloc.cpp
-  math.cpp
   mlfn.cpp
   msfn.cpp
   mutex.cpp
@@ -264,7 +263,6 @@ set(SRC_LIBPROJ_CORE
   pj_list.h
   pr_list.cpp
   proj_internal.h
-  proj_math.h
   proj_mdist.cpp
   qsfn.cpp
   release.cpp
@@ -413,6 +411,7 @@ if(WIN32)
     PROPERTIES
     VERSION "${${PROJECT_INTERN_NAME}_BUILD_VERSION}"
     OUTPUT_NAME "${PROJ_CORE_TARGET_OUTPUT_NAME}"
+    ARCHIVE_OUTPUT_NAME "${PROJ_CORE_TARGET}"
     CLEAN_DIRECT_OUTPUT 1)
 elseif(BUILD_FRAMEWORKS_AND_BUNDLE)
   set_target_properties(${PROJ_CORE_TARGET}

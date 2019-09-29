@@ -114,6 +114,7 @@ osgeo::proj::crs::CRS::extractGeographicCRS() const
 osgeo::proj::crs::CRS::extractVerticalCRS() const
 osgeo::proj::crs::CRS::getNonDeprecated(dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::io::DatabaseContext> > const&) const
 osgeo::proj::crs::CRS::identify(std::shared_ptr<osgeo::proj::io::AuthorityFactory> const&) const
+osgeo::proj::crs::CRS::promoteTo3D(std::string const&, std::shared_ptr<osgeo::proj::io::DatabaseContext> const&) const
 osgeo::proj::crs::CRS::shallowClone() const
 osgeo::proj::crs::CRS::stripVerticalComponent() const
 osgeo::proj::crs::DerivedCRS::baseCRS() const
@@ -202,6 +203,7 @@ osgeo::proj::cs::DateTimeTemporalCS::create(osgeo::proj::util::PropertyMap const
 osgeo::proj::cs::DateTimeTemporalCS::~DateTimeTemporalCS()
 osgeo::proj::cs::EllipsoidalCS::createLatitudeLongitudeEllipsoidalHeight(osgeo::proj::common::UnitOfMeasure const&, osgeo::proj::common::UnitOfMeasure const&)
 osgeo::proj::cs::EllipsoidalCS::createLatitudeLongitude(osgeo::proj::common::UnitOfMeasure const&)
+osgeo::proj::cs::EllipsoidalCS::createLongitudeLatitudeEllipsoidalHeight(osgeo::proj::common::UnitOfMeasure const&, osgeo::proj::common::UnitOfMeasure const&)
 osgeo::proj::cs::EllipsoidalCS::createLongitudeLatitude(osgeo::proj::common::UnitOfMeasure const&)
 osgeo::proj::cs::EllipsoidalCS::create(osgeo::proj::util::PropertyMap const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::cs::CoordinateSystemAxis> > const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::cs::CoordinateSystemAxis> > const&)
 osgeo::proj::cs::EllipsoidalCS::create(osgeo::proj::util::PropertyMap const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::cs::CoordinateSystemAxis> > const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::cs::CoordinateSystemAxis> > const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::cs::CoordinateSystemAxis> > const&)
@@ -743,7 +745,6 @@ pj_inv
 pj_inv3d
 pj_is_geocent
 pj_is_latlong
-pj_isnan
 pj_latlong_from_proj
 pj_log
 pj_malloc
@@ -878,6 +879,7 @@ proj_create_crs_to_crs
 proj_create_crs_to_crs_from_pj
 proj_create_cs
 proj_create_ellipsoidal_2D_cs
+proj_create_ellipsoidal_3D_cs
 proj_create_engineering_crs
 proj_create_from_database
 proj_create_from_name
@@ -897,6 +899,8 @@ proj_crs_alter_geodetic_crs
 proj_crs_alter_parameters_linear_unit
 proj_crs_create_bound_crs
 proj_crs_create_bound_crs_to_WGS84
+proj_crs_create_bound_vertical_crs_to_WGS84
+proj_crs_create_projected_3D_crs_from_2D
 proj_crs_get_coordinate_system
 proj_crs_get_coordoperation
 proj_crs_get_datum
@@ -904,6 +908,7 @@ proj_crs_get_geodetic_crs
 proj_crs_get_horizontal_datum
 proj_crs_get_sub_crs
 proj_crs_info_list_destroy
+proj_crs_promote_to_3D
 proj_cs_get_axis_count
 proj_cs_get_axis_info
 proj_cs_get_type
