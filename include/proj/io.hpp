@@ -842,6 +842,11 @@ class PROJ_GCC_DLL DatabaseContext {
                              const std::string &tableName,
                              const std::string &source) const;
 
+    PROJ_INTERNAL std::list<std::string>
+    getAliases(const std::string &authName, const std::string &code,
+               const std::string &officialName, const std::string &tableName,
+               const std::string &source) const;
+
     PROJ_INTERNAL bool isKnownName(const std::string &name,
                                    const std::string &tableName) const;
 
@@ -1050,7 +1055,10 @@ class PROJ_GCC_DLL AuthorityFactory {
         const std::string &sourceCRSAuthName, const std::string &sourceCRSCode,
         const std::string &targetCRSAuthName, const std::string &targetCRSCode,
         bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
-        bool discardSuperseded) const;
+        bool discardSuperseded, bool tryReverseOrder = false,
+        bool reportOnlyIntersectingTransformations = false,
+        const metadata::ExtentPtr &intersectingExtent1 = nullptr,
+        const metadata::ExtentPtr &intersectingExtent2 = nullptr) const;
 
     PROJ_DLL std::vector<operation::CoordinateOperationNNPtr>
     createFromCRSCodesWithIntermediates(
@@ -1059,7 +1067,12 @@ class PROJ_GCC_DLL AuthorityFactory {
         bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
         bool discardSuperseded,
         const std::vector<std::pair<std::string, std::string>>
-            &intermediateCRSAuthCodes) const;
+            &intermediateCRSAuthCodes,
+        ObjectType allowedIntermediateObjectType = ObjectType::CRS,
+        const std::vector<std::string> &allowedAuthorities =
+            std::vector<std::string>(),
+        const metadata::ExtentPtr &intersectingExtent1 = nullptr,
+        const metadata::ExtentPtr &intersectingExtent2 = nullptr) const;
 
     PROJ_DLL std::string getOfficialNameFromAlias(
         const std::string &aliasedName, const std::string &tableName,
@@ -1089,6 +1102,10 @@ class PROJ_GCC_DLL AuthorityFactory {
                                const std::string &datum_code,
                                const std::string &geodetic_crs_type) const;
 
+    PROJ_INTERNAL std::list<crs::VerticalCRSNNPtr>
+    createVerticalCRSFromDatum(const std::string &datum_auth_name,
+                               const std::string &datum_code) const;
+
     PROJ_INTERNAL std::list<crs::GeodeticCRSNNPtr>
     createGeodeticCRSFromEllipsoid(const std::string &ellipsoid_auth_name,
                                    const std::string &ellipsoid_code,
@@ -1104,9 +1121,20 @@ class PROJ_GCC_DLL AuthorityFactory {
     createCoordinateReferenceSystem(const std::string &code,
                                     bool allowCompound) const;
 
-    PROJ_INTERNAL std::list<datum::GeodeticReferenceFrameNNPtr>
-    getPreferredHubGeodeticReferenceFrames(
-        const std::string &geodeticReferenceFrameCode) const;
+    PROJ_INTERNAL std::vector<operation::CoordinateOperationNNPtr>
+    getTransformationsForGeoid(const std::string &geoidName,
+                               bool usePROJAlternativeGridNames) const;
+
+    PROJ_INTERNAL std::vector<operation::CoordinateOperationNNPtr>
+    createBetweenGeodeticCRSWithDatumBasedIntermediates(
+        const crs::CRSNNPtr &sourceCRS, const std::string &sourceCRSAuthName,
+        const std::string &sourceCRSCode, const crs::CRSNNPtr &targetCRS,
+        const std::string &targetCRSAuthName, const std::string &targetCRSCode,
+        bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
+        bool discardSuperseded,
+        const std::vector<std::string> &allowedAuthorities,
+        const metadata::ExtentPtr &intersectingExtent1,
+        const metadata::ExtentPtr &intersectingExtent2) const;
 
     //! @endcond
 

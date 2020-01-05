@@ -11,7 +11,7 @@ AM_CPPFLAGS =	-DPROJ_LIB=\"$(pkgdatadir)\" \
 AM_CXXFLAGS =    @CXX_WFLAGS@ @FLTO_FLAG@
 
 include_HEADERS = proj.h proj_experimental.h proj_constants.h proj_api.h geodesic.h \
-	org_proj4_PJ.h proj_symbol_rename.h proj_json_streaming_writer.hpp
+	org_proj4_PJ.h proj_symbol_rename.h
 
 EXTRA_DIST = bin_cct.cmake bin_gie.cmake bin_cs2cs.cmake \
 	bin_geod.cmake bin_proj.cmake bin_projinfo.cmake \
@@ -42,7 +42,7 @@ geodtest_LDADD = libproj.la
 
 lib_LTLIBRARIES = libproj.la
 
-libproj_la_LDFLAGS = -no-undefined -version-info 17:0:2
+libproj_la_LDFLAGS = -no-undefined -version-info 18:0:3
 libproj_la_LIBADD = @SQLITE3_LIBS@
 
 libproj_la_SOURCES = \
@@ -210,7 +210,10 @@ libproj_la_SOURCES = \
 	wkt2_parser.h wkt2_parser.cpp \
 	wkt2_generated_parser.h wkt2_generated_parser.c \
 	\
-	proj_json_streaming_writer.cpp
+	proj_json_streaming_writer.hpp \
+	proj_json_streaming_writer.cpp \
+	\
+	tracing.cpp
 
 
 # The sed hack is to please MSVC

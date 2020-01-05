@@ -26,6 +26,17 @@ UPDATE grid_transformation SET interpolation_crs_auth_name = 'EPSG',
                                interpolation_crs_code = '4289'
                            WHERE auth_name = 'EPSG' AND code = '7001';
 
+-- EPSG:1312 'NAD27 to NAD83 (3)' / NTv1_0.gsb has a accuracy of 1m whereas
+-- EPSG:1313 'NAD27 to NAD83 (4)' / NTv2_0.gsb has a accuracy of 1.5m
+-- so we will never select automatically NTv2_0.gsb. Worse the advertize
+-- accuracy of the NTv1 method
+
+UPDATE grid_transformation SET accuracy = 2.0 WHERE auth_name = 'EPSG' AND code = '1312';
+
+-- Same for EPSG:1462 vs EPSG:1573
+
+UPDATE grid_transformation SET accuracy = 2.0 WHERE auth_name = 'EPSG' AND code = '1462';
+
 -- Define the allowed authorities, and their precedence, when researching a
 -- coordinate operation
 
@@ -66,15 +77,6 @@ INSERT INTO "axis" VALUES('PROJ','1','Easting','E','east','PROJ','ENh',1,'EPSG',
 INSERT INTO "axis" VALUES('PROJ','2','Northing','N','north','PROJ','ENh',2,'EPSG','9001');
 INSERT INTO "axis" VALUES('PROJ','3','Ellipsoidal height','h','up','PROJ','ENh',2,'EPSG','9001');
 
----- Preferred hub for geodetic datum -----
-
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1152','EPSG','6326'); -- WGS84 (G730) to WGS84
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1153','EPSG','6326'); -- WGS84 (G873) to WGS84
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1154','EPSG','6326'); -- WGS84 (G1150) to WGS84
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1155','EPSG','6326'); -- WGS84 (G1674) to WGS84
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1156','EPSG','6326'); -- WGS84 (G1762) to WGS84
-INSERT INTO "geodetic_datum_preferred_hub" VALUES('EPSG','1166','EPSG','6326'); -- WGS84 (Transit) to WGS84
-
 -- Consider all WGS84 related CRS are equivalent with an accuracy of 2m
 INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_G730','WGS 84 to WGS 84 (G730)','','Accuracy 2m','EPSG','9603','Geocentric translations (geog2D domain)','EPSG','4326','EPSG','9053','EPSG','1262',2.0,0,0,0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'',0);
 INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_G873','WGS 84 to WGS 84 (G873)','','Accuracy 2m','EPSG','9603','Geocentric translations (geog2D domain)','EPSG','4326','EPSG','9054','EPSG','1262',2.0,0,0,0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'',0);
@@ -82,3 +84,20 @@ INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_G1150','WGS 8
 INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_G1674','WGS 84 to WGS 84 (G1674)','','Accuracy 2m','EPSG','9603','Geocentric translations (geog2D domain)','EPSG','4326','EPSG','9056','EPSG','1262',2.0,0,0,0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'',0);
 INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_G1762','WGS 84 to WGS 84 (G1762)','','Accuracy 2m','EPSG','9603','Geocentric translations (geog2D domain)','EPSG','4326','EPSG','9057','EPSG','1262',2.0,0,0,0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'',0);
 INSERT INTO "helmert_transformation" VALUES('PROJ','WGS84_TO_WGS84_TRANSIT','WGS 84 to WGS 84 (Transit)','','Accuracy 2m','EPSG','9603','Geocentric translations (geog2D domain)','EPSG','4326','EPSG','8888','EPSG','1262',2.0,0,0,0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'',0);
+
+---- Geoid models -----
+
+INSERT INTO "geoid_model" SELECT 'GEOID99', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'g1999%' AND deprecated = 0;
+
+INSERT INTO "geoid_model" SELECT 'GEOID03', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'geoid03%' AND deprecated = 0;
+
+INSERT INTO "geoid_model" SELECT 'GEOID06', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'geoid06%' AND deprecated = 0;
+
+INSERT INTO "geoid_model" SELECT 'GEOID09', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'geoid09%' AND deprecated = 0;
+
+-- Geoid12A and Geoid12B are identical
+INSERT INTO "geoid_model" SELECT 'GEOID12A', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'g2012b%' AND deprecated = 0;
+
+INSERT INTO "geoid_model" SELECT 'GEOID12B', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'g2012b%' AND deprecated = 0;
+
+INSERT INTO "geoid_model" SELECT 'GEOID18', auth_name, code FROM grid_transformation WHERE auth_name = 'EPSG' AND grid_name LIKE 'g2018%' AND deprecated = 0;

@@ -104,8 +104,8 @@ colormsg(_HIBLUE_ "Configuring PROJ:")
 ################################################################################
 include(ProjVersion)
 proj_version(MAJOR 7 MINOR 0 PATCH 0)
-set(PROJ_API_VERSION "17")
-set(PROJ_BUILD_VERSION "17.0.2")
+set(PROJ_API_VERSION "18")
+set(PROJ_BUILD_VERSION "18.0.3")
 
 ################################################################################
 # Build features and variants
@@ -126,6 +126,13 @@ include(policies)
 # if(NOT SQLITE3_FOUND)
 #   message(SEND_ERROR "sqlite3 dependency not found!")
 # endif()
+
+# Would build and run with older versons, but with horrible performance
+# See https://github.com/OSGeo/PROJ/issues/1718
+# IF("${SQLITE3_VERSION}" VERSION_LESS "3.11")
+#  message(SEND_ERROR "sqlite3 >= 3.11 required!")
+# ENDIF()
+
 set(SQLITE3_INCLUDE_DIR ${PROJ4_SOURCE_DIR}/sqlite3)
 set(EXE_SQLITE3 ${PROJECT_BINARY_DIR}/bin/sqlite3)
 ################################################################################
@@ -169,8 +176,8 @@ endif()
 
 if(MSVC OR CMAKE_CONFIGURATION_TYPES)
   # For multi-config systems and for Visual Studio, the debug version of
-  # the library has d appended.
-  set(CMAKE_DEBUG_POSTFIX d)
+  # the library has _d appended.
+  set(CMAKE_DEBUG_POSTFIX _d)
 endif()
 
 option(PROJ_TESTS "Enable build of collection of PROJ tests" ON)

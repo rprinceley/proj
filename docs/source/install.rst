@@ -24,7 +24,18 @@ Conda
 The conda package manager includes several PROJ packages. We recommend installing
 from the ``conda-forge`` channel::
 
-    conda install -c conda-forge proj4
+    conda install -c conda-forge proj
+
+Using ``conda`` you can also install the PROJ grid packages. Here's how to install
+the `proj-datumgrid-europe` package::
+
+    conda install -c conda-forge proj-datumgrid-europe
+
+Available is also the ``proj-datumgrid-north-america``, ``proj-datumgrid-oceania``
+and ``proj-datumgrid-world``.
+
+.. tip::
+   Read more about the various datumgrid packages available :ref:`here<datumgrid>`.
 
 Docker
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -34,8 +45,8 @@ files is available on `DockerHub`_. Get the package with::
 
     docker pull osgeo/proj
 
-.. _`Docker`: https://docker.org
-.. _`DockerHub`: https://hub.docker.com/r/osgeo/proj.4/
+.. _`Docker`: https://www.docker.com/
+.. _`DockerHub`: https://hub.docker.com/r/osgeo/proj/
 
 Windows
 --------------------------------------------------------------------------------
@@ -86,6 +97,13 @@ On Debian and similar systems (e.g. Ubuntu) the APT package manager is used::
 
     sudo apt-get install proj-bin
 
+Fedora
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+On Fedora the dnf package manager is used::
+
+    sudo dnf install proj
+
 Red Hat
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -108,17 +126,22 @@ PROJ is also available from the MacPorts system::
 Compilation and installation from source code
 ################################################################################
 
-The classical way of installing PROJ is via the source code distribution. The
+The classic way of installing PROJ is via the source code distribution. The
 most recent version is available from the :ref:`download page<current_release>`.
-
-PROJ requires C and C++11 compilers. It also requires SQLite3 (headers,
-library and executable).
 
 You will need that and at least the standard *proj-datumgrid* package for a
 successful installation.
 
 The following guides show how to compile and install the software using the
 Autotools and CMake build systems.
+
+Build requirements
+--------------------------------------------------------------------------------
+
+- C99 compiler
+- C++11 compiler
+- SQLite3 >= 3.11 (headers, library and executable)
+- GNU make for autotools build or CMake >= 3.5
 
 Autotools
 --------------------------------------------------------------------------------
