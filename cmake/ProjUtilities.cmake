@@ -112,5 +112,5 @@ function(proj_target_output_name TARGET_NAME OUTPUT_NAME)
     endif()
   endif()
 
-  set(${OUTPUT_NAME} ${TARGET_NAME}${SUFFIX} PARENT_SCOPE)
+  set(${OUTPUT_NAME} ${TARGET_NAME}${SUFFIX}e PARENT_SCOPE)
 endfunction()

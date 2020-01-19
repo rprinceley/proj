@@ -274,6 +274,18 @@ pj_open_lib_ex(projCtx ctx, const char *name, const char *mode,
                 if( fid )
                     break;
             }
+        /* if is environment GDAL_DATA defined */
+        else if ((sysname = getenv("GDAL_DATA")) != nullptr) {
+            auto paths = NS_PROJ::internal::split(std::string(sysname), dirSeparator);
+            for( const auto& path: paths ) {
+                fname = path;
+                fname += DIR_CHAR;
+                fname += name;
+                sysname = fname.c_str();
+                fid = pj_ctx_fopen(ctx, sysname, mode);
+                if( fid )
+                    break;
+            }            
 #ifdef _WIN32
         /* check if it lives in a ../share/proj dir of the proj dll */
         } else if ((sysname = get_path_from_win32_projlib(name, fname)) != nullptr) {

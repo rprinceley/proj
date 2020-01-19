@@ -1478,11 +1478,15 @@ PJ_INFO proj_info (void) {
     if (!ctx || ctx->search_paths.empty()) {
         const char *envPROJ_LIB = getenv("PROJ_LIB");
         buf = path_append(buf, envPROJ_LIB, &buf_size);
-#ifdef PROJ_LIB
         if (envPROJ_LIB == nullptr) {
-            buf = path_append(buf, PROJ_LIB, &buf_size);
+            const char *envGDAL_DATA = getenv("GDAL_DATA");
+            buf = path_append(buf, envGDAL_DATA, &buf_size);
         }
-#endif
+// #ifdef PROJ_LIB
+//         if (envPROJ_LIB == nullptr) {
+//             buf = path_append(buf, PROJ_LIB, &buf_size);
+//         }
+// #endif
     } else {
         for (const auto &path : ctx->search_paths) {
             buf = path_append(buf, path.c_str(), &buf_size);
