@@ -155,7 +155,7 @@ static PJ_LPZ    pipeline_reverse_3d (PJ_XYZ xyz, PJ *P);
 static PJ_XY     pipeline_forward (PJ_LP lp, PJ *P);
 static PJ_LP     pipeline_reverse (PJ_XY xy, PJ *P);
 
-void pj_pipeline_assign_context_to_steps( PJ* P, PJ_CONTEXT* ctx )
+static void pipeline_reassign_context( PJ* P, PJ_CONTEXT* ctx )
 {
     auto pipeline = static_cast<struct Pipeline*>(P->opaque);
     for( auto& step: pipeline->steps )
@@ -170,6 +170,9 @@ static PJ_COORD pipeline_forward_4d (PJ_COORD point, PJ *P) {
         if( !step.omit_fwd )
         {
             point = proj_trans (step.pj, PJ_FWD, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -186,6 +189,9 @@ static PJ_COORD pipeline_reverse_4d (PJ_COORD point, PJ *P) {
         if( !step.omit_inv )
         {
             point = proj_trans (step.pj, PJ_INV, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -204,6 +210,9 @@ static PJ_XYZ pipeline_forward_3d (PJ_LPZ lpz, PJ *P) {
         if( !step.omit_fwd )
         {
             point = pj_approx_3D_trans (step.pj, PJ_FWD, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -222,6 +231,9 @@ static PJ_LPZ pipeline_reverse_3d (PJ_XYZ xyz, PJ *P) {
         if( !step.omit_inv )
         {
             point = proj_trans (step.pj, PJ_INV, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -240,6 +252,9 @@ static PJ_XY pipeline_forward (PJ_LP lp, PJ *P) {
         if( !step.omit_fwd )
         {
             point = pj_approx_2D_trans (step.pj, PJ_FWD, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -258,6 +273,9 @@ static PJ_LP pipeline_reverse (PJ_XY xy, PJ *P) {
         if( !step.omit_inv )
         {
             point = pj_approx_2D_trans (step.pj, PJ_INV, point);
+            if( point.xyzt.x == HUGE_VAL ) {
+                break;
+            }
         }
     }
 
@@ -406,6 +424,16 @@ PJ *OPERATION(pipeline,0) {
     int i_pipeline = -1, i_first_step = -1, i_current_step;
     char **argv, **current_argv;
 
+    if( P->ctx->pipelineInitRecursiongCounter == 5 )
+    {
+        // Can happen for a string like:
+        // proj=pipeline step "x="""," u=" proj=pipeline step ste=""[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline p step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ste="[" u=" proj=pipeline step ""x="""""""""""
+        // Probably an issue with the quoting handling code
+        // But doesn't hurt to add an extra safety check
+        proj_log_error (P, "Pipeline: too deep recursion");
+        return destructor (P, PJD_ERR_MALFORMED_PIPELINE); /* ERROR: nested pipelines */
+    }
+
     P->fwd4d  =  pipeline_forward_4d;
     P->inv4d  =  pipeline_reverse_4d;
     P->fwd3d  =  pipeline_forward_3d;
@@ -413,7 +441,7 @@ PJ *OPERATION(pipeline,0) {
     P->fwd    =  pipeline_forward;
     P->inv    =  pipeline_reverse;
     P->destructor  =  destructor;
-    P->is_pipeline =  1;
+    P->reassign_context = pipeline_reassign_context;
 
     /* Currently, the pipeline driver is a raw bit mover, enabling other operations */
     /* to collaborate efficiently. All prep/fin stuff is done at the step levels. */
@@ -495,7 +523,9 @@ PJ *OPERATION(pipeline,0) {
 
         err = proj_errno_reset (P);
 
+        P->ctx->pipelineInitRecursiongCounter ++;
         next_step = pj_create_argv_internal (P->ctx, current_argc, current_argv);
+        P->ctx->pipelineInitRecursiongCounter --;
         proj_log_trace (P, "Pipeline: Step %d (%s) at %p", i, current_argv[0], next_step);
 
         if (nullptr==next_step) {

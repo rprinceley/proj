@@ -12,14 +12,10 @@ if test "x${NPROC}" = "x"; then
     NPROC=2;
 fi
 echo "NPROC=${NPROC}"
-
-# Download grid files
-wget https://download.osgeo.org/proj/proj-datumgrid-1.8.zip
-wget "https://github.com/OSGeo/proj-datumgrid/blob/master/north-america/ntv2_0.gsb?raw=true" -O ntv2_0.gsb
+export MAKEFLAGS="-j ${NPROC}"
 
 # prepare build files
 ./autogen.sh
-TOP_DIR=$PWD
 
 # autoconf build
 mkdir build_autoconf
@@ -38,23 +34,26 @@ CXXFLAGS="-DCS=do_not_use_CS_for_solaris_compat $CXXFLAGS"
 # autoconf build from generated tarball
 mkdir build_autoconf
 cd build_autoconf
-if [ -f $JAVA_HOME/include/jni.h ]; then
-    CXXFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux $CXXFLAGS" ../configure --prefix=/tmp/proj_autoconf_install_from_dist_all --with-jni
-else
-    ../configure --prefix=/tmp/proj_autoconf_install_from_dist_all
-fi
+../configure --prefix=/tmp/proj_autoconf_install_from_dist_all
 
-make -j${NPROC}
+make
 
 if [ "$(uname)" == "Linux" -a -f src/.libs/libproj.so ]; then
+if objdump -TC "$1" | grep "elf64-x86-64">/dev/null; then
     echo "Checking exported symbols..."
-    ${TOP_DIR}/scripts/dump_exported_symbols.sh src/.libs/libproj.so > /tmp/got_symbols.txt
-    diff -u ${TOP_DIR}/scripts/reference_exported_symbols.txt /tmp/got_symbols.txt || (echo "Difference(s) found in exported symbols. If intended, refresh scripts/reference_exported_symbols.txt with 'scripts/dump_exported_symbols.sh src/.libs/libproj.so > scripts/reference_exported_symbols.txt'"; exit 1)
+    $TRAVIS_BUILD_DIR/scripts/dump_exported_symbols.sh src/.libs/libproj.so > /tmp/got_symbols.txt
+    diff -u $TRAVIS_BUILD_DIR/scripts/reference_exported_symbols.txt /tmp/got_symbols.txt || (echo "Difference(s) found in exported symbols. If intended, refresh scripts/reference_exported_symbols.txt with 'scripts/dump_exported_symbols.sh src/.libs/libproj.so > scripts/reference_exported_symbols.txt'"; exit 1)
+fi
 fi
 
 make check
 make install
 find /tmp/proj_autoconf_install_from_dist_all
+if [ $BUILD_NAME = "linux_gcc" ] || [ $BUILD_NAME = "osx" ]; then
+    $TRAVIS_BUILD_DIR/test/postinstall/test_pkg-config.sh /tmp/proj_autoconf_install_from_dist_all
+else
+    echo "Skipping test_pkg-config.sh test for $BUILD_NAME"
+fi
 
 /tmp/proj_autoconf_install_from_dist_all/bin/projinfo EPSG:32631 -o PROJJSON -q > out.json
 cat out.json
@@ -80,58 +79,73 @@ jsonschema -i out.json /tmp/proj_autoconf_install_from_dist_all/share/proj/projj
 /tmp/proj_autoconf_install_from_dist_all/bin/projinfo @out.json -o PROJJSON -q > out2.json
 diff -u out.json out2.json
 
+# Test make clean target
+make clean
+
 cd ..
 
-# cmake build from generated tarball
-mkdir build_cmake
-cd build_cmake
-cmake .. -DCMAKE_INSTALL_PREFIX=/tmp/proj_cmake_install
-VERBOSE=1 make -j${NPROC}
-make install
-ctest
-find /tmp/proj_cmake_install
-cd ..
-
-# return to root
-cd ../..
-
-# Install grid files
-(cd data && unzip -o ../proj-datumgrid-1.8.zip && cp ../ntv2_0.gsb . )
-
-# autoconf build with grids
-mkdir build_autoconf_grids
-cd build_autoconf_grids
-../configure --prefix=/tmp/proj_autoconf_install_grids
-make -j${NPROC}
-make check
-(cd src && make multistresstest && make test228)
-PROJ_LIB=../data src/multistresstest
-make install
-find /tmp/proj_autoconf_install_grids
-cd ..
-
-# There's an issue with the clang on Travis + coverage + cpp code
-if [ "$BUILD_NAME" != "linux_clang" ]; then
-    # autoconf build with grids and coverage
-    if [ $TRAVIS_OS_NAME == "osx" ]; then
-        CFLAGS="--coverage" CXXFLAGS="--coverage" ./configure;
+if [ $TRAVIS_OS_NAME != "osx" ]; then
+    # Check that we can retrieve the resource directory in a relative way after renaming the installation prefix
+    mkdir /tmp/proj_autoconf_install_from_dist_all_renamed
+    mv /tmp/proj_autoconf_install_from_dist_all /tmp/proj_autoconf_install_from_dist_all_renamed/subdir
+    LD_LIBRARY_PATH=/tmp/proj_autoconf_install_from_dist_all_renamed/subdir/lib /tmp/proj_autoconf_install_from_dist_all_renamed/subdir/bin/projsync --source-id ? --dry-run --system-directory || /bin/true
+    LD_LIBRARY_PATH=/tmp/proj_autoconf_install_from_dist_all_renamed/subdir/lib /tmp/proj_autoconf_install_from_dist_all_renamed/subdir/bin/projsync --source-id ? --dry-run --system-directory 2>/dev/null | grep "Downloading from https://cdn.proj.org into /tmp/proj_autoconf_install_from_dist_all_renamed/subdir/share/proj"
+    sed -i '1cprefix=/tmp/proj_autoconf_install_from_dist_all_renamed/subdir' /tmp/proj_autoconf_install_from_dist_all_renamed/subdir/lib/pkgconfig/proj.pc
+    if [ $BUILD_NAME = "linux_gcc" ]; then
+        $TRAVIS_BUILD_DIR/test/postinstall/test_pkg-config.sh /tmp/proj_autoconf_install_from_dist_all_renamed/subdir
     else
-        CFLAGS="$CFLAGS --coverage" CXXFLAGS="$CXXCFLAGS --coverage" LDFLAGS="$LDFLAGS -lgcov" ./configure;
+        echo "Skipping test_pkg-config.sh test for $BUILD_NAME"
     fi
-else
-    ./configure
 fi
-make -j${NPROC}
-make check
 
-# Rerun tests without grids not included in proj-datumgrid
-rm -v data/egm96_15.gtx
-make check
+if [ "$BUILD_NAME" != "linux_gcc8" ]; then
 
-if [ "$BUILD_NAME" != "linux_clang" ]; then
-    mv src/.libs/*.gc* src
-    mv src/conversions/.libs/*.gc* src/conversions
-    mv src/iso19111/.libs/*.gc* src/iso19111
-    mv src/projections/.libs/*.gc* src/projections
-    mv src/transformations/.libs/*.gc* src/transformations
+    # cmake build from generated tarball
+    mkdir build_cmake
+    cd build_cmake
+    cmake --version
+    cmake .. -DCMAKE_INSTALL_PREFIX=/tmp/proj_cmake_install
+    VERBOSE=1 make
+    make install
+    ctest
+    find /tmp/proj_cmake_install
+    if [ $BUILD_NAME = "linux_gcc" ] || [ $BUILD_NAME = "osx" ]; then
+        $TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_cmake_install
+    else
+        echo "Skipping test_cmake.sh test for $BUILD_NAME"
+    fi
+    cd ..
+
+    if [ $TRAVIS_OS_NAME != "osx" ]; then
+        # Check that we can retrieve the resource directory in a relative way after renaming the installation prefix
+        mkdir /tmp/proj_cmake_install_renamed
+        mv /tmp/proj_cmake_install /tmp/proj_cmake_install_renamed/subdir
+        /tmp/proj_cmake_install_renamed/subdir/bin/projsync --source-id ? --dry-run --system-directory || /bin/true
+        /tmp/proj_cmake_install_renamed/subdir/bin/projsync --source-id ? --dry-run --system-directory 2>/dev/null | grep "Downloading from https://cdn.proj.org into /tmp/proj_cmake_install_renamed/subdir/share/proj"
+    fi
+
+    # return to root
+    cd ../..
+
+    # There's an issue with the clang on Travis + coverage + cpp code
+    if [ "$BUILD_NAME" != "linux_clang" ]; then
+        # autoconf build with grids and coverage
+        if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+            CFLAGS="--coverage" CXXFLAGS="--coverage" ./configure;
+        else
+            CFLAGS="$CFLAGS --coverage" CXXFLAGS="$CXXFLAGS --coverage" LDFLAGS="$LDFLAGS -lgcov" ./configure;
+        fi
+    else
+        ./configure
+    fi
+    make
+    make check
+
+    if [ "$BUILD_NAME" != "linux_clang" ]; then
+        mv src/.libs/*.gc* src
+        mv src/conversions/.libs/*.gc* src/conversions
+        mv src/iso19111/.libs/*.gc* src/iso19111
+        mv src/projections/.libs/*.gc* src/projections
+        mv src/transformations/.libs/*.gc* src/transformations
+    fi
 fi

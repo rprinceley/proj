@@ -164,7 +164,8 @@ static double decimalyear_to_mjd(double decimalyear) {
     double fractional_year;
     double mjd;
 
-    if( decimalyear < -10000 || decimalyear > 10000 )
+    // Written this way to deal with NaN input
+    if( !(decimalyear >= -10000 && decimalyear <= 10000) )
         return 0;
 
     year = lround(floor(decimalyear));
@@ -392,9 +393,7 @@ static double get_unit_conversion_factor(const char* name,
 /***********************************************************************/
     int i;
     const char* s;
-    const PJ_UNITS *units;
-
-    units = proj_list_units();
+    const PJ_UNITS *units = pj_list_linear_units();
 
     /* Try first with linear units */
     for (i = 0; (s = units[i].id) ; ++i) {
@@ -410,7 +409,7 @@ static double get_unit_conversion_factor(const char* name,
     }
 
     /* And then angular units */
-    units = proj_list_angular_units();
+    units = pj_list_angular_units();
     for (i = 0; (s = units[i].id) ; ++i) {
         if ( strcmp(s, name) == 0 ) {
             if( p_normalized_name ) {
@@ -477,8 +476,12 @@ PJ *CONVERSION(unitconvert,0) {
                 return pj_default_destructor(P, PJD_ERR_UNKNOWN_UNIT_ID);
         }
         Q->xy_factor = f;
-        if (normalized_name != nullptr && strcmp(normalized_name, "Radian") == 0)
-            P->left = PJ_IO_UNITS_RADIANS;
+        if (normalized_name != nullptr) {
+            if (strcmp(normalized_name, "Radian") == 0)
+                P->left = PJ_IO_UNITS_RADIANS;
+            if (strcmp(normalized_name, "Degree") == 0)
+                P->left = PJ_IO_UNITS_DEGREES;
+        }
     }
 
     if ((name = pj_param (P->ctx, P->params, "sxy_out").s) != nullptr) {
@@ -492,8 +495,12 @@ PJ *CONVERSION(unitconvert,0) {
                 return pj_default_destructor(P, PJD_ERR_UNKNOWN_UNIT_ID);
         }
         Q->xy_factor /= f;
-        if (normalized_name != nullptr && strcmp(normalized_name, "Radian") == 0)
-            P->right= PJ_IO_UNITS_RADIANS;
+        if (normalized_name != nullptr) {
+            if (strcmp(normalized_name, "Radian") == 0)
+                P->right= PJ_IO_UNITS_RADIANS;
+            if (strcmp(normalized_name, "Degree") == 0)
+                P->right= PJ_IO_UNITS_DEGREES;
+        }
     }
 
     if( xy_in_is_linear >= 0 && xy_out_is_linear >= 0 &&

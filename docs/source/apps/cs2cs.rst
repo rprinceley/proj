@@ -15,19 +15,33 @@ Synopsis
 
 or
 
-    **cs2cs** [**-eEfIlrstvwW** [args]] {source_crs} +to {target_crs} file ...
+    **cs2cs** [**-eEfIlrstvwW** [args]] {source_crs} {target_crs} file ...
 
-    where {source_crs} or {target_crs} is a PROJ string, a WKT string or a AUTHORITY:CODE
-    (where AUTHORITY is the name of a CRS authority and CODE the code of a CRS
-    found in the proj.db database), expressing a coordinate reference system.
+    where {source_crs} or {target_crs} is one of the possibilities accepted
+    by :c:func:`proj_create`, provided it expresses a CRS
 
-.. versionadded:: 6.0.0
+    - a proj-string,
+    - a WKT string,
+    - an object code (like "EPSG:4326", "urn:ogc:def:crs:EPSG::4326",
+      "urn:ogc:def:coordinateOperation:EPSG::1671"),
+    - an Object name. e.g "WGS 84", "WGS 84 / UTM zone 31N". In that case as
+      uniqueness is not guaranteed, heuristics are applied to determine the appropriate best match.
+    - a OGC URN combining references for compound coordinate reference systems
+      (e.g "urn:ogc:def:crs,crs:EPSG::2393,crs:EPSG::5717" or custom abbreviated
+      syntax "EPSG:2393+5717"),
+    - a OGC URN combining references for references for projected or derived CRSs
+      e.g. for Projected 3D CRS "UTM zone 31N / WGS 84 (3D)":
+      "urn:ogc:def:crs,crs:EPSG::4979,cs:PROJ::ENh,coordinateOperation:EPSG::16031"
+      (*added in 6.2*)
+    - a OGC URN combining references for concatenated operations
+      (e.g. "urn:ogc:def:coordinateOperation,coordinateOperation:EPSG::3895,coordinateOperation:EPSG::1618")
+    - a PROJJSON string. The jsonschema is at https://proj.org/schemas/v0.2/projjson.schema.json (*added in 6.2*)
+    - a compound CRS made from two object names separated with " + ". e.g. "WGS 84 + EGM96 height" (*added in 7.1*)
 
-or
+    .. versionadded:: 6.0.0
 
-    **cs2cs** [**-eEfIlrstvwW** [args]] {source_crs} {target_crs}
-
-.. versionadded:: 6.0.0
+    .. note:: before 7.0.1, it was needed to add +to between {source_crs} and {target_crs}
+              when adding a filename
 
 Description
 ***********
@@ -54,7 +68,7 @@ The following control parameters can appear in any order:
 
 .. option:: -d <n>
 
-.. versionadded:: 5.2.0
+    .. versionadded:: 5.2.0
 
     Specify the number of decimals in the output.
 
@@ -91,19 +105,20 @@ The following control parameters can appear in any order:
 
     List of all distance units that can be selected with the *+units* parameter.
 
-.. option:: -ld
-
-    List of datums that can be selected with the *+datum* parameter.
-
 .. option:: -r
 
-    This options reverses the order of the expected input from
-    longitude-latitude or x-y to latitude-longitude or y-x.
+    This options reverses the order of the first two expected
+    inputs from that specified by the CRS to the opposite
+    order.  The third coordinate, typically height, remains
+    third.
 
 .. option:: -s
 
-    This options reverses the order of the output from x-y or longitude-latitude
-    to y-x or latitude-longitude.
+    This options reverses the order of the first two expected
+    outputs from that specified by the CRS to the opposite
+    order.  The third coordinate, typically height, remains
+    third.
+
 
 .. option:: -f <format>
 
@@ -175,6 +190,16 @@ normally be in DMS format (use ``-f %.12f`` for decimal degrees with 12 decimal
 places), while projected (cartesian) coordinates will be in linear
 (meter, feet) units.
 
+Use of remote grids
+-------------------
+
+.. versionadded:: 7.0.0
+
+If the :envvar:`PROJ_NETWORK` environment variable is set to ``ON``,
+:program:`cs2cs` will attempt to use remote grids stored on CDN (Content
+Delivery Network) storage, when they are not available locally.
+
+More details are available in the :ref:`network` section.
 
 Examples
 ********
@@ -202,8 +227,8 @@ The x-y output data will appear as three lines of:
     1402293.44  5076292.68 0.00
 
 
-Using EPSG codes
-----------------
+Using EPSG CRS codes
+--------------------
 
 Transforming from WGS 84 latitude/longitude (in that order) to UTM Zone 31N/WGS 84
 
@@ -219,12 +244,29 @@ outputs
 
     421184.70   4983436.77 0.00
 
+Using EPSG CRS names
+--------------------
+
+Transforming from WGS 84 latitude/longitude (in that order) with EGM96 height to
+UTM Zone 31N/WGS 84 with WGS84 ellipsoidal height
+
+::
+
+    echo 45 2 0 | cs2cs "WGS 84 + EGM96 height" "WGS 84 / UTM zone 31N"
+
+outputs
+
+::
+
+    421184.70   4983436.77 50.69
+
+
 .. only:: man
 
     See also
     ********
 
-    **proj(1)**, **cct(1)**, **geod(1)**, **gie(1)**, **projinfo(1)**
+    **proj(1)**, **cct(1)**, **geod(1)**, **gie(1)**, **projinfo(1)**, **projsync(1)**
 
     Bugs
     ****

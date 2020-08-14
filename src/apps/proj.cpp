@@ -380,22 +380,18 @@ int main(int argc, char **argv) {
                         (void)printf("%9s %-16s %-16s %s\n",
                                      le->id, le->major, le->ell, le->name);
                 } else if (arg[1] == 'u') { /* list units */
-                    const struct PJ_UNITS *lu;
-
-                    for (lu = proj_list_units(); lu->id ; ++lu)
-                        (void)printf("%12s %-20s %s\n",
-                                     lu->id, lu->to_meter, lu->name);
-                } else if (arg[1] == 'd') { /* list datums */
-                    const struct PJ_DATUMS *ld;
-
-                    printf("__datum_id__ __ellipse___ __definition/comments______________________________\n" );
-                    for (ld = pj_get_datums_ref(); ld->id ; ++ld)
+                    auto units = proj_get_units_from_database(nullptr, nullptr, "linear", false, nullptr);
+                    for( int i = 0; units && units[i]; i++ )
                     {
-                        printf("%12s %-12s %-30s\n",
-                               ld->id, ld->ellipse_id, ld->defn);
-                        if( ld->comments != nullptr && strlen(ld->comments) > 0 )
-                            printf( "%25s %s\n", " ", ld->comments );
+                        if( units[i]->proj_short_name )
+                        {
+                            (void)printf("%12s %-20.15g %s\n",
+                                            units[i]->proj_short_name,
+                                            units[i]->conv_factor,
+                                            units[i]->name);
+                        }
                     }
+                    proj_unit_list_destroy(units);
                 } else
                     emess(1,"invalid list option: l%c",arg[1]);
                 exit(0);

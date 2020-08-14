@@ -61,7 +61,7 @@ from shapely.geometry import shape
 from shapely.ops import transform
 from descartes import PolygonPatch
 
-PROJ = '../../src/proj'
+PROJ = os.environ.get('PROJ_EXE', '../../src/proj')
 PROJ_LIB = '../../data'
 
 LINE_LOW = 'data/coastline.geojson'
@@ -161,7 +161,7 @@ def project(coordinates, proj_string, in_radians=False):
         proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 env={'PROJ_LIB': os.path.abspath(PROJ_LIB)})
     except FileNotFoundError:
-        print("'proj' binary not found, please update PROJ constant in plot.py "
+        print("'proj' binary not found, set the PROJ_EXE environment variable "
               "to point to your local 'proj' binary")
         exit(1)
 
@@ -248,7 +248,11 @@ def plotproj(plotdef, data, outdir):
             (plotdef['lonmax'], plotdef['latmax']),
             (plotdef['lonmax'], plotdef['latmin']),
         ])
-        temp_pol = temp_pol.intersection(box)
+        try:
+            temp_pol = temp_pol.intersection(box)
+        except Exception as e:
+            continue
+
 
         if plotdef['type'] == 'poly':
             if isinstance(temp_pol, MultiPolygon):

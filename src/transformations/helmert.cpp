@@ -53,7 +53,6 @@ Last update: 2018-10-26
 #include <math.h>
 
 #include "proj_internal.h"
-#include "geocent.h"
 
 PROJ_HEAD(helmert, "3(6)-, 4(8)- and 7(14)-parameter Helmert shift");
 PROJ_HEAD(molobadekas, "Molodensky-Badekas transformation");
@@ -655,7 +654,7 @@ PJ *TRANSFORMATION(helmert, 0) {
     Q->scale  =  Q->scale_0;
     Q->theta  =  Q->theta_0;
 
-    if ((Q->opk.o==0)  && (Q->opk.p==0)  && (Q->opk.k==0) && (Q->scale==0) &&
+    if ((Q->opk.o==0)  && (Q->opk.p==0)  && (Q->opk.k==0) &&
         (Q->dopk.o==0) && (Q->dopk.p==0) && (Q->dopk.k==0)) {
         Q->no_rotation = 1;
     }

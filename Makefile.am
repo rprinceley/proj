@@ -1,5 +1,5 @@
-SUBDIRS	=	include src man data jniwrap cmake
-DIST_SUBDIRS = include src man data jniwrap cmake test
+SUBDIRS	=	include src man data cmake
+DIST_SUBDIRS = include src man data cmake test
 
 EXTRA_DIST = CMakeLists.txt CITATION README.md
 
@@ -12,6 +12,7 @@ ACLOCAL_AMFLAGS =	-I m4
 check-local:
 	cd test; $(MAKE) check
 
+all-local: README
 
 README: README.md
 	fgrep -v "[![" $< > $@

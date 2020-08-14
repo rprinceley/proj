@@ -14,6 +14,8 @@ In addition to the bundled init-files the PROJ project also distributes a number
 of packages containing transformation grids and additional init-files not included
 in the main PROJ package.
 
+.. _resource_file_paths:
+
 Where are PROJ resource files looked for ?
 -------------------------------------------------------------------------------
 
@@ -21,24 +23,49 @@ PROJ will attempt to locate its resource files - database, transformation grids
 or init-files - from several directories.
 The following paths are checked in order:
 
-- For transformation grids that have an explict relative or absolute path,
-  the directory specified in the grid filename.
+- For resource files that have an explicit relative or absolute path,
+  the directory specified in the filename.
+
 - Path resolved by the callback function set with
   the :c:func:`proj_context_set_file_finder`. If it is set, the next tests
   will not be run.
+
 - Path(s) set with the :c:func:`proj_context_set_search_paths`. If set, the
   next tests will not be run.
+
+.. _user_writable_directory:
+
+- .. versionadded:: 7.0
+
+  The PROJ user writable directory, which is :
+
+    * on Windows, ${LOCALAPPDATA}/proj
+    * on MacOSX, ${HOME}/Library/Application Support/proj
+    * on other platforms (Linux), ${XDG_DATA_HOME}/proj if :envvar:`XDG_DATA_HOME`
+      is defined. Else ${HOME}/.local/share/proj
+
 - Path(s) set with by the environment variable :envvar:`PROJ_LIB`.
   On Linux/MacOSX/Unix, use ``:`` to separate paths. On Windows, ``;``
-- On Windows, the *..\\share\\proj\\* and its contents are found automatically
+
+- .. versionadded:: 7.0
+
+  The *../share/proj/* and its contents are found automatically
   at run-time if the installation respects the build structure. That is, the
-  binaries and proj.dll are installed under *..\\bin\\*, and resource files
-  are in *..\\share\\proj\\*.
+  binaries and proj.dll/libproj.so are installed under *../bin/* or *../lib/*,
+  and resource files are in *../share/proj/*.
+
 - A path built into PROJ as its resource installation directory (whose value is
-  $(pkgdatadir)), for builds using the Makefile build system. Note, however,
+  $(pkgdatadir) for builds using the Makefile build system or
+  ${CMAKE_INSTALL_PREFIX}/${DATADIR} for CMake builds). Note, however,
   that since this is a hard-wired path setting, it only works if the whole
   PROJ installation is not moved somewhere else.
+
 - The current directory
+
+When networking capabilities are enabled, either by API with the
+:c:func:`proj_context_set_enable_network` function or when the
+:envvar:`PROJ_NETWORK` environment variable is set to ``ON``, PROJ will
+attempt to use remote grids stored on CDN (Content Delivery Network) storage.
 
 .. _proj-db:
 
@@ -48,6 +75,46 @@ proj.db
 A proj installation includes a SQLite database of transformation information
 that must be accessible for the library to work properly.  The library will
 print an error if the database can't be found.
+
+.. _proj-ini:
+
+proj.ini
+-------------------------------------------------------------------------------
+
+.. versionadded:: 7.0
+
+proj.ini is a text configuration file, mostly dedicated at setting up network
+related parameters.
+
+Its default content is:
+
+::
+
+    [general]
+    ; Lines starting by ; are commented lines.
+    ;
+
+    ; Network capabilities disabled by default.
+    ; Can be overridden with the PROJ_NETWORK=ON environment variable.
+    ; network = on
+
+    ; Can be overridden with the PROJ_NETWORK_ENDPOINT environment variable.
+    cdn_endpoint = https://cdn.proj.org
+
+    cache_enabled = on
+
+    cache_size_MB = 300
+
+    cache_ttl_sec = 86400
+
+    ; Transverse Mercator (and UTM) default algorithm: auto, evenden_snyder or poder_engsager
+    ; * evenden_snyder is the fastest, but less accurate far from central meridian
+    ; * poder_engsager is slower, but more accurate far from central meridian
+    ; * default will auto-select between the two above depending on the coordinate
+    ;   to transform and will use evenden_snyder if the error in doing so is below
+    ;   0.1 mm (for an ellipsoid of the size of Earth)
+    tmerc_default_algo = poder_engsager
+
 
 Transformation grids
 -------------------------------------------------------------------------------
@@ -64,10 +131,27 @@ all formats. Using GDAL for construction of new grids is recommended.
 External resources and packaged grids
 -------------------------------------------------------------------------------
 
+proj-data
++++++++++
+
+The ``proj-data`` package is a collection of all the resource files that are
+freely available for use with PROJ. The package is maintained on
+`GitHub <https://github.com/OSGeo/PROJ-data>`_ and the contents of the package
+are show-cased on the `PROJ CDN <https://cdn.proj.org/>`_. The contents of the
+package can be installed using the :program:`projsync` package or by downloading
+the zip archive of the package and unpacking in the :envvar:`PROJ_LIB` directory.
+
 proj-datumgrid
 ++++++++++++++
 
-For a functioning PROJ, installation of the
+.. note::
+
+    The packages described below can be used with PROJ 7 and later but are
+    primarily meant to be used with PROJ 6 and earlier versions. The proj-datumgrid
+    series of packages are not maintained anymore and are only kept available for
+    legacy purposes.
+
+For a functioning builds of PROJ prior to version 7, installation of the
 `proj-datumgrid <https://github.com/OSGeo/proj-datumgrid>`_ is needed. If you
 have installed PROJ from a package system chances are that this will already be
 done for you. The *proj-datumgrid* package provides transformation grids that
@@ -214,7 +298,7 @@ Getting crs2crs2grid.py
 ................................................................................
 
 The `crs2crs2grid.py` script can be found at
-https://github.com/OSGeo/gdal/tree/trunk/gdal/swig/python/samples/crs2crs2grid.py
+https://github.com/OSGeo/gdal/tree/master/gdal/swig/python/samples/crs2crs2grid.py
 
 The script depends on having the GDAL Python bindings operational; if they are not you
 will get an error such as:
