@@ -45,11 +45,11 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "OSGeo\0"
-            VALUE "FileDescription", "PROJ.4\0"
+            VALUE "FileDescription", "Coordinate transformation software library\0"
             VALUE "FileVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) ".0"
-            VALUE "InternalName", "proj.4-esri\0"
-            VALUE "LegalCopyright", "See LICENSE.TXT\0"
-            VALUE "ProductName", "PROJ.4\0"
+            VALUE "InternalName", "proj-esri\0"
+            VALUE "LegalCopyright", "PROJ contributors (2020)\0"
+            VALUE "ProductName", "PROJ\0"
             VALUE "ProductVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) ".0"
             VALUE "WebPage", "https://proj.org/\0" 
         END
