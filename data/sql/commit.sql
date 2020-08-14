@@ -32,9 +32,20 @@ FOR EACH ROW BEGIN
 
     -- test to check that our custom grid transformation overrides are really needed
     SELECT RAISE(ABORT, 'PROJ grid_transformation defined whereas EPSG has one')
-        WHERE EXISTS (SELECT 1 FROM grid_transformation g1, grid_transformation g2 WHERE
-            lower(g1.grid_name) = lower(g2.grid_name) AND
-            g1.auth_name = 'PROJ' AND g2.auth_name = 'EPSG');
+        WHERE EXISTS (SELECT 1 FROM grid_transformation g1
+                      JOIN grid_transformation g2
+                      ON g1.source_crs_auth_name = g2.source_crs_auth_name
+                      AND g1.source_crs_code = g2.source_crs_code
+                      AND g1.target_crs_auth_name = g2.target_crs_auth_name
+                      AND g1.target_crs_code = g2.target_crs_code
+                      WHERE g1.auth_name = 'PROJ' AND g2.auth_name = 'EPSG')
+        OR EXISTS (SELECT 1 FROM grid_transformation g1
+                      JOIN grid_transformation g2
+                      ON g1.source_crs_auth_name = g2.target_crs_auth_name
+                      AND g1.source_crs_code = g2.target_crs_code
+                      AND g1.target_crs_auth_name = g1.source_crs_auth_name
+                      AND g1.target_crs_code = g1.source_crs_code
+                      WHERE g1.auth_name = 'PROJ' AND g2.auth_name = 'EPSG');
 
     SELECT RAISE(ABORT, 'Arg! there is now a EPSG:102100 object. Hack in createFromUserInput() will no longer work')
         WHERE EXISTS(SELECT 1 FROM crs_view WHERE auth_name = 'EPSG' AND code = '102100');
@@ -62,19 +73,6 @@ FOR EACH ROW BEGIN
                       g.target_crs_auth_name || g.target_crs_code NOT IN
                       (SELECT auth_name || code FROM geodetic_crs
                        WHERE type = 'geographic 2D'));
-
-    -- check that grids with HEIGHT_TO_GEOGRAPHIC3D method are properly registered
-    SELECT RAISE(ABORT, 'One grid_transformation with HEIGHT_TO_GEOGRAPHIC3D has not its source_crs in vertical_crs table')
-        WHERE EXISTS (SELECT * FROM grid_transformation g WHERE
-                      g.method_code = 'HEIGHT_TO_GEOGRAPHIC3D' AND
-                      g.source_crs_auth_name || g.source_crs_code NOT IN
-                      (SELECT auth_name || code FROM vertical_crs));
-    SELECT RAISE(ABORT, 'One grid_transformation with HEIGHT_TO_GEOGRAPHIC3D has not its target_crs in geodetic_crs table with type = ''geographic 3D''')
-        WHERE EXISTS (SELECT * FROM grid_transformation g WHERE
-                      g.method_code = 'HEIGHT_TO_GEOGRAPHIC3D' AND
-                      g.target_crs_auth_name || g.target_crs_code NOT IN
-                      (SELECT auth_name || code FROM geodetic_crs
-                       WHERE type = 'geographic 3D'));
 
     -- check that grids with Geographic3D to GravityRelatedHeight method are properly registered
     SELECT RAISE(ABORT, 'One grid_transformation with Geographic3D to GravityRelatedHeight has not its target_crs in vertical_crs table')
@@ -132,6 +130,11 @@ FOR EACH ROW BEGIN
         WHERE NOT EXISTS(SELECT 1 FROM geoid_model WHERE name = 'GEOID12B');
     SELECT RAISE(ABORT, 'missing GEOID18 in geoid_model')
         WHERE NOT EXISTS(SELECT 1 FROM geoid_model WHERE name = 'GEOID18');
+
+    -- check presence of au_ga_AUSGeoid98.tif
+    SELECT RAISE(ABORT, 'missing au_ga_AUSGeoid98.tif')
+        WHERE NOT EXISTS(SELECT 1 FROM grid_alternatives WHERE proj_grid_name = 'au_ga_AUSGeoid98.tif');
+
 END;
 INSERT INTO dummy DEFAULT VALUES;
 DROP TRIGGER final_checks;

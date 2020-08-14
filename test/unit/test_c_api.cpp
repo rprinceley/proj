@@ -1298,12 +1298,10 @@ TEST_F(CApi, proj_coordoperation_get_grid_used) {
     ASSERT_NE(fullName, nullptr);
     ASSERT_NE(packageName, nullptr);
     ASSERT_NE(url, nullptr);
-    EXPECT_EQ(shortName, std::string("ntv1_can.dat"));
+    EXPECT_EQ(shortName, std::string("ca_nrc_ntv1_can.tif"));
     // EXPECT_EQ(fullName, std::string(""));
-    EXPECT_EQ(packageName, std::string("proj-datumgrid"));
-    EXPECT_TRUE(std::string(url).find(
-                    "https://download.osgeo.org/proj/proj-datumgrid-") == 0)
-        << std::string(url);
+    EXPECT_EQ(packageName, std::string(""));
+    EXPECT_EQ(std::string(url), "https://cdn.proj.org/ca_nrc_ntv1_can.tif");
     EXPECT_EQ(directDownload, 1);
     EXPECT_EQ(openLicense, 1);
 }
@@ -1350,12 +1348,73 @@ TEST_F(CApi, proj_create_operations) {
 
     EXPECT_EQ(proj_list_get(m_ctxt, res, -1), nullptr);
     EXPECT_EQ(proj_list_get(m_ctxt, res, proj_list_get_count(res)), nullptr);
-    auto op = proj_list_get(m_ctxt, res, 0);
-    ASSERT_NE(op, nullptr);
-    ObjectKeeper keeper_op(op);
-    EXPECT_FALSE(proj_coordoperation_has_ballpark_transformation(m_ctxt, op));
+    {
+        auto op = proj_list_get(m_ctxt, res, 0);
+        ASSERT_NE(op, nullptr);
+        ObjectKeeper keeper_op(op);
+        EXPECT_FALSE(
+            proj_coordoperation_has_ballpark_transformation(m_ctxt, op));
+        EXPECT_EQ(proj_get_name(op), std::string("NAD27 to NAD83 (3)"));
+    }
 
-    EXPECT_EQ(proj_get_name(op), std::string("NAD27 to NAD83 (3)"));
+    {
+        PJ_COORD coord;
+        coord.xy.x = 40;
+        coord.xy.y = -100;
+        int idx = proj_get_suggested_operation(m_ctxt, res, PJ_FWD, coord);
+        ASSERT_GE(idx, 0);
+        ASSERT_LT(idx, proj_list_get_count(res));
+        auto op = proj_list_get(m_ctxt, res, idx);
+        ASSERT_NE(op, nullptr);
+        ObjectKeeper keeper_op(op);
+        // Transformation for USA
+        EXPECT_EQ(proj_get_name(op), std::string("NAD27 to NAD83 (1)"));
+    }
+
+    {
+        PJ_COORD coord;
+        coord.xy.x = 40;
+        coord.xy.y = 10;
+        int idx = proj_get_suggested_operation(m_ctxt, res, PJ_FWD, coord);
+        EXPECT_GE(idx, -1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+TEST_F(CApi, proj_get_suggested_operation_with_operations_without_area_of_use) {
+    auto ctxt = proj_create_operation_factory_context(m_ctxt, nullptr);
+    ASSERT_NE(ctxt, nullptr);
+    ContextKeeper keeper_ctxt(ctxt);
+
+    // NAD83(2011) geocentric
+    auto source_crs = proj_create_from_database(
+        m_ctxt, "EPSG", "6317", PJ_CATEGORY_CRS, false, nullptr);
+    ASSERT_NE(source_crs, nullptr);
+    ObjectKeeper keeper_source_crs(source_crs);
+
+    // NAD83(2011) 2D
+    auto target_crs = proj_create_from_database(
+        m_ctxt, "EPSG", "6318", PJ_CATEGORY_CRS, false, nullptr);
+    ASSERT_NE(target_crs, nullptr);
+    ObjectKeeper keeper_target_crs(target_crs);
+
+    proj_operation_factory_context_set_spatial_criterion(
+        m_ctxt, ctxt, PROJ_SPATIAL_CRITERION_PARTIAL_INTERSECTION);
+
+    proj_operation_factory_context_set_grid_availability_use(
+        m_ctxt, ctxt, PROJ_GRID_AVAILABILITY_IGNORED);
+
+    auto res = proj_create_operations(m_ctxt, source_crs, target_crs, ctxt);
+    ASSERT_NE(res, nullptr);
+    ObjListKeeper keeper_res(res);
+
+    PJ_COORD coord;
+    coord.xyz.x = -463930;
+    coord.xyz.y = -4414006;
+    coord.xyz.z = 4562247;
+    int idx = proj_get_suggested_operation(m_ctxt, res, PJ_FWD, coord);
+    EXPECT_GE(idx, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -1438,7 +1497,7 @@ TEST_F(CApi, proj_create_operations_with_pivot) {
 
     // There is no direct transformations between both
 
-    // Default behaviour: allow any pivot
+    // Default behavior: allow any pivot
     {
         auto ctxt = proj_create_operation_factory_context(m_ctxt, nullptr);
         ASSERT_NE(ctxt, nullptr);
@@ -1536,6 +1595,63 @@ TEST_F(CApi, proj_create_operations_with_pivot) {
             proj_get_name(op),
             std::string(
                 "Inverse of JGD2000 to WGS 84 (1) + JGD2000 to JGD2011 (2)"));
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+TEST_F(CApi, proj_create_operations_allow_ballpark_transformations) {
+    auto ctxt = proj_create_operation_factory_context(m_ctxt, nullptr);
+    ASSERT_NE(ctxt, nullptr);
+    ContextKeeper keeper_ctxt(ctxt);
+
+    auto source_crs = proj_create_from_database(
+        m_ctxt, "EPSG", "4267", PJ_CATEGORY_CRS, false, nullptr); // NAD27
+    ASSERT_NE(source_crs, nullptr);
+    ObjectKeeper keeper_source_crs(source_crs);
+
+    auto target_crs = proj_create_from_database(
+        m_ctxt, "EPSG", "4258", PJ_CATEGORY_CRS, false, nullptr); // ETRS89
+    ASSERT_NE(target_crs, nullptr);
+    ObjectKeeper keeper_target_crs(target_crs);
+
+    proj_operation_factory_context_set_spatial_criterion(
+        m_ctxt, ctxt, PROJ_SPATIAL_CRITERION_PARTIAL_INTERSECTION);
+
+    proj_operation_factory_context_set_grid_availability_use(
+        m_ctxt, ctxt, PROJ_GRID_AVAILABILITY_IGNORED);
+
+    // Default: allowed implicitly
+    {
+        auto res = proj_create_operations(m_ctxt, source_crs, target_crs, ctxt);
+        ASSERT_NE(res, nullptr);
+        ObjListKeeper keeper_res(res);
+
+        EXPECT_EQ(proj_list_get_count(res), 1);
+    }
+
+    // Allow explicitly
+    {
+        proj_operation_factory_context_set_allow_ballpark_transformations(
+            m_ctxt, ctxt, true);
+
+        auto res = proj_create_operations(m_ctxt, source_crs, target_crs, ctxt);
+        ASSERT_NE(res, nullptr);
+        ObjListKeeper keeper_res(res);
+
+        EXPECT_EQ(proj_list_get_count(res), 1);
+    }
+
+    // Disallow
+    {
+        proj_operation_factory_context_set_allow_ballpark_transformations(
+            m_ctxt, ctxt, false);
+
+        auto res = proj_create_operations(m_ctxt, source_crs, target_crs, ctxt);
+        ASSERT_NE(res, nullptr);
+        ObjListKeeper keeper_res(res);
+
+        EXPECT_EQ(proj_list_get_count(res), 0);
     }
 }
 
@@ -1668,7 +1784,7 @@ TEST_F(CApi, proj_create_from_name) {
                                          false, 0, nullptr);
         ASSERT_NE(res, nullptr);
         ObjListKeeper keeper_res(res);
-        EXPECT_EQ(proj_list_get_count(res), 4);
+        EXPECT_EQ(proj_list_get_count(res), 5);
     }
     {
         auto res = proj_create_from_name(m_ctxt, "xx", "WGS 84", nullptr, 0,
@@ -2500,6 +2616,8 @@ TEST_F(CApi, proj_cs_get_axis_info) {
 TEST_F(CApi, proj_context_get_database_metadata) {
     EXPECT_TRUE(proj_context_get_database_metadata(m_ctxt, "IGNF.VERSION") !=
                 nullptr);
+
+    EXPECT_TRUE(proj_context_get_database_metadata(m_ctxt, "FOO") == nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -2738,7 +2856,12 @@ TEST_F(CApi, proj_create_engineering_crs) {
     ASSERT_NE(crs, nullptr);
     auto wkt = proj_as_wkt(m_ctxt, crs, PJ_WKT1_GDAL, nullptr);
     ASSERT_NE(wkt, nullptr);
-    EXPECT_EQ(std::string(wkt), "LOCAL_CS[\"name\"]") << wkt;
+    EXPECT_EQ(std::string(wkt), "LOCAL_CS[\"name\",\n"
+                                "    UNIT[\"metre\",1,\n"
+                                "        AUTHORITY[\"EPSG\",\"9001\"]],\n"
+                                "    AXIS[\"Easting\",EAST],\n"
+                                "    AXIS[\"Northing\",NORTH]]")
+        << wkt;
 }
 
 // ---------------------------------------------------------------------------
@@ -3105,22 +3228,49 @@ TEST_F(CApi, proj_grid_get_info_from_database) {
     }
     {
         EXPECT_TRUE(proj_grid_get_info_from_database(
-            m_ctxt, "GDA94_GDA2020_conformal.gsb", nullptr, nullptr, nullptr,
-            nullptr, nullptr, nullptr));
+            m_ctxt, "au_icsm_GDA94_GDA2020_conformal.tif", nullptr, nullptr,
+            nullptr, nullptr, nullptr, nullptr));
     }
     {
-        const char *name = nullptr;
+        const char *full_name = nullptr;
         const char *package_name = nullptr;
         const char *url = nullptr;
         int direct_download = 0;
         int open_license = 0;
         int available = 0;
         EXPECT_TRUE(proj_grid_get_info_from_database(
-            m_ctxt, "GDA94_GDA2020_conformal.gsb", &name, &package_name, &url,
-            &direct_download, &open_license, &available));
-        ASSERT_NE(name, nullptr);
+            m_ctxt, "au_icsm_GDA94_GDA2020_conformal.tif", &full_name,
+            &package_name, &url, &direct_download, &open_license, &available));
+        ASSERT_NE(full_name, nullptr);
+        // empty string expected as the file is not in test data
+        EXPECT_TRUE(full_name[0] == 0);
         ASSERT_NE(package_name, nullptr);
+        EXPECT_TRUE(package_name[0] == 0); // empty string expected
         ASSERT_NE(url, nullptr);
+        EXPECT_EQ(std::string(url),
+                  "https://cdn.proj.org/au_icsm_GDA94_GDA2020_conformal.tif");
+        EXPECT_EQ(direct_download, 1);
+        EXPECT_EQ(open_license, 1);
+    }
+    // Same test as above, but with PROJ 6 grid name
+    {
+        const char *full_name = nullptr;
+        const char *package_name = nullptr;
+        const char *url = nullptr;
+        int direct_download = 0;
+        int open_license = 0;
+        int available = 0;
+        EXPECT_TRUE(proj_grid_get_info_from_database(
+            m_ctxt, "GDA94_GDA2020_conformal.gsb", &full_name, &package_name,
+            &url, &direct_download, &open_license, &available));
+        ASSERT_NE(full_name, nullptr);
+        // empty string expected as the file is not in test data
+        EXPECT_TRUE(full_name[0] == 0);
+        ASSERT_NE(package_name, nullptr);
+        EXPECT_TRUE(package_name[0] == 0); // empty string expected
+        ASSERT_NE(url, nullptr);
+        EXPECT_EQ(std::string(url),
+                  "https://cdn.proj.org/au_icsm_GDA94_GDA2020_conformal.tif");
         EXPECT_EQ(direct_download, 1);
         EXPECT_EQ(open_license, 1);
     }
@@ -3333,9 +3483,11 @@ TEST_F(CApi, proj_get_crs_info_list_from_database) {
         ASSERT_NE(list, nullptr);
         EXPECT_GT(result_count, 1);
         for (int i = 0; i < result_count; i++) {
-            EXPECT_LE(list[i]->west_lon_degree, params->west_lon_degree);
+            if (list[i]->west_lon_degree < list[i]->east_lon_degree) {
+                EXPECT_LE(list[i]->west_lon_degree, params->west_lon_degree);
+                EXPECT_GE(list[i]->east_lon_degree, params->east_lon_degree);
+            }
             EXPECT_LE(list[i]->south_lat_degree, params->south_lat_degree);
-            EXPECT_GE(list[i]->east_lon_degree, params->east_lon_degree);
             EXPECT_GE(list[i]->north_lat_degree, params->north_lat_degree);
         }
         proj_get_crs_list_parameters_destroy(params);
@@ -3360,13 +3512,57 @@ TEST_F(CApi, proj_get_crs_info_list_from_database) {
         ASSERT_NE(list, nullptr);
         EXPECT_GT(result_count, 1);
         for (int i = 0; i < result_count; i++) {
-            EXPECT_LE(list[i]->west_lon_degree, params->east_lon_degree);
+            if (list[i]->west_lon_degree < list[i]->east_lon_degree) {
+                EXPECT_LE(list[i]->west_lon_degree, params->west_lon_degree);
+                EXPECT_GE(list[i]->east_lon_degree, params->east_lon_degree);
+            }
             EXPECT_LE(list[i]->south_lat_degree, params->north_lat_degree);
-            EXPECT_GE(list[i]->east_lon_degree, params->west_lon_degree);
             EXPECT_GE(list[i]->north_lat_degree, params->south_lat_degree);
         }
         proj_get_crs_list_parameters_destroy(params);
         proj_crs_info_list_destroy(list);
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+TEST_F(CApi, proj_get_units_from_database) {
+    { proj_unit_list_destroy(nullptr); }
+
+    {
+        auto list = proj_get_units_from_database(nullptr, nullptr, nullptr,
+                                                 true, nullptr);
+        ASSERT_NE(list, nullptr);
+        ASSERT_NE(list[0], nullptr);
+        ASSERT_NE(list[0]->auth_name, nullptr);
+        ASSERT_NE(list[0]->code, nullptr);
+        ASSERT_NE(list[0]->name, nullptr);
+        proj_unit_list_destroy(list);
+    }
+
+    {
+        int result_count = 0;
+        auto list = proj_get_units_from_database(nullptr, "EPSG", "linear",
+                                                 false, &result_count);
+        ASSERT_NE(list, nullptr);
+        EXPECT_GT(result_count, 1);
+        EXPECT_EQ(list[result_count], nullptr);
+        bool found9001 = false;
+        for (int i = 0; i < result_count; i++) {
+            EXPECT_EQ(std::string(list[i]->auth_name), "EPSG");
+            if (std::string(list[i]->code) == "9001") {
+                EXPECT_EQ(std::string(list[i]->name), "metre");
+                EXPECT_EQ(std::string(list[i]->category), "linear");
+                EXPECT_EQ(list[i]->conv_factor, 1.0);
+                ASSERT_NE(list[i]->proj_short_name, nullptr);
+                EXPECT_EQ(std::string(list[i]->proj_short_name), "m");
+                EXPECT_EQ(list[i]->deprecated, 0);
+                found9001 = true;
+            }
+            EXPECT_EQ(list[i]->deprecated, 0);
+        }
+        EXPECT_TRUE(found9001);
+        proj_unit_list_destroy(list);
     }
 }
 
@@ -3517,22 +3713,39 @@ TEST_F(CApi, proj_coordoperation_create_inverse) {
 // ---------------------------------------------------------------------------
 
 TEST_F(CApi, proj_get_remarks) {
-    auto co = proj_create_from_database(m_ctxt, "EPSG", "8048",
-                                        PJ_CATEGORY_COORDINATE_OPERATION, false,
-                                        nullptr);
-    ObjectKeeper keeper(co);
-    ASSERT_NE(co, nullptr);
+    // Transformation
+    {
+        auto co = proj_create_from_database(m_ctxt, "EPSG", "8048",
+                                            PJ_CATEGORY_COORDINATE_OPERATION,
+                                            false, nullptr);
+        ObjectKeeper keeper(co);
+        ASSERT_NE(co, nullptr);
 
-    auto remarks = proj_get_remarks(co);
-    ASSERT_NE(remarks, nullptr);
-    EXPECT_TRUE(std::string(remarks).find(
-                    "Scale difference in ppb where 1/billion = 1E-9.") == 0)
-        << remarks;
+        auto remarks = proj_get_remarks(co);
+        ASSERT_NE(remarks, nullptr);
+        EXPECT_TRUE(std::string(remarks).find(
+                        "Scale difference in ppb where 1/billion = 1E-9.") == 0)
+            << remarks;
+    }
+
+    // Conversion
+    {
+        auto co = proj_create_from_database(m_ctxt, "EPSG", "3811",
+                                            PJ_CATEGORY_COORDINATE_OPERATION,
+                                            false, nullptr);
+        ObjectKeeper keeper(co);
+        ASSERT_NE(co, nullptr);
+
+        auto remarks = proj_get_remarks(co);
+        ASSERT_NE(remarks, nullptr);
+        EXPECT_EQ(remarks, std::string("Replaces Lambert 2005."));
+    }
 }
 
 // ---------------------------------------------------------------------------
 
 TEST_F(CApi, proj_get_scope) {
+    // Transformation
     {
         auto co = proj_create_from_database(m_ctxt, "EPSG", "8048",
                                             PJ_CATEGORY_COORDINATE_OPERATION,
@@ -3546,6 +3759,22 @@ TEST_F(CApi, proj_get_scope) {
                   std::string("Conformal transformation of GDA94 coordinates "
                               "that have been derived through GNSS CORS."));
     }
+
+    // Conversion
+    {
+        auto co = proj_create_from_database(m_ctxt, "EPSG", "3811",
+                                            PJ_CATEGORY_COORDINATE_OPERATION,
+                                            false, nullptr);
+        ObjectKeeper keeper(co);
+        ASSERT_NE(co, nullptr);
+
+        auto scope = proj_get_scope(co);
+        ASSERT_NE(scope, nullptr);
+        EXPECT_EQ(scope,
+                  std::string("Large and medium scale topographic mapping "
+                              "and engineering survey."));
+    }
+
     {
         auto P = proj_create(m_ctxt, "+proj=noop");
         ObjectKeeper keeper(P);
@@ -4115,10 +4344,7 @@ TEST_F(CApi, proj_create_crs_to_crs_with_only_ballpark_transformations) {
     coord = proj_trans(Pnormalized, PJ_FWD, coord);
     EXPECT_NEAR(coord.xyzt.x, 3.0, 1e-9);
     EXPECT_NEAR(coord.xyzt.y, 40.65085651660555, 1e-9);
-    if (coord.xyzt.z != 0) {
-        // z will depend if the egm96_15.gtx grid is there or not
-        EXPECT_NEAR(coord.xyzt.z, 47.04784081844435, 1e-3);
-    }
+    EXPECT_NEAR(coord.xyzt.z, 47.72600023608570, 1e-3);
 }
 
 // ---------------------------------------------------------------------------
@@ -4126,10 +4352,6 @@ TEST_F(CApi, proj_create_crs_to_crs_with_only_ballpark_transformations) {
 TEST_F(
     CApi,
     proj_create_crs_to_crs_from_custom_compound_crs_with_NAD83_2011_and_geoidgrid_ref_against_WGS84_to_WGS84_G1762) {
-
-    if (strcmp(proj_grid_info("egm96_15.gtx").format, "missing") == 0) {
-        return; // use GTEST_SKIP() if we upgrade gtest
-    }
 
     PJ *P;
 
@@ -4163,7 +4385,7 @@ TEST_F(
     // In this particular case, PROJ computes a transformation from NAD83(2011)
     // (EPSG:6318) to WGS84 (EPSG:4979) for the initial horizontal adjustment
     // before the geoidgrids application. There are 6 candidate transformations
-    // for that in subzones of the US and one last no-op tranformation flagged
+    // for that in subzones of the US and one last no-op transformation flagged
     // as ballpark. That one used to be eliminated because by
     // proj_create_crs_to_crs() because there were non Ballpark transformations
     // available. This resulted thus in an error when transforming outside of
@@ -4185,7 +4407,7 @@ TEST_F(
 
     EXPECT_NEAR(outcoord.xyzt.x, 35.09499307271, 1e-9);
     EXPECT_NEAR(outcoord.xyzt.y, -118.64014868921, 1e-9);
-    EXPECT_NEAR(outcoord.xyzt.z, 118.059, 1e-3);
+    EXPECT_NEAR(outcoord.xyzt.z, 117.655, 1e-3);
 }
 
 // ---------------------------------------------------------------------------
@@ -4193,10 +4415,6 @@ TEST_F(
 TEST_F(
     CApi,
     proj_create_crs_to_crs_from_custom_compound_crs_with_NAD83_2011_and_geoidgrid_ref_against_NAD83_2011_to_WGS84_G1762) {
-
-    if (strcmp(proj_grid_info("egm96_15.gtx").format, "missing") == 0) {
-        return; // use GTEST_SKIP() if we upgrade gtest
-    }
 
     PJ *P;
 
@@ -4249,7 +4467,7 @@ TEST_F(
 
     EXPECT_NEAR(outcoord.xyzt.x, 35.000003665064803, 1e-9);
     EXPECT_NEAR(outcoord.xyzt.y, -118.00001414221214, 1e-9);
-    EXPECT_NEAR(outcoord.xyzt.z, -32.5823, 1e-3);
+    EXPECT_NEAR(outcoord.xyzt.z, -32.8110, 1e-3);
 }
 
 // ---------------------------------------------------------------------------
@@ -4463,6 +4681,27 @@ TEST_F(CApi, proj_create_derived_geographic_crs) {
     EXPECT_EQ(proj_5, std::string("+proj=ob_tran +o_proj=longlat +o_lon_p=-4 "
                                   "+o_lat_p=-2 +lon_0=3 +datum=WGS84 +no_defs "
                                   "+type=crs"));
+}
+
+// ---------------------------------------------------------------------------
+
+TEST_F(CApi, proj_context_set_sqlite3_vfs_name) {
+
+    PJ_CONTEXT *ctx = proj_context_create();
+    proj_log_func(ctx, nullptr, [](void *, int, const char *) -> void {});
+
+    // Set a dummy VFS and check it is taken into account
+    // (failure to open proj.db)
+    proj_context_set_sqlite3_vfs_name(ctx, "dummy_vfs_name");
+    ASSERT_EQ(proj_create(ctx, "EPSG:4326"), nullptr);
+
+    // Restore default VFS
+    proj_context_set_sqlite3_vfs_name(ctx, nullptr);
+    PJ *crs_4326 = proj_create(ctx, "EPSG:4326");
+    ASSERT_NE(crs_4326, nullptr);
+    proj_destroy(crs_4326);
+
+    proj_context_destroy(ctx);
 }
 
 // ---------------------------------------------------------------------------

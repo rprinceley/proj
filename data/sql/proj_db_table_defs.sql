@@ -14,6 +14,7 @@ CREATE TABLE unit_of_measure(
     name TEXT NOT NULL CHECK (length(name) >= 2),
     type TEXT NOT NULL CHECK (type IN ('length', 'angle', 'scale', 'time')),
     conv_factor FLOAT,
+    proj_short_name TEXT, -- PROJ string name, like 'm', 'ft'. Might be NULL
     deprecated BOOLEAN NOT NULL CHECK (deprecated IN (0, 1)),
     CONSTRAINT pk_unit_of_measure PRIMARY KEY (auth_name, code)
 );
@@ -65,8 +66,7 @@ CREATE TABLE area(
     east_lon FLOAT CHECK (east_lon BETWEEN -180 AND 180),
     deprecated BOOLEAN NOT NULL CHECK (deprecated IN (0, 1)),
     CONSTRAINT pk_area PRIMARY KEY (auth_name, code),
-    CONSTRAINT check_area_lat CHECK (south_lat <= north_lat),
-    CONSTRAINT check_area_lon CHECK (west_lon <= east_lon OR (east_lon + 360 - west_lon <= 200))
+    CONSTRAINT check_area_lat CHECK (south_lat <= north_lat)
 );
 
 CREATE TABLE prime_meridian(
@@ -682,7 +682,7 @@ FOR EACH ROW BEGIN
         WHERE EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.auth_name AND crs_view.code = NEW.code);
 
     SELECT RAISE(ABORT, 'insert on projected_crs violates constraint: geodetic_crs must not be deprecated when projected_crs is not deprecated')
-        WHERE EXISTS(SELECT 1 FROM geodetic_crs WHERE geodetic_crs.auth_name = NEW.geodetic_crs_auth_name AND geodetic_crs.code = NEW.geodetic_crs_code AND geodetic_crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI' AND NEW.geodetic_crs_auth_name != 'ESRI');
+        WHERE EXISTS(SELECT 1 FROM geodetic_crs WHERE geodetic_crs.auth_name = NEW.geodetic_crs_auth_name AND geodetic_crs.code = NEW.geodetic_crs_code AND geodetic_crs.deprecated != 0 AND geodetic_crs.name NOT LIKE 'Unknown datum%' AND geodetic_crs.name NOT LIKE 'Unspecified datum%') AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI' AND NEW.geodetic_crs_auth_name != 'ESRI');
 
     SELECT RAISE(ABORT, 'insert on projected_crs violates constraint: conversion must exist when text_definition is NULL')
         WHERE NOT EXISTS(SELECT 1 FROM conversion WHERE conversion.auth_name = NEW.conversion_auth_name AND conversion.code = NEW.conversion_code) AND NEW.text_definition IS NULL;
@@ -1091,32 +1091,35 @@ END;
 -- Table that contain alternative names for original grid names coming from the authority
 CREATE TABLE grid_alternatives(
     original_grid_name TEXT NOT NULL PRIMARY KEY,   -- original grid name (e.g. Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree.gz). For LOS/LAS format, the .las files
-    proj_grid_name TEXT NOT NULL,                   -- PROJ grid name (e.g egm08_25.gtx)
-    proj_grid_format TEXT NOT NULL,                 -- one of 'CTable2', 'NTv1', 'NTv2', 'GTX'
-    proj_method TEXT NOT NULL,                      -- hgridshift or vgridshift
+    proj_grid_name TEXT NOT NULL,                   -- PROJ >= 7 grid name (e.g us_nga_egm08_25.tif)
+    old_proj_grid_name TEXT,                        -- PROJ < 7 grid name (e.g egm08_25.gtx)
+    proj_grid_format TEXT NOT NULL,                 -- 'GTiff', 'GTX', 'NTv2'
+    proj_method TEXT NOT NULL,                      -- hgridshift, vgridshift or geoid_like
     inverse_direction BOOLEAN NOT NULL CHECK (inverse_direction IN (0, 1)), -- whether the PROJ grid direction is reversed w.r.t to the authority one (TRUE in that case)
-    package_name TEXT,                              -- package name that contains the file
+    package_name TEXT,                              -- no longer used. Must be NULL
     url TEXT,                                       -- optional URL where to download the PROJ grid
     direct_download BOOLEAN CHECK (direct_download IN (0, 1)), -- whether the URL can be used directly (if 0, authentication etc might be needed)
     open_license BOOLEAN CHECK (open_license IN (0, 1)),
     directory TEXT,                                 -- optional directory where the file might be located
 
     CONSTRAINT fk_grid_alternatives_grid_packages FOREIGN KEY (package_name) REFERENCES grid_packages(package_name),
-    CONSTRAINT check_grid_alternatives_grid_fromat CHECK (proj_grid_format IN ('CTable2', 'NTv1', 'NTv2', 'GTX')),
-    CONSTRAINT check_grid_alternatives_proj_method CHECK (proj_method IN ('hgridshift', 'vgridshift')),
-    CONSTRAINT check_grid_alternatives_not_hgridshift CHECK (NOT(proj_method != 'hgridshift' AND proj_grid_format IN ('CTable2', 'NTv1', 'NTv2'))),
-    CONSTRAINT check_grid_alternatives_not_vgridshift CHECK (NOT(proj_method != 'vgridshift' AND proj_grid_format IN ('GTX'))),
-    CONSTRAINT check_grid_alternatives_original_grid_name CHECK (NOT(original_grid_name = proj_grid_name AND inverse_direction != 0)),
-    CONSTRAINT check_grid_alternatives_package_name_url CHECK (NOT(package_name IS NOT NULL AND url IS NOT NULL)),
+    CONSTRAINT check_grid_alternatives_grid_fromat CHECK (proj_grid_format IN ('GTiff', 'GTX', 'NTv2')),
+    CONSTRAINT check_grid_alternatives_proj_method CHECK (proj_method IN ('hgridshift', 'vgridshift', 'geoid_like', 'geocentricoffset')),
+    CONSTRAINT check_grid_alternatives_inverse_direction CHECK (NOT(proj_method = 'geoid_like' AND inverse_direction = 1)),
+    CONSTRAINT check_grid_alternatives_package_name CHECK (package_name IS NULL),
     CONSTRAINT check_grid_alternatives_direct_download_url CHECK (NOT(direct_download IS NULL AND url IS NOT NULL)),
-    CONSTRAINT check_grid_alternatives_open_license_url CHECK (NOT(open_license IS NULL AND url IS NOT NULL))
+    CONSTRAINT check_grid_alternatives_open_license_url CHECK (NOT(open_license IS NULL AND url IS NOT NULL)),
+    CONSTRAINT check_grid_alternatives_constraint_cdn CHECK (NOT(url LIKE 'https://cdn.proj.org/%' AND (direct_download = 0 OR open_license = 0 OR url != 'https://cdn.proj.org/' || proj_grid_name)))
 );
+
+CREATE INDEX idx_grid_alternatives_proj_grid_name ON grid_alternatives(proj_grid_name);
+CREATE INDEX idx_grid_alternatives_old_proj_grid_name ON grid_alternatives(old_proj_grid_name);
 
 CREATE TRIGGER grid_alternatives_insert_trigger
 BEFORE INSERT ON grid_alternatives
 FOR EACH ROW BEGIN
     SELECT RAISE(ABORT, 'insert on grid_alternatives violates constraint: original_grid_name must be referenced in grid_transformation.grid_name')
-        WHERE NEW.original_grid_name NOT IN ('null') AND NEW.original_grid_name NOT IN (SELECT grid_name FROM grid_transformation);
+        WHERE NEW.original_grid_name NOT LIKE 'NOT-YET-IN-GRID-TRANSFORMATION-%' AND NEW.original_grid_name NOT IN (SELECT grid_name FROM grid_transformation);
 END;
 
 CREATE TABLE other_transformation(
@@ -1337,6 +1340,8 @@ CREATE TABLE alias_name(
     source TEXT
 );
 
+CREATE INDEX idx_alias_name_code ON alias_name(code);
+
 CREATE TRIGGER alias_name_insert_trigger
 BEFORE INSERT ON alias_name
 FOR EACH ROW BEGIN
@@ -1362,8 +1367,11 @@ CREATE TABLE supersession(
         'helmert_transformation', 'other_transformation', 'concatenated_operation')),
     replacement_auth_name TEXT NOT NULL,
     replacement_code TEXT NOT NULL,
-    source TEXT
+    source TEXT,
+    same_source_target_crs BOOLEAN NOT NULL CHECK (same_source_target_crs IN (0, 1)) -- for transformations, whether the (source_crs, target_crs) of the replacement transfrm is the same as the superseded one
 );
+
+CREATE INDEX idx_supersession ON supersession(superseded_table_name, superseded_auth_name, superseded_code);
 
 CREATE TRIGGER supersession_insert_trigger
 BEFORE INSERT ON supersession

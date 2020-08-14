@@ -48,6 +48,10 @@
 
 #include "proj.h"
 #include "proj_internal.h"
+#include "grids.hpp"
+#include "filemanager.hpp"
+
+using namespace NS_PROJ;
 
 /**********************************************************************/
 void *pj_malloc(size_t size) {
@@ -212,7 +216,7 @@ PJ *pj_default_destructor (PJ *P, int errlev) {   /* Destructor */
 
     /* Even if P==0, we set the errlev on pj_error and the default context   */
     /* Note that both, in the multithreaded case, may then contain undefined */
-    /* values. This is expected behaviour. For MT have one ctx per thread    */
+    /* values. This is expected behavior. For MT have one ctx per thread    */
     if (0!=errlev)
         pj_ctx_set_errno (pj_get_ctx(P), errlev);
 
@@ -225,10 +229,8 @@ PJ *pj_default_destructor (PJ *P, int errlev) {   /* Destructor */
     pj_dealloc(P->def_spherification);
     pj_dealloc(P->def_ellps);
 
-    /* free grid lists */
-    pj_dealloc( P->gridlist );
-    pj_dealloc( P->vgridlist_geoid );
-    pj_dealloc( P->catalog_name );
+    delete static_cast<ListOfHGrids*>(P->hgrids_legacy);
+    delete static_cast<ListOfVGrids*>(P->vgrids_legacy);
 
     /* We used to call pj_dalloc( P->catalog ), but this will leak */
     /* memory. The safe way to clear catalog and grid is to call */
@@ -261,4 +263,7 @@ void proj_cleanup() {
 /*****************************************************************************/
   pj_clear_initcache();
   pj_deallocate_grids();
+  FileManager::clearMemoryCache();
+  pj_clear_hgridshift_knowngrids_cache();
+  pj_clear_vgridshift_knowngrids_cache();
 }

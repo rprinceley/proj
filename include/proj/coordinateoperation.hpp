@@ -144,10 +144,12 @@ class PROJ_GCC_DLL CoordinateOperation : public common::ObjectUsage,
 
     /** \brief Return grids needed by an operation. */
     PROJ_DLL virtual std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const = 0;
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const = 0;
 
     PROJ_DLL bool
-    isPROJInstantiable(const io::DatabaseContextPtr &databaseContext) const;
+    isPROJInstantiable(const io::DatabaseContextPtr &databaseContext,
+                       bool considerKnownGridsAsAvailable) const;
 
     PROJ_DLL bool hasBallparkTransformation() const;
 
@@ -601,7 +603,8 @@ class PROJ_GCC_DLL SingleOperation : virtual public CoordinateOperation {
             std::vector<metadata::PositionalAccuracyNNPtr>());
 
     PROJ_DLL std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const override;
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const override;
 
     PROJ_DLL std::list<std::string> validateParameters() const;
 
@@ -1590,6 +1593,14 @@ class PROJ_GCC_DLL Transformation : public SingleOperation {
 
     PROJ_INTERNAL TransformationNNPtr shallowClone() const;
 
+    PROJ_INTERNAL TransformationNNPtr
+    promoteTo3D(const std::string &newName,
+                const io::DatabaseContextPtr &dbContext) const;
+
+    PROJ_INTERNAL TransformationNNPtr
+    demoteTo2D(const std::string &newName,
+               const io::DatabaseContextPtr &dbContext) const;
+
     //! @endcond
 
   protected:
@@ -1680,7 +1691,8 @@ class PROJ_GCC_DLL ConcatenatedOperation final : public CoordinateOperation {
         bool checkExtent); // throw InvalidOperation
 
     PROJ_DLL std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const override;
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const override;
 
     PROJ_PRIVATE :
 
@@ -1755,6 +1767,10 @@ class PROJ_GCC_DLL CoordinateOperationContext {
 
     PROJ_DLL void setDesiredAccuracy(double accuracy);
 
+    PROJ_DLL void setAllowBallparkTransformations(bool allow);
+
+    PROJ_DLL bool getAllowBallparkTransformations() const;
+
     /** Specify how source and target CRS extent should be used to restrict
      * candidate operations (only taken into account if no explicit area of
      * interest is specified. */
@@ -1810,6 +1826,12 @@ class PROJ_GCC_DLL CoordinateOperationContext {
         /** Ignore grid availability at all. Results will be presented as if
          * all grids were available. */
         IGNORE_GRID_AVAILABILITY,
+
+        /** Results will be presented as if grids known to PROJ (that is
+        * registered in the grid_alternatives table of its database) were
+        * available. Used typically when networking is enabled.
+        */
+        KNOWN_AVAILABLE,
     };
 
     PROJ_DLL void setGridAvailabilityUse(GridAvailabilityUse use);

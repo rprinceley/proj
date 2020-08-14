@@ -76,7 +76,8 @@ struct ESRIParamMapping {
     const char *esri_name;
     const char *wkt2_name;
     int epsg_code;
-    float fixed_value;
+    const char *fixed_value;
+    bool is_fixed_value;
 };
 
 struct ESRIMethodMapping {
@@ -180,8 +181,10 @@ class InverseConversion : public Conversion, public InverseCoordinateOperation {
     // 'osgeo::proj::operation::SingleOperation::osgeo::proj::operation::SingleOperation::gridsNeeded'
     // via dominance
     std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const override {
-        return SingleOperation::gridsNeeded(databaseContext);
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const override {
+        return SingleOperation::gridsNeeded(databaseContext,
+                                            considerKnownGridsAsAvailable);
     }
 #endif
 
@@ -232,8 +235,10 @@ class InverseTransformation : public Transformation,
     // 'osgeo::proj::operation::SingleOperation::osgeo::proj::operation::SingleOperation::gridsNeeded'
     // via dominance
     std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const override {
-        return SingleOperation::gridsNeeded(databaseContext);
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const override {
+        return SingleOperation::gridsNeeded(databaseContext,
+                                            considerKnownGridsAsAvailable);
     }
 #endif
 
@@ -274,7 +279,8 @@ class PROJBasedOperation : public SingleOperation {
            bool hasRoughTransformation);
 
     std::set<GridDescription>
-    gridsNeeded(const io::DatabaseContextPtr &databaseContext) const override;
+    gridsNeeded(const io::DatabaseContextPtr &databaseContext,
+                bool considerKnownGridsAsAvailable) const override;
 
   protected:
     PROJBasedOperation(const PROJBasedOperation &) = default;

@@ -38,10 +38,11 @@
 
 #include "proj.h"
 
-#include "proj_json_streaming_writer.hpp"
 #include "util.hpp"
 
 NS_PROJ_START
+
+class CPLJSonStreamingWriter;
 
 namespace common {
 class UnitOfMeasure;
@@ -438,6 +439,10 @@ class PROJ_GCC_DLL PROJStringFormatter {
     PROJ_INTERNAL void popOmitZUnitConversion();
     PROJ_INTERNAL bool omitZUnitConversion() const;
 
+    PROJ_INTERNAL void pushOmitHorizontalConversionInVertTransformation();
+    PROJ_INTERNAL void popOmitHorizontalConversionInVertTransformation();
+    PROJ_INTERNAL bool omitHorizontalConversionInVertTransformation() const;
+
     PROJ_INTERNAL void setLegacyCRSToCRSContext(bool legacyContext);
     PROJ_INTERNAL bool getLegacyCRSToCRSContext() const;
 
@@ -490,7 +495,7 @@ class PROJ_GCC_DLL JSONFormatter {
     PROJ_PRIVATE :
 
         //! @cond Doxygen_Suppress
-        PROJ_INTERNAL CPLJSonStreamingWriter &
+        PROJ_INTERNAL CPLJSonStreamingWriter *
         writer() const;
 
     struct ObjectContext {
@@ -832,10 +837,16 @@ class PROJ_GCC_DLL DatabaseContext {
                                               bool &inverse) const;
 
     PROJ_DLL bool lookForGridInfo(const std::string &projFilename,
+                                  bool considerKnownGridsAsAvailable,
                                   std::string &fullFilename,
                                   std::string &packageName, std::string &url,
                                   bool &directDownload, bool &openLicense,
                                   bool &gridAvailable) const;
+
+    PROJ_INTERNAL std::string
+    getProjGridName(const std::string &oldProjGridName);
+
+    PROJ_INTERNAL std::string getOldProjGridName(const std::string &gridName);
 
     PROJ_INTERNAL std::string
     getAliasFromOfficialName(const std::string &officialName,
@@ -1007,6 +1018,8 @@ class PROJ_GCC_DLL AuthorityFactory {
 
     PROJ_DLL std::string getDescriptionText(const std::string &code) const;
 
+    // non-standard
+
     /** CRS information */
     struct CRSInfo {
         /** Authority name */
@@ -1043,7 +1056,33 @@ class PROJ_GCC_DLL AuthorityFactory {
 
     PROJ_DLL std::list<CRSInfo> getCRSInfoList() const;
 
-    // non-standard
+    /** Unit information */
+    struct UnitInfo {
+        /** Authority name */
+        std::string authName;
+        /** Code */
+        std::string code;
+        /** Name */
+        std::string name;
+        /** Category: one of "linear", "linear_per_time", "angular",
+         * "angular_per_time", "scale", "scale_per_time" or "time" */
+        std::string category;
+        /** Conversion factor to the SI unit.
+         * It might be 0 in some cases to indicate no known conversion factor.
+         */
+        double convFactor;
+        /** PROJ short name (may be empty) */
+        std::string projShortName;
+        /** Whether the object is deprecated */
+        bool deprecated;
+
+        //! @cond Doxygen_Suppress
+        UnitInfo();
+        //! @endcond
+    };
+
+    PROJ_DLL std::list<UnitInfo> getUnitList() const;
+
     PROJ_DLL static AuthorityFactoryNNPtr
     create(const DatabaseContextNNPtr &context,
            const std::string &authorityName);
@@ -1055,7 +1094,8 @@ class PROJ_GCC_DLL AuthorityFactory {
         const std::string &sourceCRSAuthName, const std::string &sourceCRSCode,
         const std::string &targetCRSAuthName, const std::string &targetCRSCode,
         bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
-        bool discardSuperseded, bool tryReverseOrder = false,
+        bool considerKnownGridsAsAvailable, bool discardSuperseded,
+        bool tryReverseOrder = false,
         bool reportOnlyIntersectingTransformations = false,
         const metadata::ExtentPtr &intersectingExtent1 = nullptr,
         const metadata::ExtentPtr &intersectingExtent2 = nullptr) const;
@@ -1065,7 +1105,7 @@ class PROJ_GCC_DLL AuthorityFactory {
         const std::string &sourceCRSAuthName, const std::string &sourceCRSCode,
         const std::string &targetCRSAuthName, const std::string &targetCRSCode,
         bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
-        bool discardSuperseded,
+        bool considerKnownGridsAsAvailable, bool discardSuperseded,
         const std::vector<std::pair<std::string, std::string>>
             &intermediateCRSAuthCodes,
         ObjectType allowedIntermediateObjectType = ObjectType::CRS,
@@ -1131,11 +1171,19 @@ class PROJ_GCC_DLL AuthorityFactory {
         const std::string &sourceCRSCode, const crs::CRSNNPtr &targetCRS,
         const std::string &targetCRSAuthName, const std::string &targetCRSCode,
         bool usePROJAlternativeGridNames, bool discardIfMissingGrid,
-        bool discardSuperseded,
+        bool considerKnownGridsAsAvailable, bool discardSuperseded,
         const std::vector<std::string> &allowedAuthorities,
         const metadata::ExtentPtr &intersectingExtent1,
         const metadata::ExtentPtr &intersectingExtent2) const;
 
+    typedef std::pair<common::IdentifiedObjectNNPtr, std::string>
+        PairObjectName;
+    PROJ_INTERNAL std::list<PairObjectName>
+    createObjectsFromNameEx(const std::string &name,
+                            const std::vector<ObjectType> &allowedObjectTypes =
+                                std::vector<ObjectType>(),
+                            bool approximateMatch = true,
+                            size_t limitResultCount = 0) const;
     //! @endcond
 
   protected:

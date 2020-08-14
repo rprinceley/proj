@@ -95,6 +95,14 @@ TEST(factory, AuthorityFactory_createUnitOfMeasure_linear) {
 
 // ---------------------------------------------------------------------------
 
+TEST(factory, AuthorityFactory_createUnitOfMeasure_linear_us_survey_foot) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto uom = factory->createUnitOfMeasure("9003");
+    EXPECT_EQ(uom->conversionToSI(), 12. / 39.37);
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(factory, AuthorityFactory_createUnitOfMeasure_angular) {
     auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
     auto uom = factory->createUnitOfMeasure("9102");
@@ -940,7 +948,7 @@ TEST(
         "        BBOX[-22.37,166.35,-22.19,166.54]],\n"
         "    ID[\"EPSG\",1295],\n"
         "    REMARK[\"Emulation using NTv2 method of tfm NEA74 Noumea to "
-        "RGNC91-93 (3) (code 15943). Note reversal of sign of parameter values "
+        "RGNC91-93 (3) (code 9328). Note reversal of sign of parameter values "
         "in grid file.\"]]";
     EXPECT_EQ(
         op->exportToWKT(
@@ -1363,7 +1371,7 @@ TEST(factory, AuthorityFactory_getDescriptionText) {
     EXPECT_THROW(factory->getDescriptionText("-1"),
                  NoSuchAuthorityCodeException);
     EXPECT_EQ(factory->getDescriptionText("10000"),
-              "RGF93 to NGF IGN69 height (1)");
+              "RGF93 to NGF-IGN69 height (1)");
 
     // Several objects have 4326 code, including an area of use, but return
     // the CRS one.
@@ -1393,16 +1401,18 @@ class FactoryWithTmpDatabase : public ::testing::Test {
     void populateWithFakeEPSG() {
 
         ASSERT_TRUE(execute("INSERT INTO unit_of_measure "
-                            "VALUES('EPSG','9001','metre','length',1.0,0);"))
+                            "VALUES('EPSG','9001','metre','length',1.0,NULL,"
+                            "0);"))
             << last_error();
         ASSERT_TRUE(execute("INSERT INTO unit_of_measure "
                             "VALUES('EPSG','9102','degree','angle',1."
-                            "74532925199432781271e-02,0);"))
+                            "74532925199432781271e-02,NULL,0);"))
             << last_error();
         ASSERT_TRUE(execute(
             "INSERT INTO unit_of_measure VALUES('EPSG','9122','degree "
             "(supplier to "
-            "define representation)','angle',1.74532925199432781271e-02,0);"))
+            "define representation)','angle',1.74532925199432781271e-02,NULL,"
+            "0);"))
             << last_error();
         ASSERT_TRUE(
             execute("INSERT INTO area "
@@ -1462,7 +1472,8 @@ class FactoryWithTmpDatabase : public ::testing::Test {
             << last_error();
 
         ASSERT_TRUE(execute("INSERT INTO unit_of_measure "
-                            "VALUES('EPSG','9201','unity','scale',1.0,0);"))
+                            "VALUES('EPSG','9201','unity','scale',1.0,"
+                            "NULL,0);"))
             << last_error();
 
         ASSERT_TRUE(execute(
@@ -1539,7 +1550,7 @@ class FactoryWithTmpDatabase : public ::testing::Test {
 
         ASSERT_TRUE(execute(
             "INSERT INTO unit_of_measure VALUES('EPSG','9110','sexagesimal "
-            "DMS','angle',NULL,0);"))
+            "DMS','angle',NULL,NULL,0);"))
             << last_error();
 
         ASSERT_TRUE(execute(
@@ -1617,34 +1628,34 @@ class FactoryWithTmpDatabase : public ::testing::Test {
                 DatabaseContext::create(m_ctxt), "OTHER");
             auto res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, {});
+                false, false, {});
             EXPECT_EQ(res.size(), 1U);
             EXPECT_TRUE(res.empty() ||
                         nn_dynamic_pointer_cast<ConcatenatedOperation>(res[0]));
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, {std::make_pair(std::string("NS_PIVOT"),
-                                       std::string("PIVOT"))});
+                false, false, {std::make_pair(std::string("NS_PIVOT"),
+                                              std::string("PIVOT"))});
             EXPECT_EQ(res.size(), 1U);
             EXPECT_TRUE(res.empty() ||
                         nn_dynamic_pointer_cast<ConcatenatedOperation>(res[0]));
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, {std::make_pair(std::string("NS_PIVOT"),
-                                       std::string("NOT_EXISTING"))});
+                false, false, {std::make_pair(std::string("NS_PIVOT"),
+                                              std::string("NOT_EXISTING"))});
             EXPECT_EQ(res.size(), 0U);
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false,
+                false, false,
                 {std::make_pair(std::string("BAD_NS"), std::string("PIVOT"))});
             EXPECT_EQ(res.size(), 0U);
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_TARGET", "TARGET", "NS_SOURCE", "SOURCE", false, false,
-                false, {});
+                false, false, {});
             EXPECT_EQ(res.size(), 1U);
             EXPECT_TRUE(res.empty() ||
                         nn_dynamic_pointer_cast<ConcatenatedOperation>(res[0]));
@@ -1654,7 +1665,7 @@ class FactoryWithTmpDatabase : public ::testing::Test {
                 DatabaseContext::create(m_ctxt), std::string());
             auto res = factory->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, {});
+                false, false, {});
             EXPECT_EQ(res.size(), 1U);
             EXPECT_TRUE(res.empty() ||
                         nn_dynamic_pointer_cast<ConcatenatedOperation>(res[0]));
@@ -1833,7 +1844,7 @@ TEST(factory, AuthorityFactory_createFromCoordinateReferenceSystemCodes) {
     {
         // Test removal of superseded transform
         auto list = factory->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4179", "EPSG", "4258", false, false, true);
+            "EPSG", "4179", "EPSG", "4258", false, false, false, true);
         ASSERT_EQ(list.size(), 2U);
         // Romania has a larger area than Poland (given our approx formula)
         EXPECT_EQ(list[0]->getEPSGCode(), 15994); // Romania - 3m
@@ -1851,12 +1862,12 @@ TEST(
 
     {
         auto res = factory->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4326", "EPSG", "32631", false, false, false);
+            "EPSG", "4326", "EPSG", "32631", false, false, false, false);
         ASSERT_EQ(res.size(), 1U);
     }
     {
         auto res = factory->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4209", "EPSG", "4326", false, false, false);
+            "EPSG", "4209", "EPSG", "4326", false, false, false, false);
         EXPECT_TRUE(!res.empty());
         for (const auto &conv : res) {
             EXPECT_TRUE(conv->sourceCRS()->getEPSGCode() == 4209);
@@ -1889,7 +1900,8 @@ TEST_F(FactoryWithTmpDatabase,
         DatabaseContext::create(m_ctxt), std::string());
     {
         auto res = factoryGeneral->createFromCoordinateReferenceSystemCodes(
-            "OTHER", "OTHER_4326", "OTHER", "OTHER_32631", false, false, false);
+            "OTHER", "OTHER_4326", "OTHER", "OTHER_32631", false, false, false,
+            false);
         ASSERT_EQ(res.size(), 1U);
     }
 
@@ -1897,7 +1909,8 @@ TEST_F(FactoryWithTmpDatabase,
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "EPSG");
     {
         auto res = factoryEPSG->createFromCoordinateReferenceSystemCodes(
-            "OTHER", "OTHER_4326", "OTHER", "OTHER_32631", false, false, false);
+            "OTHER", "OTHER_4326", "OTHER", "OTHER_32631", false, false, false,
+            false);
         ASSERT_EQ(res.size(), 1U);
     }
 
@@ -1919,17 +1932,17 @@ TEST_F(FactoryWithTmpDatabase,
         << last_error();
     {
         auto res = factoryGeneral->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false);
+            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false, false);
         ASSERT_EQ(res.size(), 1U);
     }
     {
         auto res = factoryEPSG->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false);
+            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false, false);
         ASSERT_EQ(res.size(), 0U);
     }
     {
         auto res = factoryOTHER->createFromCoordinateReferenceSystemCodes(
-            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false);
+            "EPSG", "4326", "OTHER", "OTHER_4326", false, false, false, false);
         ASSERT_EQ(res.size(), 1U);
     }
 }
@@ -1982,7 +1995,7 @@ TEST_F(FactoryWithTmpDatabase,
     auto factoryOTHER =
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "OTHER");
     auto res = factoryOTHER->createFromCoordinateReferenceSystemCodes(
-        "EPSG", "4326", "EPSG", "4326", false, false, false);
+        "EPSG", "4326", "EPSG", "4326", false, false, false, false);
     ASSERT_EQ(res.size(), 3U);
     EXPECT_EQ(*(res[0]->name()->description()), "TRANSFORMATION_1M");
     EXPECT_EQ(*(res[1]->name()->description()), "TRANSFORMATION_10M");
@@ -2001,7 +2014,7 @@ TEST_F(
     auto factory = AuthorityFactory::create(DatabaseContext::create(m_ctxt),
                                             std::string());
     auto res = factory->createFromCRSCodesWithIntermediates(
-        "EPSG", "4326", "EPSG", "4326", false, false, false, {});
+        "EPSG", "4326", "EPSG", "4326", false, false, false, false, {});
     EXPECT_EQ(res.size(), 0U);
 }
 
@@ -2085,7 +2098,7 @@ TEST_F(FactoryWithTmpDatabase, AuthorityFactory_proj_based_transformation) {
     auto factoryOTHER =
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "OTHER");
     auto res = factoryOTHER->createFromCoordinateReferenceSystemCodes(
-        "EPSG", "4326", "EPSG", "4326", false, false, false);
+        "EPSG", "4326", "EPSG", "4326", false, false, false, false);
     ASSERT_EQ(res.size(), 1U);
     EXPECT_EQ(res[0]->nameStr(), "My PROJ string based op");
     EXPECT_EQ(res[0]->exportToPROJString(PROJStringFormatter::create().get()),
@@ -2146,7 +2159,7 @@ TEST_F(FactoryWithTmpDatabase, AuthorityFactory_wkt_based_transformation) {
     auto factoryOTHER =
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "OTHER");
     auto res = factoryOTHER->createFromCoordinateReferenceSystemCodes(
-        "EPSG", "4326", "EPSG", "4326", false, false, false);
+        "EPSG", "4326", "EPSG", "4326", false, false, false, false);
     ASSERT_EQ(res.size(), 1U);
     EXPECT_EQ(res[0]->nameStr(), "My WKT string based op");
     EXPECT_EQ(res[0]->exportToPROJString(PROJStringFormatter::create().get()),
@@ -2180,9 +2193,10 @@ TEST_F(FactoryWithTmpDatabase,
 
     auto factoryOTHER =
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "OTHER");
-    EXPECT_THROW(factoryOTHER->createFromCoordinateReferenceSystemCodes(
-                     "EPSG", "4326", "EPSG", "4326", false, false, false),
-                 FactoryException);
+    EXPECT_THROW(
+        factoryOTHER->createFromCoordinateReferenceSystemCodes(
+            "EPSG", "4326", "EPSG", "4326", false, false, false, false),
+        FactoryException);
 }
 
 // ---------------------------------------------------------------------------
@@ -2207,9 +2221,10 @@ TEST_F(FactoryWithTmpDatabase,
 
     auto factoryOTHER =
         AuthorityFactory::create(DatabaseContext::create(m_ctxt), "OTHER");
-    EXPECT_THROW(factoryOTHER->createFromCoordinateReferenceSystemCodes(
-                     "EPSG", "4326", "EPSG", "4326", false, false, false),
-                 FactoryException);
+    EXPECT_THROW(
+        factoryOTHER->createFromCoordinateReferenceSystemCodes(
+            "EPSG", "4326", "EPSG", "4326", false, false, false, false),
+        FactoryException);
 }
 
 // ---------------------------------------------------------------------------
@@ -2241,14 +2256,17 @@ TEST_F(FactoryWithTmpDatabase, lookForGridInfo) {
 
     ASSERT_TRUE(execute("INSERT INTO grid_alternatives(original_grid_name,"
                         "proj_grid_name, "
+                        "old_proj_grid_name, "
                         "proj_grid_format, "
                         "proj_method, "
                         "inverse_direction, "
                         "package_name, "
                         "url, direct_download, open_license, directory) "
-                        "VALUES ('null', "
+                        "VALUES ("
+                        "'NOT-YET-IN-GRID-TRANSFORMATION-PROJ_fake_grid', "
                         "'PROJ_fake_grid', "
-                        "'CTable2', "
+                        "'old_PROJ_fake_grid', "
+                        "'NTv2', "
                         "'hgridshift', "
                         "0, "
                         "NULL, "
@@ -2262,7 +2280,7 @@ TEST_F(FactoryWithTmpDatabase, lookForGridInfo) {
     bool openLicense = false;
     bool gridAvailable = false;
     EXPECT_TRUE(DatabaseContext::create(m_ctxt)->lookForGridInfo(
-        "PROJ_fake_grid", fullFilename, packageName, url, directDownload,
+        "PROJ_fake_grid", false, fullFilename, packageName, url, directDownload,
         openLicense, gridAvailable));
     EXPECT_TRUE(fullFilename.empty());
     EXPECT_TRUE(packageName.empty());
@@ -2733,8 +2751,8 @@ TEST(factory, createObjectsFromName) {
 
     EXPECT_EQ(factory->createObjectsFromName("").size(), 0U);
 
-    // ellipsoid + 3 geodeticCRS
-    EXPECT_EQ(factory->createObjectsFromName("WGS 84", {}, false).size(), 4U);
+    // ellipsoid + datum + 3 geodeticCRS
+    EXPECT_EQ(factory->createObjectsFromName("WGS 84", {}, false).size(), 5U);
 
     EXPECT_EQ(factory->createObjectsFromName("WGS 84", {}, true, 10).size(),
               10U);
@@ -2745,11 +2763,20 @@ TEST(factory, createObjectsFromName) {
                   .size(),
               3U);
 
+    EXPECT_EQ(
+        factory
+            ->createObjectsFromName(
+                "WGS 84", {AuthorityFactory::ObjectType::GEOCENTRIC_CRS}, false)
+            .size(),
+        1U);
+
     {
         auto res = factoryEPSG->createObjectsFromName(
             "WGS84", {AuthorityFactory::ObjectType::GEOGRAPHIC_2D_CRS}, true);
-        EXPECT_EQ(res.size(),
-                  8U); // EPSG:4326 and EPSG:4030 and the 6 WGS84 realizations
+        // EPSG:4326 and the 6 WGS84 realizations
+        // and EPSG:7881 'Tritan St. Helena'' whose alias is
+        // 'WGS 84 Tritan St. Helena'
+        EXPECT_EQ(res.size(), 8U);
         if (!res.empty()) {
             EXPECT_EQ(res.front()->getEPSGCode(), 4326);
         }
@@ -2863,6 +2890,16 @@ TEST(factory, createObjectsFromName) {
         factory->createObjectsFromName("i_dont_exist", {type}, false, 1);
     }
     factory->createObjectsFromName("i_dont_exist", types, false, 1);
+
+    {
+        auto res = factoryEPSG->createObjectsFromName(
+            "ETRS89", {AuthorityFactory::ObjectType::GEOGRAPHIC_2D_CRS}, false,
+            1);
+        EXPECT_EQ(res.size(), 1U);
+        if (!res.empty()) {
+            EXPECT_EQ(res.front()->getEPSGCode(), 4258);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2906,7 +2943,7 @@ TEST(factory, getCRSInfoList) {
         auto list = factory->getCRSInfoList();
         EXPECT_GT(list.size(), 1U);
         bool foundEPSG = false;
-        bool foundIGNF = true;
+        bool foundIGNF = false;
         bool found4326 = false;
         for (const auto &info : list) {
             foundEPSG |= info.authName == "EPSG";
@@ -2996,4 +3033,73 @@ TEST(factory, getCRSInfoList) {
         EXPECT_TRUE(found6871);
     }
 }
+
+// ---------------------------------------------------------------------------
+
+TEST(factory, getUnitList) {
+    auto ctxt = DatabaseContext::create();
+    {
+        auto factory = AuthorityFactory::create(ctxt, std::string());
+        auto list = factory->getUnitList();
+        EXPECT_GT(list.size(), 1U);
+        bool foundEPSG = false;
+        bool foundPROJ = false;
+        bool found1027 = false;
+        bool found1028 = false;
+        bool found1032 = false;
+        bool found1036 = false;
+        bool found9001 = false;
+        bool found9101 = false;
+        for (const auto &info : list) {
+            foundEPSG |= info.authName == "EPSG";
+            foundPROJ |= info.authName == "PROJ";
+            if (info.authName == "EPSG" && info.code == "1027") {
+                EXPECT_EQ(info.name, "millimetres per year");
+                EXPECT_EQ(info.category, "linear_per_time");
+                found1027 = true;
+            } else if (info.authName == "EPSG" && info.code == "1028") {
+                EXPECT_EQ(info.name, "parts per billion");
+                EXPECT_EQ(info.category, "scale");
+                found1028 = true;
+            } else if (info.authName == "EPSG" && info.code == "1032") {
+                EXPECT_EQ(info.name, "milliarc-seconds per year");
+                EXPECT_EQ(info.category, "angular_per_time");
+                found1032 = true;
+            } else if (info.authName == "EPSG" && info.code == "1036") {
+                EXPECT_EQ(info.name, "unity per second");
+                EXPECT_EQ(info.category, "scale_per_time");
+                found1036 = true;
+            } else if (info.authName == "EPSG" && info.code == "9001") {
+                EXPECT_EQ(info.name, "metre");
+                EXPECT_EQ(info.category, "linear");
+                EXPECT_EQ(info.convFactor, 1.0);
+                EXPECT_EQ(info.projShortName, "m");
+                EXPECT_FALSE(info.deprecated);
+                found9001 = true;
+            } else if (info.authName == "EPSG" && info.code == "9101") {
+                EXPECT_EQ(info.name, "radian");
+                EXPECT_EQ(info.category, "angular");
+                EXPECT_FALSE(info.deprecated);
+                found9101 = true;
+            }
+        }
+        EXPECT_TRUE(foundEPSG);
+        EXPECT_TRUE(foundPROJ);
+        EXPECT_TRUE(found1027);
+        EXPECT_TRUE(found1028);
+        EXPECT_TRUE(found1032);
+        EXPECT_TRUE(found1036);
+        EXPECT_TRUE(found9001);
+        EXPECT_TRUE(found9101);
+    }
+    {
+        auto factory = AuthorityFactory::create(ctxt, "EPSG");
+        auto list = factory->getUnitList();
+        EXPECT_GT(list.size(), 1U);
+        for (const auto &info : list) {
+            EXPECT_EQ(info.authName, "EPSG");
+        }
+    }
+}
+
 } // namespace

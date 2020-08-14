@@ -68,6 +68,12 @@ using BoundCRSPtr = std::shared_ptr<BoundCRS>;
 /** Non-null shared pointer of BoundCRS */
 using BoundCRSNNPtr = util::nn<BoundCRSPtr>;
 
+class CompoundCRS;
+/** Shared pointer of CompoundCRS */
+using CompoundCRSPtr = std::shared_ptr<CompoundCRS>;
+/** Non-null shared pointer of CompoundCRS */
+using CompoundCRSNNPtr = util::nn<CompoundCRSPtr>;
+
 // ---------------------------------------------------------------------------
 
 class CRS;
@@ -137,6 +143,16 @@ class PROJ_GCC_DLL CRS : public common::ObjectUsage,
     PROJ_INTERNAL bool mustAxisOrderBeSwitchedForVisualization() const;
 
     PROJ_INTERNAL CRSNNPtr normalizeForVisualization() const;
+
+    PROJ_INTERNAL CRSNNPtr allowNonConformantWKT1Export() const;
+
+    PROJ_INTERNAL CRSNNPtr
+    attachOriginalCompoundCRS(const CompoundCRSNNPtr &compoundCRS) const;
+
+    PROJ_INTERNAL CRSNNPtr promoteTo3D(
+        const std::string &newName, const io::DatabaseContextPtr &dbContext,
+        const cs::CoordinateSystemAxisNNPtr &verticalAxisIfNotAlreadyPresent)
+        const;
 
     //! @endcond
 
@@ -834,11 +850,21 @@ class PROJ_GCC_DLL ParametricCRS : virtual public SingleCRS {
 
 // ---------------------------------------------------------------------------
 
-class CompoundCRS;
-/** Shared pointer of CompoundCRS */
-using CompoundCRSPtr = std::shared_ptr<CompoundCRS>;
-/** Non-null shared pointer of CompoundCRS */
-using CompoundCRSNNPtr = util::nn<CompoundCRSPtr>;
+/** \brief Exception thrown when attempting to create an invalid compound CRS
+ */
+class PROJ_GCC_DLL InvalidCompoundCRSException : public util::Exception {
+  public:
+    //! @cond Doxygen_Suppress
+    PROJ_INTERNAL explicit InvalidCompoundCRSException(const char *message);
+    PROJ_INTERNAL explicit InvalidCompoundCRSException(
+        const std::string &message);
+    PROJ_DLL
+    InvalidCompoundCRSException(const InvalidCompoundCRSException &other);
+    PROJ_DLL ~InvalidCompoundCRSException() override;
+    //! @endcond
+};
+
+// ---------------------------------------------------------------------------
 
 /** \brief A coordinate reference system describing the position of points
  * through two or more independent single coordinate reference systems.
@@ -873,7 +899,16 @@ class PROJ_GCC_DLL CompoundCRS final : public CRS,
 
     PROJ_DLL static CompoundCRSNNPtr
     create(const util::PropertyMap &properties,
-           const std::vector<CRSNNPtr> &components);
+           const std::vector<CRSNNPtr>
+               &components); // throw InvalidCompoundCRSException
+
+    //! @cond Doxygen_Suppress
+    PROJ_INTERNAL static CRSNNPtr
+    createLax(const util::PropertyMap &properties,
+              const std::vector<CRSNNPtr> &components,
+              const io::DatabaseContextPtr
+                  &dbContext); // throw InvalidCompoundCRSException
+                               //! @endcond
 
   protected:
     // relaxed: standard say SingleCRSNNPtr

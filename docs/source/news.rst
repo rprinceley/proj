@@ -3,6 +3,472 @@
 News
 ###############################################################################
 
+7.1.0 Release Notes
+++++++++++++++++++++++++++++++++++++++++
+*July 1st 2020*
+
+Updates
+-------
+
++ **New transformations**
+
+  * Add a +proj=defmodel transformation for multi-component time-based deformation models (`#2206 <https://github.com/OSGeo/PROJ/pull/2206>`_):
+
++ **New projections**
+
+  * Add square conformal projections from libproject (`#2148 <https://github.com/OSGeo/issues/2148>`_):
+
+    - :ref:`adams_hemi`
+
+    - :ref:`adams_ws1`
+
+    - :ref:`adams_ws2`
+
+    - :ref:`guyou`
+
+    - :ref:`peirce_q`
+
+  * Adams Square II: map ESRI WKT to PROJ string, and implement iterative
+    inverse method (`#2157 <https://github.com/OSGeo/issues/2157>`_)
+
+  * Added :ref:`igh_o` projection (`#2226 <https://github.com/OSGeo/issues/2226>`_)
+
+  * Add :ref:`wink2` inverse by generic inversion of forward method (`#2243 <https://github.com/OSGeo/issues/2243>`_)
+
++ **Database**
+
+  * Update to EPSG 9.8.12, ESRI 10.8.1 and import scope and remarks for
+    conversion (`#2238 <https://github.com/OSGeo/issues/2238>`_) (#2267)
+
+  * Map the Behrman projection to ``cae`` when converting ESRI CRSes (`#1986 <https://github.com/OSGeo/issues/1986>`_)
+
+  * Support conversion of Flat_Polar_Quartic projection method (`#1987 <https://github.com/OSGeo/issues/1987>`_)
+
+  * Register 4 new Austrian height grids (see https://github.com/OSGeo/PROJ-data/pull/13)
+    and handle 'Vertical Offset by Grid Interpolation (BEV AT)' method (`#1989 <https://github.com/OSGeo/issues/1989>`_)
+
+  * Add ESRI projection method mappings for Mercator_Variant_A, Mercator_Variant_B
+    and Transverse_Cylindrical_Equal_Area and various grid mappings (`#2020 <https://github.com/OSGeo/issues/2020>`_) (#2195)
+
+  * Map ESRI Transverse_Mercator_Complex to Transverse Mercator (`#2040 <https://github.com/OSGeo/issues/2040>`_)
+
+  * Register grids for New Caledonia (see https://github.com/OSGeo/PROJ-data/pull/16) (`#2051 <https://github.com/OSGeo/issues/2051>`_) (#2239)
+
+  * Register NZGD2000 -> ITRF96 transformation for NZGD2000 database (`#2248 <https://github.com/OSGeo/issues/2248>`_)
+
+  * Register geoid file for UK added
+    (see https://github.com/OSGeo//PROJ-data/pull/25() (`#2250 <https://github.com/OSGeo/issues/2250>`_)
+
+  * Register Slovakian geoid transformations with needed code changes (`#2259 <https://github.com/OSGeo/issues/2259>`_)
+
+  * Register Spanish SPED2ETV2 grid for ED50->ETRS89 (`#2261 <https://github.com/OSGeo/issues/2261>`_)
+
++ **API**
+
+  * Add API function :c:func:`proj_get_units_from_database()` (`#2065 <https://github.com/OSGeo/issues/2065>`_)
+
+  * Add API function :c:func:`proj_get_suggested_operation()` (`#2068 <https://github.com/OSGeo/issues/2068>`_)
+
+  * Add API functions :c:func:`proj_degree_input()` and :c:func:`proj_degree_output()` (`#2144 <https://github.com/OSGeo/issues/2144>`_)
+
+  * Moved :c:func:`proj_context_get_url_endpoint()` & :c:func:`proj_context_get_user_writable_directory()`
+    from ``proj_experimental.h`` to ``proj.h`` (`#2162 <https://github.com/OSGeo/issues/2162>`_)
+
+  * :c:func:`createFromUserInput()`: allow compound CRS with the 2 parts given by names,
+    e.g. 'WGS 84 + EGM96 height' (`#2126 <https://github.com/OSGeo/issues/2126>`_)
+
+  * :c:func:`createOperations()`: when converting CompoundCRS<-->Geographic3DCrs, do not
+    use discard change of ellipsoidal height if a Helmert transformation is
+    involved (`#2227 <https://github.com/OSGeo/issues/2227>`_)
+
++ **Optimizations**
+
+  * ``tmerc/utm``: add a +algo=auto/evenden_snyder/poder_engsager parameter (`#2030 <https://github.com/OSGeo/issues/2030>`_)
+
+  * Extended ``tmerc`` (Poder/Engsager): speed optimizations (`#2036 <https://github.com/OSGeo/issues/2036>`_)
+
+  * Approximate ``tmerc`` (Snyder): speed optimizations (`#2039 <https://github.com/OSGeo/issues/2039>`_)
+
+  * :c:func:`pj_phi2()`: speed-up computation (and thus inverse ellipsoidal Mercator and LCC) (`#2052 <https://github.com/OSGeo/issues/2052>`_)
+
+  * Inverse ``cart``: speed-up computation by 33% (`#2145 <https://github.com/OSGeo/issues/2145>`_)
+
+  * Extended ``tmerc``: speed-up forward path by ~5% (`#2147 <https://github.com/OSGeo/issues/2147>`_)
+
++ **Various**
+
+  * Follow PDAL's CMake RPATH strategy (`#2009 <https://github.com/OSGeo/issues/2009>`_)
+
+  * WKT import/export: add support for WKT1_ESRI VERTCS synta (`#2024 <https://github.com/OSGeo/issues/2024>`_)
+
+  * :program:`projinfo`: add a ``--hide-ballpark`` option (`#2127 <https://github.com/OSGeo/issues/2127>`_)
+
+  * :program:`gie`: implement a strict mode with ``<gie-strict> </gie-strict>`` (`#2168 <https://github.com/OSGeo/issues/2168>`_)
+
+  * Allow importing WKT1 COMPD_CS with a VERT_DATUM[Ellipsoid,2002] (`#2229 <https://github.com/OSGeo/issues/2229>`_)
+
+  * Add runtime checking that sqlite3 is >= 3.11 (`#2235 <https://github.com/OSGeo/issues/2235>`_)
+
+
+Bug fixes
+---------
+
+* :cpp:func:`createOperations()`: do not remove ballpark transformation if there are only grid
+  based operations, even if they cover the whole area of use (`#2155 <https://github.com/OSGeo/issues/2155>`_)
+
+* :cpp:func:`createFromProjString()`: handle default parameters of '+krovak +type=crs', and
+  handle ``+czech`` correctly (`#2200 <https://github.com/OSGeo/issues/2200>`_)
+
+* :cpp:func:`ProjectedCRS::identify()`: fix identification of EPSG:3059 (`#2215 <https://github.com/OSGeo/issues/2215>`_)
+
+* Database: add a 'WGS84' alias for the EPSG:4326 CRS (`#2218 <https://github.com/OSGeo/issues/2218>`_)
+
+* Fixes related to CompoundCRS and BoundCRS (`#2222 <https://github.com/OSGeo/issues/2222>`_)
+
+* Avoid 2 warnings about missing database indices (`#2223 <https://github.com/OSGeo/issues/2223>`_)
+
+* Make ``projinfo --3d --boundcrs-to-wgs84`` work better (`#2224 <https://github.com/OSGeo/issues/2224>`_)
+
+* Many fixes regarding BoundCRS, CompoundCRS, Geographic3D CRS with
+  non-metre units (`#2234 <https://github.com/OSGeo/issues/2234>`_)
+
+* Fix identification of (one of the) ESRI WKT formulations of EPSG:3035 (`#2240 <https://github.com/OSGeo/issues/2240>`_)
+
+* Avoid using deprecated and removed Windows API function with Mingw32 (`#2246 <https://github.com/OSGeo/issues/2246>`_)
+
+* :cpp:func:`normalizeForVisualization()`: make it switch axis for EPSG:5482
+  (RSRGD2000 / RSPS2000) (`#2256 <https://github.com/OSGeo/issues/2256>`_)
+
+* Fix access violation in :c:func:`proj_context_get_database_metadata()` (`#2260 <https://github.com/OSGeo/issues/2260>`_)
+
+
+7.0.1 Release Notes
+++++++++++++++++++++++++++++++++++++++++
+*May 1st 2020*
+
+Updates
+-------
+
+* Database: update to EPSG v9.8.9 (`#2141 <https://github.com/OSGeo/PROJ/issues/2141>`_)
+
+Bug fixes
+---------
+
+* Make tests independent of proj-datumgrid (`#1995 <https://github.com/OSGeo/PROJ/issues/1995>`_)
+
+* Add missing projection property tables (`#1996 <https://github.com/OSGeo/PROJ/issues/1996>`_)
+
+* Avoid crash when running against SQLite3 binary built with
+  ``-DSQLITE_OMIT_AUTOINIT`` (`#1999 <https://github.com/OSGeo/PROJ/issues/1999>`_)
+
+* :c:func:`createOperations`: fix wrong pipeline generation with CRS that has ``+nadgrids=``
+  and ``+pm=`` (`#2002 <https://github.com/OSGeo/PROJ/issues/2002>`_)
+
+* Fix bad copy&replace pattern on HEALPix and rHEALPix projection names (`#2007 <https://github.com/OSGeo/PROJ/issues/2007>`_)
+
+* :c:func:`createUnitOfMeasure`: use full double resolution for the conversion
+  factor (`#2014 <https://github.com/OSGeo/PROJ/issues/2014>`_)
+
+* Update README with info on PROJ-data (`#2015 <https://github.com/OSGeo/PROJ/issues/2015>`_)
+
+* ``utm/ups``: make sure to set errno to ``PJD_ERR_ELLIPSOID_USE_REQUIRED`` if
+  ``+es==0`` (`#2045 <https://github.com/OSGeo/PROJ/issues/2045>`_)
+
+* ``data/Makefile.am``: remove bashism (`#2048 <https://github.com/OSGeo/PROJ/issues/2048>`_)
+
+* :cpp:func:`ProjectedCRS::identify`: tune it to better work with ESRI WKT
+  representation of EPSG:2193 (`#2059 <https://github.com/OSGeo/PROJ/issues/2059>`_)
+
+* Fix build with gcc 4.8.5 (`#2066 <https://github.com/OSGeo/PROJ/issues/2066>`_)
+
+* Autotools/pkg-conf: Define datarootdir (`#2069 <https://github.com/OSGeo/PROJ/issues/2069>`_)
+
+* :program:`cs2cs`: don't require ``+to`` for '{source_crs} {target_crs} filename...'
+  syntax (`#2081 <https://github.com/OSGeo/PROJ/issues/2081>`_)
+
+* CMake: fix bug with ``find_package(PROJ)`` with macOS (`#2082 <https://github.com/OSGeo/PROJ/issues/2082>`_)
+
+* ESRI WKT import / identification: special case for
+  NAD_1983_HARN_StatePlane_Colorado_North_FIPS_0501 with Foot_US unit (`#2088 <https://github.com/OSGeo/PROJ/issues/2088>`_)
+
+* ESRI WKT import / identification: special case for
+  NAD_1983_HARN_StatePlane_Colorado_North_FIPS_0501 with Foot_US unit (`#2089 <https://github.com/OSGeo/PROJ/issues/2089>`_)
+
+* EngineeringCRS: when exporting to WKT1_GDAL, output unit and axis (`#2092 <https://github.com/OSGeo/PROJ/issues/2092>`_)
+
+* Use jtsk03-jtsk horizontal grid from CDN (`#2098 <https://github.com/OSGeo/PROJ/issues/2098>`_)
+
+* CMake: prefer to use use PROJ_SOURCE_DIR and PROJ_BINARY_DIR (`#2100 <https://github.com/OSGeo/PROJ/issues/2100>`_)
+
+* Fix wrong grids file name in esri.sql (`#2104 <https://github.com/OSGeo/PROJ/issues/2104>`_)
+
+* Fix identification of projected CRS whose name is close but not strictly
+  equal to a ESRI alias (`#2106 <https://github.com/OSGeo/PROJ/issues/2106>`_)
+
+* Fix working of Helmert transform between the horizontal part of
+  2 compoundCRS (`#2111 <https://github.com/OSGeo/PROJ/issues/2111>`_)
+
+* Database: fix registration of custom entries of grid_transformation_custom.sql
+  for geoid grids (`#2114 <https://github.com/OSGeo/PROJ/issues/2114>`_)
+
+* ESRI_WKT ingestion: make sure to identify to non-deprecated EPSG entry when
+  possible (`#2119 <https://github.com/OSGeo/PROJ/issues/2119>`_)
+
+* Make sure that importing a Projected 3D CRS from WKT:2019 keeps the base
+  geographic CRS as 3D (`#2125 <https://github.com/OSGeo/PROJ/issues/2125>`_)
+
+* :c:func:`createOperations`: improve results of compoundCRS to compoundCRS case (`#2131 <https://github.com/OSGeo/PROJ/issues/2131>`_)
+
+* hgridshift/vgridshift: defer grid opening when grid has already
+  been opened (`#2132 <https://github.com/OSGeo/PROJ/issues/2132>`_)
+
+* Resolve a few shadowed declaration warnings (`#2142 <https://github.com/OSGeo/PROJ/issues/2142>`_)
+
+* ProjectedCRS identification: deal with switched 1st/2nd std parallels for
+  LCC_2SP(`#2153 <https://github.com/OSGeo/PROJ/issues/2153>`_)
+
+* Fix Robinson inverse projection (`#2154 <https://github.com/OSGeo/PROJ/issues/2154>`_)
+
+* :c:func:`createOperations()`: do not remove ballpark transformation if there are only
+  grid based operations, even if they cover the whole area of use (`#2156 <https://github.com/OSGeo/PROJ/issues/2156>`_)
+
+* :c:func:`createFromCoordinateReferenceSystemCodes`: 'optimization' to avoid using
+  C++ exceptions (`#2161 <https://github.com/OSGeo/PROJ/issues/2161>`_)
+
+* Ingestion of WKT1_GDAL: correctly map 'Cylindrical_Equal_Area' (`#2167 <https://github.com/OSGeo/PROJ/issues/2167>`_)
+
+* Add limited support for non-conformant WKT1 LAS COMPD_CS[] (`#2172 <https://github.com/OSGeo/PROJ/issues/2172>`_)
+
+* PROJ4 string import: take into correctly non-metre unit when the string
+  looks like the one for WGS 84 / Pseudo Mercator (`#2177 <https://github.com/OSGeo/PROJ/issues/2177>`_)
+
+* ``io.hpp``: avoid dependency to ``proj_json_streaming_writer.hpp`` (`#2184 <https://github.com/OSGeo/PROJ/issues/2184>`_)
+
+* Fix support of WKT1_GDAL with netCDF rotated pole formulation (`#2186 <https://github.com/OSGeo/PROJ/issues/2186>`_)
+
+
+
+6.3.2 Release Notes
+++++++++++++++++++++++++++++++++++++++++
+*May 1st 2020*
+
+
+Bug fixes
+---------
+
+* :c:func:`validateParameters`: fix false-positive warning on
+  Equidistant Cylindrical (`#1947 <https://github.com/OSGeo/PROJ/issues/1947>`_)
+
+* :c:func:`proj_create_crs_to_cr`: avoid potential reprojection failures when
+  reprojecting area of use to source and target CRS (`#1993 <https://github.com/OSGeo/PROJ/issues/1993>`_)
+
+* :c:func:`createOperations`: fix wrong pipeline generation with CRS that has ``+nadgrids=``
+  and ``+pm=`` (`#2003 <https://github.com/OSGeo/PROJ/issues/2003>`_)
+
+* Fix bad copy&replace pattern on HEALPix and rHEALPix projection names (`#2006 <https://github.com/OSGeo/PROJ/issues/2006>`_)
+
+* :c:func:`createUnitOfMeasure`: use full double resolution for the conversion
+  factor (`#2013 <https://github.com/OSGeo/PROJ/issues/2013>`_)
+
+* ``data/Makefile.am``: remove bashism (`#2047 <https://github.com/OSGeo/PROJ/issues/2047>`_)
+
+* :cpp:func:``ProjectedCRS::identify``: tune it to better work with ESRI WKT representation
+  of EPSG:2193 (`#2058 <https://github.com/OSGeo/PROJ/issues/2058>`_)
+
+* EngineeringCRS: when exporting to WKT1_GDAL, output unit and axis (`#2091 <https://github.com/OSGeo/PROJ/issues/2091>`_)
+
+* Add missing entries in grid_alternatives for Portugal grids coming from
+  ESRI entries (`#2103 <https://github.com/OSGeo/PROJ/issues/2103>`_)
+
+* Fix working of Helmert transform between the horizontal part of 2
+  compoundCRS (`#2110 <https://github.com/OSGeo/PROJ/issues/2110>`_)
+
+* ESRI_WKT ingestion: make sure to identify to non-deprecated EPSG entry when
+  possible (`#2118 <https://github.com/OSGeo/PROJ/issues/2118>`_)
+
+* Make sure that importing a Projected 3D CRS from WKT:2019 keeps the base
+  geographic CRS as 3D (`#2124 <https://github.com/OSGeo/PROJ/issues/2124>`_)
+
+* :c:func:`createOperations`: improve results of compoundCRS to compoundCRS case (`#2130 <https://github.com/OSGeo/PROJ/issues/2130>`_)
+
+* PROJ4 string import: take into correctly non-metre unit when the string looks
+  like the one for WGS 84 / Pseudo Mercator (`#2178 <https://github.com/OSGeo/PROJ/issues/2178>`_)
+
+* Fix support of WKT1_GDAL with netCDF rotated pole formulation (`#2187 <https://github.com/OSGeo/PROJ/issues/2187>`_)
+
+* ``io.hpp``: avoid dependency to ``proj_json_streaming_writer.hpp`` (`#2188 <https://github.com/OSGeo/PROJ/issues/2188>`_)
+
+
+7.0.0 Release Notes
+++++++++++++++++++++++++++++++++++++++++
+*March 1st 2020*
+
+The major feature in PROJ 7 is significantly improved handling of gridded
+models. This was implemented in :ref:`RFC4`.
+The main features of the RFC4 work is that PROJ now implements a new grid format,
+Geodetic TIFF grids, for exchanging gridded transformation models. In addition
+to the new grid format, PROJ can now also access grids online using a data
+store in the cloud.
+
+The grids that was previously available via the proj-datumgrid packages are now
+available in two places:
+
+  1. As a single combined data archive including all available resource files
+  2. From the cloud via https://cdn.proj.org
+
+In Addition, provided with PROJ is a utility called :program:`projsync` that can be used
+download grids from the data store in the cloud.
+
+The use of the new grid format and the data from the cloud requires that
+PROJ is build against ``libtiff`` and ``libcurl``. Both are optional dependencies
+to PROJ but it is highly encouraged that the software is build against both.
+
+
+.. warning::
+
+    PROJ 7 will be last major release version that includes the ``proj_api.h``
+    header. The functionality in ``proj_api.h`` is deprecated and only supported in
+    maintenance mode. It is inferior to the functionality provided by functions
+    in the ``proj.h`` header and all projects still relying on ``proj_api.h`` are encouraged
+    to migrate to the new API in ``proj.h``. See :ref:`API_migration`.
+    for more info on how to migrate from the old to the new API.
+
+
+Updates
+-------
+
+* Added new file access API to ``proj.h`` (`#866 <https://github.com/OSGeo/PROJ/issues/866>`_)
+
+* Updated the name of the most recent version of the WKT2 standard from
+  WKT2_2018 to WKT2_2019 to reflect the proper name of the standard (`#1585 <https://github.com/OSGeo/PROJ/issues/1585>`_)
+
+* Improvements in transformations from/to WGS 84 (Gxxxx) realizations and
+  vertical <--> geog transormations (`#1608 <https://github.com/OSGeo/PROJ/issues/1608>`_)
+
+* Update to version 1.50 of the geodesic library (`#1629 <https://github.com/OSGeo/PROJ/issues/1629>`_)
+
+* Promote :c:func:`proj_assign_context` to ``proj.h`` from ``proj_experimental.h`` (`#1630 <https://github.com/OSGeo/PROJ/issues/1630>`_)
+
+* Add rotation support to the HEALPix projection (`#1638 <https://github.com/OSGeo/PROJ/issues/1638>`_)
+
+* Add C function :c:func:`proj_crs_create_bound_vertical_crs` (`#1689 <https://github.com/OSGeo/PROJ/issues/1689>`_)
+
+* Use Win32 Unicode APIs and expect all strings to be UTF-8 (`#1765 <https://github.com/OSGeo/PROJ/issues/1765>`_)
+
+* Improved name aliases lookup (`#1827 <https://github.com/OSGeo/PROJ/issues/1827>`_)
+
+* CMake: Employ better use of CTest with the ``BUILD_TESTING`` option (`#1870 <https://github.com/OSGeo/PROJ/issues/1870>`_)
+
+* Grid correction: fix handling grids spanning antimeridian (`#1882 <https://github.com/OSGeo/PROJ/issues/1882>`_)
+
+* Remove legacy CMake target name ``proj`` (`#1883 <https://github.com/OSGeo/PROJ/issues/1883>`_)
+
+* :program:`projinfo` add ``--searchpaths`` switch (`#1892 <https://github.com/OSGeo/PROJ/issues/1892>`_)
+
+* Add :ref:`+proj=set operation<set>` to set component(s) of a coordinate to a fixed
+  value (`#1896 <https://github.com/OSGeo/PROJ/issues/1896>`_)
+
+* Add EPSG records for 'Geocentric translation by Grid Interpolation (IGN)'
+  (``gr3df97a.txt``) and map them to new :ref:`+proj=xyzgridshift<xyzgridshift>` (`#1897 <https://github.com/OSGeo/PROJ/issues/1897>`_)
+
+* Remove ``null`` grid file as it is now a special hardcoded case in grid
+  code (`#1898 <https://github.com/OSGeo/PROJ/issues/1898>`_)
+
+* Add :program:`projsync` utility (`#1903 <https://github.com/OSGeo/PROJ/issues/1903>`_)
+
+* Make ``PROJ`` the CMake project name (`#1910 <https://github.com/OSGeo/PROJ/issues/1910>`_)
+
+* Use relative directory to locate PROJ resource files (`#1921 <https://github.com/OSGeo/PROJ/issues/1921>`_)
+
+
+Bug fixes
+---------
+
+* Horizontal grid shift: fix failures on points slightly outside a
+  subgrid (`#209 <https://github.com/OSGeo/PROJ/issues/209>`_)
+
+* Fix ASAN issue with SQLite3VFS class (`#1902 <https://github.com/OSGeo/PROJ/issues/1902>`_)
+
+* tests: force use of bash for ``proj_add_test_script_sh`` (`#1905 <https://github.com/OSGeo/PROJ/issues/1905>`_)
+
+
+Breaking changes
+----------------
+
+* Reject NTV2 files where ``GS_TYPE != SECONDS`` (`#1294 <https://github.com/OSGeo/PROJ/issues/1294>`_)
+
+* On Windows the name of the library is now fixed to ``proj.lib`` instead
+  of encoding the version number in the library name (`#1581 <https://github.com/OSGeo/PROJ/issues/1581>`_)
+
+* Require C99 compiler (`#1624 <https://github.com/OSGeo/PROJ/issues/1624>`_)
+
+* Remove deprecated JNI bindings (`#1825 <https://github.com/OSGeo/PROJ/issues/1825>`_)
+
+* Remove -ld option from :program:`proj` and :program:`cs2cs` (`#1844 <https://github.com/OSGeo/PROJ/issues/1844>`_)
+
+* Increase CMake minimum version from 3.5 to 3.9 (`#1907 <https://github.com/OSGeo/PROJ/issues/1907>`_)
+
+
+
+
+
+6.3.1 Release Notes
+++++++++++++++++++++++++++++++++++++++++
+*February 11th 2020*
+
+Updates
+-------
+
+* Update the EPSG database to version 9.8.6
+
+* Database: add mapping for gg10_smv2.mnt and gg10_sbv2.mnt French grids
+
+* Database: add mapping for TOR27CSv1.GSB
+
+Bug fixes
+---------
+
+* Fix wrong use of derivingConversionRef() that caused issues with use of
+  +init=epsg:XXXX by GDAL (affecting R spatial libraries) or in MapServer
+
+* fix exporting CoordinateSystem to PROJ JSON with ID
+
+* projinfo: use No. abbreviation instead of UTF-8 character
+  (`#1828 <https://github.com/OSGeo/PROJ/issues/1828>`_)
+
+* CompoundCRS::identify(): avoid exception when horiz/vertical part is a
+  BoundCRS
+
+* createOperations(): fix dealing with projected 3D CRS whose Z units != metre
+
+* WKT1_GDAL export: limit datum name massaging to names matching EPSG
+  (`#1835 <https://github.com/OSGeo/PROJ/issues/1835>`_)
+
+* unitconvert with mjd time format: avoid potential integer overflow
+  (ossfuzz 20072)
+
+* ProjectedCRS::identify(): fix wrong identification of some ESRI WKT linked
+  to units
+
+* Database: add a geoid_like value for proj_method column of grid_alternatives,
+  fix related entries and simplify/robustify logic to deal with EPSG
+  'Geographic3D to GravityRelatedHeight' methods
+
+* Fix ingestion of +proj=cea with +k_0 (`#1881 <https://github.com/OSGeo/PROJ/issues/1881>`_)
+
+* Fix performance issue, affecting PROJ.4 string generation of EPSG:7842
+  (`#1913 <https://github.com/OSGeo/PROJ/issues/1913>`_)
+
+* Fix identification of ESRI-style datum names starting with D\_ but without
+  alias (`#1911 <https://github.com/OSGeo/PROJ/issues/1911>`_)
+
+* cart: Avoid discontinuity at poles in the inverse case
+  (`#1906 <https://github.com/OSGeo/PROJ/issues/1906>`_)
+
+* Various updates to make regression test suite pass with gcc on i386
+  (`#1906 <https://github.com/OSGeo/PROJ/issues/1906>`_)
+
+
 6.3.0 Release Notes
 ++++++++++++++++++++++++++++++++++++++++
 *January 1st 2020*
@@ -20,7 +486,7 @@ Updates
 * :c:func:`proj_trans`: add retry logic to select other transformation if the best one
   fails. (`#1809 <https://github.com/OSGeo/PROJ/issues/1809>`_)
 
-* :c:func:`BoundCRS::identify()`: improvements to discard CRS that aren't relevant
+* `BoundCRS::identify()`: improvements to discard CRS that aren't relevant
   (`#1802 <https://github.com/OSGeo/PROJ/issues/1802>`_)
 
 * Database: update to IGNF v3.1.0 (`#1785 <https://github.com/OSGeo/PROJ/issues/1785>`_)
@@ -93,7 +559,7 @@ Bug fixes
 
 * :c:func:`proj_create_crs_to_crs_from_pj()`: make the PJ* arguments const PJ* (`#1583 <https://github.com/OSGeo/PROJ/issues/1583>`_)
 
-* :c:func:`PROJStringParser::createFromPROJString()`: avoid potential infinite
+* `PROJStringParser::createFromPROJString()`: avoid potential infinite
   recursion (`#1574 <https://github.com/OSGeo/PROJ/issues/1574>`_)
 
 * Avoid core dump when setting ``ctx==NULL`` in functions
@@ -203,7 +669,7 @@ Bug Fixes
 * Do not include :envvar:`PROJ_LIB` in ``proj_info().searchpath`` when context
   search path is set (`#1498 <https://github.com/OSGeo/PROJ/issues/1498>`_)
 
-* Use correct delimeter for the current platform when parsing
+* Use correct delimiter for the current platform when parsing
   PROJ_LIB (`#1497 <https://github.com/OSGeo/PROJ/issues/1497>`_)
 
 * Do not confuse 'ID74' CRS with WKT2 ID[] node (`#1506 <https://github.com/OSGeo/PROJ/issues/1506>`_)
@@ -364,15 +830,15 @@ UPDATES
 * Removed :c:func:`proj_geocentric_latitude` from `proj.h` API
   (`#1170 <https://github.com/OSGeo/proj.4/issues/1170>`_)
 
-* Changed behaviour of :program:`proj`: Now only allow initialization of
+* Changed behavior of :program:`proj`: Now only allow initialization of
   projections (`#1162 <https://github.com/OSGeo/proj.4/issues/1162>`_)
 
-* Changed behaviour of :ref:`tmerc <tmerc>`: Now defaults to the Extended
+* Changed behavior of :ref:`tmerc <tmerc>`: Now defaults to the Extended
   Transverse Mercator algorithm (``etmerc``). Old implementation available
   by adding ``+approx``
   (`#404 <https://github.com/OSGeo/proj.4/issues/404>`_)
 
-* Chaged behaviour: Default ellipsoid now set to GRS80 (was WGS84) (`#1210 <https://github.com/OSGeo/proj.4/issues/1210>`_)
+* Chaged behavior: Default ellipsoid now set to GRS80 (was WGS84) (`#1210 <https://github.com/OSGeo/proj.4/issues/1210>`_)
 
 * Allow multiple directories in :envvar:`PROJ_LIB` environment variable (`#1281 <https://github.com/OSGeo/proj.4/issues/1281>`_)
 

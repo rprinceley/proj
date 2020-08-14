@@ -12,6 +12,9 @@ Projections map the spherical 3D space to a flat 2D space.
 .. toctree::
    :maxdepth: 1
 
+   adams_hemi
+   adams_ws1
+   adams_ws2
    aea
    aeqd
    airy
@@ -55,11 +58,13 @@ Projections map the spherical 3D space to a flat 2D space.
    goode
    gs48
    gs50
+   guyou
    hammer
    hatano
    healpix
    rhealpix
    igh
+   igh_o
    imw_p
    isea
    kav5
@@ -104,6 +109,7 @@ Projections map the spherical 3D space to a flat 2D space.
    ortho
    patterson
    pconic
+   peirce_q
    poly
    putp1
    putp2
