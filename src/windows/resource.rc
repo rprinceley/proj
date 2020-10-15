@@ -1,6 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
 #include "../proj.h"
+#include "../buildnumber.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -46,11 +47,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "OSGeo\0"
             VALUE "FileDescription", "Coordinate transformation software library\0"
-            VALUE "FileVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) ".0"
+            VALUE "FileVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) "." STR(PROJ_VERION_BUILD_NUMBER)
             VALUE "InternalName", "proj-esri\0"
             VALUE "LegalCopyright", "PROJ contributors (2020)\0"
             VALUE "ProductName", "PROJ\0"
-            VALUE "ProductVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) ".0"
+            VALUE "ProductVersion", STR(PROJ_VERSION_MAJOR) "." STR(PROJ_VERSION_MINOR) "." STR(PROJ_VERSION_PATCH) "." STR(PROJ_VERION_BUILD_NUMBER)
             VALUE "WebPage", "https://proj.org/\0" 
         END
     END
