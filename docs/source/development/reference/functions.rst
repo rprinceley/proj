@@ -13,6 +13,14 @@ Threading contexts
 
     :returns: a new context
 
+.. c:function:: PJ_CONTEXT* proj_context_clone(PJ_CONTEXT *ctx)
+
+    .. versionadded:: 7.2
+
+    Create a new threading-context based on an existing context.
+
+    :returns: a new context
+
 .. c:function:: void proj_context_destroy(PJ_CONTEXT *ctx)
 
     Deallocate a threading-context.
@@ -172,7 +180,7 @@ paragraph for more details.
     coordinate reference systems.
 
     This is the same as :c:func:`proj_create_crs_to_crs` except that the source and
-    target CRS are passed as PJ* objects which must of the CRS variety.
+    target CRS are passed as PJ* objects which must be of the CRS variety.
 
     :param `options`: should be set to NULL currently.
 
@@ -260,7 +268,7 @@ Coordinate transformation
         3. of length one, i.e. a constant, which will be treated as a fully
            populated array of that constant value
 
-    .. note:: Even though he coordinate components are named :c:data:`x`, :c:data:`y`,
+    .. note:: Even though the coordinate components are named :c:data:`x`, :c:data:`y`,
               :c:data:`z` and :c:data:`t`, axis ordering of the to and from CRS
               is respected. Transformations exhibit the same behavior
               as if they were gathered in a :c:type:`PJ_COORD` struct.
@@ -344,7 +352,7 @@ Coordinate transformation
 
 
 
-.. c:function:: size_t proj_trans_array(PJ *P, PJ_DIRECTION direction, size_t n, PJ_COORD *coord)
+.. c:function:: int proj_trans_array(PJ *P, PJ_DIRECTION direction, size_t n, PJ_COORD *coord)
 
     Batch transform an array of :c:type:`PJ_COORD`.
 
@@ -354,7 +362,7 @@ Coordinate transformation
     :type `direction`: PJ_DIRECTION
     :param n: Number of coordinates in :c:data:`coord`
     :type n: `size_t`
-    :returns: :c:type:`size_t` 0 if all observations are transformed without error, otherwise returns error number
+    :returns: `int` 0 if all observations are transformed without error, otherwise returns error number
 
 
 Error reporting

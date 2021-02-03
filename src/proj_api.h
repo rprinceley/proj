@@ -38,7 +38,7 @@
 #endif
 
 #ifndef PJ_VERSION
-#define PJ_VERSION 711
+#define PJ_VERSION 721
 #endif
 
 #ifdef PROJ_RENAME_SYMBOLS

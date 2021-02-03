@@ -154,6 +154,12 @@ class PROJ_GCC_DLL CRS : public common::ObjectUsage,
         const cs::CoordinateSystemAxisNNPtr &verticalAxisIfNotAlreadyPresent)
         const;
 
+    PROJ_INTERNAL bool hasImplicitCS() const;
+
+    PROJ_INTERNAL static CRSNNPtr
+    getResolvedCRS(const CRSNNPtr &crs,
+                   const io::AuthorityFactoryPtr &authFactory,
+                   metadata::ExtentPtr &extentOut);
     //! @endcond
 
   protected:
@@ -194,7 +200,10 @@ class PROJ_GCC_DLL SingleCRS : public CRS {
         PROJ_INTERNAL void
         exportDatumOrDatumEnsembleToWkt(io::WKTFormatter *formatter)
             const; // throw(io::FormattingException)
-                   //! @endcond
+
+    PROJ_INTERNAL const datum::DatumNNPtr
+    datumNonNull(const io::DatabaseContextPtr &dbContext) const;
+    //! @endcond
 
   protected:
     PROJ_INTERNAL SingleCRS(const datum::DatumPtr &datumIn,
@@ -289,6 +298,9 @@ class PROJ_GCC_DLL GeodeticCRS : virtual public SingleCRS,
         PROJ_INTERNAL void
         addDatumInfoToPROJString(io::PROJStringFormatter *formatter) const;
 
+    PROJ_INTERNAL const datum::GeodeticReferenceFrameNNPtr
+    datumNonNull(const io::DatabaseContextPtr &dbContext) const;
+
     PROJ_INTERNAL void addGeocentricUnitConversionIntoPROJString(
         io::PROJStringFormatter *formatter) const;
 
@@ -327,6 +339,11 @@ class PROJ_GCC_DLL GeodeticCRS : virtual public SingleCRS,
 
     PROJ_INTERNAL std::list<std::pair<CRSNNPtr, int>>
     _identify(const io::AuthorityFactoryPtr &authorityFactory) const override;
+
+    PROJ_INTERNAL bool
+    _isEquivalentToNoTypeCheck(const util::IComparable *other,
+                               util::IComparable::Criterion criterion,
+                               const io::DatabaseContextPtr &dbContext) const;
 
     INLINED_MAKE_SHARED
 
@@ -389,8 +406,9 @@ class PROJ_GCC_DLL GeographicCRS : public GeodeticCRS {
     PROJ_INTERNAL void _exportToJSON(io::JSONFormatter *formatter)
         const override; // throw(FormattingException)
 
-    PROJ_DLL bool
-    is2DPartOf3D(util::nn<const GeographicCRS *> other) PROJ_PURE_DECL;
+    PROJ_DLL bool is2DPartOf3D(
+        util::nn<const GeographicCRS *> other,
+        const io::DatabaseContextPtr &dbContext = nullptr) PROJ_PURE_DECL;
 
     PROJ_INTERNAL bool _isEquivalentTo(
         const util::IComparable *other,
@@ -473,6 +491,9 @@ class PROJ_GCC_DLL VerticalCRS : virtual public SingleCRS,
         //! @cond Doxygen_Suppress
         PROJ_INTERNAL void
         addLinearUnitConvert(io::PROJStringFormatter *formatter) const;
+
+    PROJ_INTERNAL const datum::VerticalReferenceFrameNNPtr
+    datumNonNull(const io::DatabaseContextPtr &dbContext) const;
 
     PROJ_INTERNAL void _exportToWKT(io::WKTFormatter *formatter)
         const override; // throw(io::FormattingException)

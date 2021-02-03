@@ -7,7 +7,7 @@ check_PROGRAMS = geodtest
 
 AM_CPPFLAGS =	-DPROJ_LIB=\"$(pkgdatadir)\" \
 		-DMUTEX_@MUTEX_SETTING@ -I$(top_srcdir)/include @SQLITE3_CFLAGS@ @TIFF_CFLAGS@ @TIFF_ENABLED_FLAGS@ @CURL_CFLAGS@ @CURL_ENABLED_FLAGS@
-AM_CXXFLAGS =    @CXX_WFLAGS@ @FLTO_FLAG@ @TARGET_CLONES_FMA_FLAGS@
+AM_CXXFLAGS =    @CXX_WFLAGS@ @FLTO_FLAG@
 
 include_HEADERS = proj.h proj_experimental.h proj_constants.h proj_api.h geodesic.h \
 	 proj_symbol_rename.h
@@ -52,7 +52,7 @@ geodtest_LDADD = libproj.la
 
 lib_LTLIBRARIES = libproj.la
 
-libproj_la_LDFLAGS = -no-undefined -version-info 20:0:1
+libproj_la_LDFLAGS = -no-undefined -version-info 21:1:2
 libproj_la_LIBADD = @SQLITE3_LIBS@ @TIFF_LIBS@ @CURL_LIBS@
 
 libproj_la_SOURCES = \
@@ -65,7 +65,23 @@ libproj_la_SOURCES = \
 	iso19111/crs.cpp \
 	iso19111/datum.cpp \
 	iso19111/coordinatesystem.cpp \
-	iso19111/coordinateoperation.cpp \
+	iso19111/operation/concatenatedoperation.cpp \
+	iso19111/operation/coordinateoperation_internal.hpp \
+	iso19111/operation/coordinateoperation_private.hpp \
+	iso19111/operation/coordinateoperationfactory.cpp \
+	iso19111/operation/conversion.cpp \
+	iso19111/operation/esriparammappings.hpp \
+	iso19111/operation/esriparammappings.cpp \
+	iso19111/operation/operationmethod_private.hpp \
+	iso19111/operation/oputils.hpp \
+	iso19111/operation/oputils.cpp \
+	iso19111/operation/parammappings.hpp \
+	iso19111/operation/parammappings.cpp \
+	iso19111/operation/projbasedoperation.cpp \
+	iso19111/operation/singleoperation.cpp \
+	iso19111/operation/transformation.cpp \
+	iso19111/operation/vectorofvaluesparams.hpp \
+	iso19111/operation/vectorofvaluesparams.cpp \
 	iso19111/io.cpp \
 	iso19111/internal.cpp \
 	iso19111/factory.cpp \
@@ -180,6 +196,7 @@ libproj_la_SOURCES = \
 	projections/natearth2.cpp \
 	projections/calcofi.cpp \
 	projections/eqearth.cpp \
+	projections/col_urban.cpp \
 	\
 	conversions/axisswap.cpp \
 	conversions/cart.cpp \
@@ -201,6 +218,10 @@ libproj_la_SOURCES = \
 	transformations/defmodel.hpp \
 	transformations/defmodel_exceptions.hpp \
 	transformations/defmodel_impl.hpp \
+	transformations/tinshift.cpp \
+	transformations/tinshift.hpp \
+	transformations/tinshift_exceptions.hpp \
+	transformations/tinshift_impl.hpp \
 	\
 	aasincos.cpp adjlon.cpp \
 	dmstor.cpp auth.cpp \
@@ -213,6 +234,7 @@ libproj_la_SOURCES = \
 	release.cpp gauss.cpp \
 	fileapi.cpp \
 	generic_inverse.cpp \
+	quadtree.hpp \
 	\
 	datums.cpp datum_set.cpp transform.cpp \
 	utils.cpp \

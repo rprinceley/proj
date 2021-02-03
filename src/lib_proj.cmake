@@ -164,6 +164,7 @@ set(SRC_LIBPROJ_PROJECTIONS
   projections/natearth2.cpp
   projections/calcofi.cpp
   projections/eqearth.cpp
+  projections/col_urban.cpp
 )
 
 set(SRC_LIBPROJ_CONVERSIONS
@@ -186,6 +187,7 @@ set(SRC_LIBPROJ_TRANSFORMATIONS
   transformations/vgridshift.cpp
   transformations/xyzgridshift.cpp
   transformations/defmodel.cpp
+  transformations/tinshift.cpp
 )
 
 set(SRC_LIBPROJ_ISO19111
@@ -196,11 +198,20 @@ set(SRC_LIBPROJ_ISO19111
   iso19111/crs.cpp
   iso19111/datum.cpp
   iso19111/coordinatesystem.cpp
-  iso19111/coordinateoperation.cpp
   iso19111/io.cpp
   iso19111/internal.cpp
   iso19111/factory.cpp
   iso19111/c_api.cpp
+  iso19111/operation/concatenatedoperation.cpp
+  iso19111/operation/coordinateoperationfactory.cpp
+  iso19111/operation/conversion.cpp
+  iso19111/operation/esriparammappings.cpp
+  iso19111/operation/oputils.cpp
+  iso19111/operation/parammappings.cpp
+  iso19111/operation/projbasedoperation.cpp
+  iso19111/operation/singleoperation.cpp
+  iso19111/operation/transformation.cpp
+  iso19111/operation/vectorofvaluesparams.cpp
 )
 
 set(SRC_LIBPROJ_CORE
@@ -309,19 +320,6 @@ source_group("CMake Files" FILES CMakeLists.txt)
 
 # Embed PROJ_LIB data files location
 add_definitions(-DPROJ_LIB="${CMAKE_INSTALL_PREFIX}/${DATADIR}")
-
-# The gcc "target_clones" function attribute relies on an extension
-# to the ELF standard. It must not be used on MinGW.
-include(CheckCXXSourceCompiles)
-set(CMAKE_REQUIRED_QUIET TRUE)
-check_cxx_source_compiles([[
-  __attribute__((target_clones("fma","default")))
-  int clonable() { return 0; }
-  int main() { return clonable(); }
-]] TARGET_CLONES_FMA_ALLOWED)
-if(TARGET_CLONES_FMA_ALLOWED)
-  add_definitions(-DTARGET_CLONES_FMA_ALLOWED)
-endif()
 
 #################################################
 ## targets: libproj and proj_config.h

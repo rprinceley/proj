@@ -110,9 +110,9 @@ message(STATUS "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 7 MINOR 1 PATCH 1)
-set(PROJ_API_VERSION "20")
-set(PROJ_BUILD_VERSION "20.0.1")
+proj_version(MAJOR 7 MINOR 2 PATCH 1)
+set(PROJ_API_VERSION "19")
+set(PROJ_BUILD_VERSION "21.1.2")
 
 ################################################################################
 # Build features and variants

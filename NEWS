@@ -1,3 +1,213 @@
+7.2.1 Release Notes
+-------------------
+
+ Updates
+ -------
+
+ o Add metadata with the version number of the database layout (#2474)
+
+ o Split coordinateoperation.cpp and test_operation.cpp in several parts (#2484)
+
+ o Update to EPSG v10.008 (#2490)
+
+ o Added the NKG 2008 and 2020 transformations in proj.db (#2495)
+
+ Bug fixes
+ ---------
+
+ o Set CURL_ENABLED definition on projinfo build (#2405)
+
+ o createBoundCRSToWGS84IfPossible(): make it return same result with a CRS
+   built from EPSG code or WKT1 (#2412)
+
+ o WKT2 parsing: several fixes related to map projection parameter units (#2428)
+
+ o createOperation(): make it work properly when one of the CRS is a BoundCRS of
+   a DerivedGeographicCRS (+proj=ob_tran +o_proj=lonlat +towgs84=....) (#2441)
+
+ o WKT parsing: fix ingestion of WKT with a Geocentric CRS as the base of the
+   projected CRS (#2443)
+
+ o GeographicCRS::_isEquivalentTo(EQUIVALENT_EXCEPT_AXIS_ORDER_GEOGCRS):
+   make it work when comparing easting,northing,up and northing,easting,up (#2446)
+
+ o createOperation(): add a ballpark vertical transformation when dealing
+   with GEOIDMODEL[] (#2449)
+
+ o Use same arguments to printf format string for both radians and degrees in
+   output by cct (#2453)
+
+ o PRIMEM WKT handling: fixes on import for 'sexagesimal DMS' or from WKT1:GDAL/ESRI
+   when GEOGCS UNIT != Degree; morph to ESRI the PRIMEM name on export (#2455)
+
+ o createObjectsFromName(): in exact match, make looking for 'ETRS89 / UTM zone 32N'
+   return only the exact match (#2462)
+
+ o Inverse tmerc spherical: fix wrong sign of latitude when lat_0 is used (#2469)
+
+ o Add option to allow export of Geographic/Projected 3D CRS in WKT1_GDAL (#2470)
+
+ o Fix building proj.db with SQLite built with -DSQLITE_DQS=0 (#2480)
+
+ o Include JSON Schema files in CMake builds (#2485)
+
+ o createOperations(): fix inconsistent chaining exception when transforming from BoundCRS of projected CRS based on NTF Paris to BoundCRS of geog CRS NTF Paris (#2486)
+
+ THANKS TO
+ ---------
+
+ Zac Miller
+ Nomit Rawat
+ Guillaume Lostis
+ J.H. van de Water
+ Kristian Evers
+ Even Rouault
+
+
+7.2.0 Release Notes
+-------------------
+
+ Updates
+ -------
+
+ + Command line tools:
+
+   o Add multi-line PROJ string export capability, and use it by default in
+     projinfo (unless --single-line is specified) (#2381)
+
+ + Coordinate operations:
+
+    o +proj=col_urban projection, implementing a EPSG projection method
+      used by a number of projected CRS in Colombia (#2395)
+
+    o +proj=tinshift for triangulation-based transformations (#2344)
+
+    o Added ellipsoidal formulation of +proj=ortho (#2361)
+
+
+ + Database
+
+   o Update to EPSG 10.003 and make code base robust to dealing with
+     WKT CRS with DatumEnsemble (#2370)
+
+   o Added Finland tinshift operations (#2392)
+
+   o Added transformation from JGD2011 Geographic 3D to JGD2011
+     height using GSIGEO2011 (#2393)
+
+   o Improve CompoundCRS identification and name morphing in VerticalCRS
+     with ESRI WKT1 (#2386)
+
+   o Added OGC:CRS27 and OGC:CRS83 CRS entries for NAD27 and NAD83
+     in longitude, latitude order (#2350)
+
+ + API
+
+ o Added temporal, engineering, and parametric datum
+   PJ_TYPE enumerations (#2274)
+
+  o Various improvements to context handling (#2329, #2331)
+
+  o proj_create_vertical_crs_ex(): add a ACCURACY option to provide
+     an explicit accuracy, or derive it from the grid name if it is
+     known (#2342)
+
+   o proj_crs_create_bound_crs_to_WGS84(): make it work on
+     verticalCRS/compoundCRS such as EPSG:4326+5773 and
+     EPSG:4326+3855 (#2365)
+
+   o promoteTo3D(): add a remark with the original CRS identifier (#2369)
+
+   o Added proj_context_clone (#2383)
+
+
+ Bug fixes
+ ---------
+
+ o Avoid core dumps when copying contexts in certain scenarios (#2324)
+
+ o proj_trans(): reset errno before attemptying a retry with a new
+   coordinate operation (#2353)
+
+ o PROJJSON schema corrected to allow prime meridians values with
+   explicitly stating a unit (degrees assumed) (#2354)
+
+ o Adjust createBoundCRSToWGS84IfPossible() and operation filtering
+   (for POSGAR 2007 to WGS84 issues) (#2357)
+
+ o createOperations(): several fixes affecting NAD83 -> NAD83(2011) (#2364)
+
+ o WKT2:2019 import/export: handle DATUM (at top level object) with PRIMEM
+
+ o WKT1_ESRI: fix import and export of CompoundCRS (#2389)
+
+
+ THANKS TO
+ ---------
+
+ Alexander Saprykin
+ Jeff McKenna
+ Nyall Dawson
+ Kai Pastor
+ Juan Hernando
+ Javier Jimenez Shaw
+ Howard Butler
+ Alan D. Snow
+ Charles Karney
+ Kristian Evers
+ Even Rouault
+
+
+7.1.1 Release Notes
+-------------------
+
+ Updates
+ -------
+
+  o Added various Brazillian grids to the database #2277
+
+  o Added geoid file for Canary Islands to the database #2312
+
+  o Updated EPSG database to version 9.8.15 #2310
+
+ Bug fixes
+ ---------
+
+  o WKT parser: do not raise warning when parsing a WKT2:2015 TIMECRS
+    whose TIMEUNIT is at the CS level, and not inside #2281
+
+  o Parse '+proj=something_not_latlong +vunits=' without +geoidgrids as a
+    Projected3D CRS and not a compound CRS with a unknown datum #2289
+
+  o C API: Avoid crashing due to missing SANITIZE_CTX() in entry points #2293
+
+  o CMake build: Check "target_clones" before use #2297
+
+  o PROJ string export of +proj=krovak +czech: make sure we export +czech… #2301
+
+  o Helmert 2D: do not require a useless +convention= parameter #2305
+
+  o Fix a few spelling errors ("vgridshit" vs. "vgridshift") #2307
+
+  o Fix ability to identify EPSG:2154 as a candidate for 'RGF93_Lambert_93' #2316
+
+  o WKT importer: tune for Oracle WKT and 'Lambert Conformal Conic' #2322
+
+  o Revert compiler generated Fused Multiply Addition optimized routines #2328
+
+ THANKS TO
+ ---------
+
+ Jeff McKenna
+ Kai Pastor
+ Javier Jimenez Shaw
+ Kristian Evers
+ Even Rouault
+
+
+
+
+
 7.1.0 Release Notes
 -------------------
 
