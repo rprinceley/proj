@@ -1,15 +1,15 @@
 AM_CFLAGS = @C_WFLAGS@
 
-EXTRA_PROGRAMS = multistresstest test228
+EXTRA_PROGRAMS = multistresstest
 
 TESTS = geodtest
 check_PROGRAMS = geodtest
 
 AM_CPPFLAGS =	-DPROJ_LIB=\"$(pkgdatadir)\" \
-		-DMUTEX_@MUTEX_SETTING@ -I$(top_srcdir)/include @SQLITE3_CFLAGS@ @TIFF_CFLAGS@ @TIFF_ENABLED_FLAGS@ @CURL_CFLAGS@ @CURL_ENABLED_FLAGS@
+		-DMUTEX_@MUTEX_SETTING@ -I$(top_srcdir)/include @SQLITE3_CFLAGS@ @TIFF_CFLAGS@ @TIFF_ENABLED_FLAGS@ @CURL_CFLAGS@ @CURL_ENABLED_FLAGS@ @PROJ_LIB_ENV_VAR_TRIED_LAST_FLAGS@
 AM_CXXFLAGS =    @CXX_WFLAGS@ @FLTO_FLAG@
 
-include_HEADERS = proj.h proj_experimental.h proj_constants.h proj_api.h geodesic.h \
+include_HEADERS = proj.h proj_experimental.h proj_constants.h geodesic.h \
 	 proj_symbol_rename.h
 
 EXTRA_DIST = bin_cct.cmake bin_gie.cmake bin_cs2cs.cmake \
@@ -36,7 +36,6 @@ bin_PROGRAMS =	proj geod cs2cs gie cct projinfo $(PROJSYNC_BIN)
 
 gie_SOURCES = apps/gie.cpp apps/proj_strtod.cpp apps/proj_strtod.h apps/optargpm.h
 multistresstest_SOURCES = tests/multistresstest.cpp
-test228_SOURCES = tests/test228.cpp
 geodtest_SOURCES = tests/geodtest.cpp
 
 cct_LDADD = libproj.la
@@ -47,12 +46,11 @@ projinfo_LDADD = libproj.la
 
 gie_LDADD = libproj.la
 multistresstest_LDADD = libproj.la @THREAD_LIB@
-test228_LDADD = libproj.la @THREAD_LIB@
 geodtest_LDADD = libproj.la
 
 lib_LTLIBRARIES = libproj.la
 
-libproj_la_LDFLAGS = -no-undefined -version-info 21:1:2
+libproj_la_LDFLAGS = -no-undefined -version-info 22:0:0
 libproj_la_LIBADD = @SQLITE3_LIBS@ @TIFF_LIBS@ @CURL_LIBS@
 
 libproj_la_SOURCES = \
@@ -203,6 +201,7 @@ libproj_la_SOURCES = \
 	conversions/geoc.cpp \
 	conversions/geocent.cpp \
 	conversions/noop.cpp \
+	conversions/topocentric.cpp \
 	conversions/set.cpp \
 	conversions/unitconvert.cpp \
 	\
@@ -225,19 +224,17 @@ libproj_la_SOURCES = \
 	\
 	aasincos.cpp adjlon.cpp \
 	dmstor.cpp auth.cpp \
-	deriv.cpp ell_set.cpp ellps.cpp errno.cpp \
+	deriv.cpp ell_set.cpp ellps.cpp \
 	factors.cpp fwd.cpp init.cpp inv.cpp \
 	list.cpp malloc.cpp mlfn.cpp mlfn.hpp msfn.cpp proj_mdist.cpp \
 	param.cpp phi2.cpp pr_list.cpp \
 	qsfn.cpp strerrno.cpp \
 	tsfn.cpp units.cpp ctx.cpp log.cpp zpoly1.cpp rtodms.cpp \
 	release.cpp gauss.cpp \
-	fileapi.cpp \
 	generic_inverse.cpp \
 	quadtree.hpp \
 	\
-	datums.cpp datum_set.cpp transform.cpp \
-	utils.cpp \
+	datums.cpp datum_set.cpp \
 	mutex.cpp initcache.cpp geodesic.c \
 	strtod.cpp \
 	\

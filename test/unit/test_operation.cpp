@@ -370,8 +370,9 @@ TEST(operation, transformation_to_wkt) {
     auto expected =
         "COORDINATEOPERATION[\"transformationName\",\n"
         "    SOURCECRS[" +
-        src_wkt + "],\n"
-                  "    TARGETCRS[" +
+        src_wkt +
+        "],\n"
+        "    TARGETCRS[" +
         dst_wkt +
         "],\n"
         "    METHOD[\"operationMethodName\",\n"
@@ -472,15 +473,19 @@ TEST(operation, concatenated_operation) {
 
     auto expected = "CONCATENATEDOPERATION[\"name\",\n"
                     "    SOURCECRS[" +
-                    src_wkt + "],\n"
-                              "    TARGETCRS[" +
-                    dst_wkt + "],\n"
-                              "    STEP[" +
-                    step1_wkt + "],\n"
-                                "    STEP[" +
-                    step2_wkt + "],\n"
-                                "    ID[\"codeSpace\",\"code\"],\n"
-                                "    REMARK[\"my remarks\"]]";
+                    src_wkt +
+                    "],\n"
+                    "    TARGETCRS[" +
+                    dst_wkt +
+                    "],\n"
+                    "    STEP[" +
+                    step1_wkt +
+                    "],\n"
+                    "    STEP[" +
+                    step2_wkt +
+                    "],\n"
+                    "    ID[\"codeSpace\",\"code\"],\n"
+                    "    REMARK[\"my remarks\"]]";
 
     EXPECT_EQ(replaceAll(replaceAll(concat->exportToWKT(
                                         WKTFormatter::create(
@@ -663,8 +668,9 @@ TEST(operation, transformation_createPositionVector) {
 
     auto transf = Transformation::createPositionVector(
         PropertyMap(), GeographicCRS::EPSG_4269, GeographicCRS::EPSG_4326, 1.0,
-        2.0, 3.0, 4.0, 5.0, 6.0, 7.0, std::vector<PositionalAccuracyNNPtr>{
-                                          PositionalAccuracy::create("100")});
+        2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        std::vector<PositionalAccuracyNNPtr>{
+            PositionalAccuracy::create("100")});
     EXPECT_TRUE(transf->validateParameters().empty());
 
     ASSERT_EQ(transf->coordinateOperationAccuracies().size(), 1U);
@@ -4283,6 +4289,127 @@ TEST(operation, PROJ_based_with_global_parameters) {
 
 // ---------------------------------------------------------------------------
 
+TEST(operation, geographic_topocentric) {
+    auto wkt =
+        "PROJCRS[\"EPSG topocentric example A\",\n"
+        "    BASEGEOGCRS[\"WGS 84\",\n"
+        "        ENSEMBLE[\"World Geodetic System 1984 ensemble\",\n"
+        "            MEMBER[\"World Geodetic System 1984 (Transit)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G730)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G873)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1150)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1674)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1762)\"],\n"
+        "            ELLIPSOID[\"WGS 84\",6378137,298.257223563,\n"
+        "                LENGTHUNIT[\"metre\",1]],\n"
+        "            ENSEMBLEACCURACY[2.0]],\n"
+        "        PRIMEM[\"Greenwich\",0,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "        ID[\"EPSG\",4979]],\n"
+        "    CONVERSION[\"EPSG topocentric example A\",\n"
+        "        METHOD[\"Geographic/topocentric conversions\",\n"
+        "            ID[\"EPSG\",9837]],\n"
+        "        PARAMETER[\"Latitude of topocentric origin\",55,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+        "            ID[\"EPSG\",8834]],\n"
+        "        PARAMETER[\"Longitude of topocentric origin\",5,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+        "            ID[\"EPSG\",8835]],\n"
+        "        PARAMETER[\"Ellipsoidal height of topocentric origin\",0,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8836]]],\n"
+        "    CS[Cartesian,3],\n"
+        "        AXIS[\"topocentric East (U)\",east,\n"
+        "            ORDER[1],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "        AXIS[\"topocentric North (V)\",north,\n"
+        "            ORDER[2],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "        AXIS[\"topocentric height (W)\",up,\n"
+        "            ORDER[3],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "    USAGE[\n"
+        "        SCOPE[\"Example only (fictitious).\"],\n"
+        "        AREA[\"Description of the extent of the CRS.\"],\n"
+        "        BBOX[-90,-180,90,180]],\n"
+        "    ID[\"EPSG\",5819]]";
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto dst = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(dst != nullptr);
+    auto op = CoordinateOperationFactory::create()->createOperation(
+        GeographicCRS::EPSG_4979, NN_CHECK_ASSERT(dst));
+    ASSERT_TRUE(op != nullptr);
+    EXPECT_EQ(op->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m "
+              "+step +proj=cart +ellps=WGS84 "
+              "+step +proj=topocentric +lat_0=55 +lon_0=5 +h_0=0 +ellps=WGS84");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, geocentric_topocentric) {
+    auto wkt =
+        "PROJCRS[\"EPSG topocentric example B\",\n"
+        "    BASEGEODCRS[\"WGS 84\",\n"
+        "        ENSEMBLE[\"World Geodetic System 1984 ensemble\",\n"
+        "            MEMBER[\"World Geodetic System 1984 (Transit)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G730)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G873)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1150)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1674)\"],\n"
+        "            MEMBER[\"World Geodetic System 1984 (G1762)\"],\n"
+        "            ELLIPSOID[\"WGS 84\",6378137,298.257223563,\n"
+        "                LENGTHUNIT[\"metre\",1]],\n"
+        "            ENSEMBLEACCURACY[2.0]],\n"
+        "        PRIMEM[\"Greenwich\",0,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "        ID[\"EPSG\",4978]],\n"
+        "    CONVERSION[\"EPSG topocentric example B\",\n"
+        "        METHOD[\"Geocentric/topocentric conversions\",\n"
+        "            ID[\"EPSG\",9836]],\n"
+        "        PARAMETER[\"Geocentric X of topocentric origin\",3771793.97,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8837]],\n"
+        "        PARAMETER[\"Geocentric Y of topocentric origin\",140253.34,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8838]],\n"
+        "        PARAMETER[\"Geocentric Z of topocentric origin\",5124304.35,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8839]]],\n"
+        "    CS[Cartesian,3],\n"
+        "        AXIS[\"topocentric East (U)\",east,\n"
+        "            ORDER[1],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "        AXIS[\"topocentric North (V)\",north,\n"
+        "            ORDER[2],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "        AXIS[\"topocentric height (W)\",up,\n"
+        "            ORDER[3],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "    USAGE[\n"
+        "        SCOPE[\"Example only (fictitious).\"],\n"
+        "        AREA[\"Description of the extent of the CRS.\"],\n"
+        "        BBOX[-90,-180,90,180]],\n"
+        "    ID[\"EPSG\",5820]]";
+    auto dbContext = DatabaseContext::create();
+    // Need a database so that EPSG:4978 is resolved
+    auto obj = WKTParser().attachDatabaseContext(dbContext).createFromWKT(wkt);
+    auto dst = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(dst != nullptr);
+    auto f(NS_PROJ::io::WKTFormatter::create(
+        NS_PROJ::io::WKTFormatter::Convention::WKT2_2019));
+    auto op = CoordinateOperationFactory::create()->createOperation(
+        GeodeticCRS::EPSG_4978, NN_CHECK_ASSERT(dst));
+    ASSERT_TRUE(op != nullptr);
+    EXPECT_EQ(op->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=topocentric +X_0=3771793.97 +Y_0=140253.34 "
+              "+Z_0=5124304.35 +ellps=WGS84");
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(operation, mercator_variant_A_to_variant_B) {
     auto projCRS = ProjectedCRS::create(
         PropertyMap(), GeographicCRS::EPSG_4326,
@@ -4373,8 +4500,9 @@ static GeographicCRSNNPtr geographicCRSInvalidEccentricity() {
     return GeographicCRS::create(
         PropertyMap(),
         GeodeticReferenceFrame::create(
-            PropertyMap(), Ellipsoid::createFlattenedSphere(
-                               PropertyMap(), Length(6378137), Scale(0.1)),
+            PropertyMap(),
+            Ellipsoid::createFlattenedSphere(PropertyMap(), Length(6378137),
+                                             Scale(0.1)),
             optional<std::string>(), PrimeMeridian::GREENWICH),
         EllipsoidalCS::createLatitudeLongitude(UnitOfMeasure::DEGREE));
 }
@@ -5179,10 +5307,11 @@ TEST(operation, validateParameters) {
     }
 
     {
-        auto conv = Conversion::create(
-            PropertyMap(), PropertyMap().set(IdentifiedObject::NAME_KEY,
-                                             "change of vertical unit"),
-            {}, {});
+        auto conv =
+            Conversion::create(PropertyMap(),
+                               PropertyMap().set(IdentifiedObject::NAME_KEY,
+                                                 "change of vertical unit"),
+                               {}, {});
         auto validation = conv->validateParameters();
         auto expected = std::list<std::string>{
             "Method name change of vertical unit is equivalent to official "
@@ -5193,11 +5322,12 @@ TEST(operation, validateParameters) {
 
     {
         auto conv = Conversion::create(
-            PropertyMap(), PropertyMap()
-                               .set(IdentifiedObject::NAME_KEY,
-                                    EPSG_NAME_METHOD_CHANGE_VERTICAL_UNIT)
-                               .set(Identifier::CODESPACE_KEY, Identifier::EPSG)
-                               .set(Identifier::CODE_KEY, "1234"),
+            PropertyMap(),
+            PropertyMap()
+                .set(IdentifiedObject::NAME_KEY,
+                     EPSG_NAME_METHOD_CHANGE_VERTICAL_UNIT)
+                .set(Identifier::CODESPACE_KEY, Identifier::EPSG)
+                .set(Identifier::CODE_KEY, "1234"),
             {}, {});
         auto validation = conv->validateParameters();
         auto expected = std::list<std::string>{
@@ -5354,7 +5484,7 @@ TEST(operation, normalizeForVisualization) {
             src,
             authFactory->createCoordinateReferenceSystem("4979"), // WGS 84 3D
             ctxt);
-        ASSERT_EQ(list.size(), 3U);
+        ASSERT_GE(list.size(), 3U);
         auto op = list[1];
         auto opNormalized = op->normalizeForVisualization();
         EXPECT_FALSE(opNormalized->_isEquivalentTo(op.get()));
@@ -5431,15 +5561,79 @@ TEST(operation,
         "file\",\"foo.gtx\"]]";
 
     auto obj = WKTParser().createFromWKT(wkt);
-    auto crs = nn_dynamic_pointer_cast<Transformation>(obj);
-    ASSERT_TRUE(crs != nullptr);
+    auto transf = nn_dynamic_pointer_cast<Transformation>(obj);
+    ASSERT_TRUE(transf != nullptr);
     // Test that even if the .gtx file is unknown, we export in the correct
     // direction
-    EXPECT_EQ(crs->exportToPROJString(PROJStringFormatter::create().get()),
+    EXPECT_EQ(transf->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=pipeline "
               "+step +proj=axisswap +order=2,1 "
               "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
               "+step +inv +proj=vgridshift +grids=foo.gtx +multiplier=1 "
               "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
               "+step +proj=axisswap +order=2,1");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, export_of_boundCRS_with_proj_string_method) {
+
+    auto wkt =
+        "BOUNDCRS[\n"
+        "    SOURCECRS[\n"
+        "        GEOGCRS[\"unknown\",\n"
+        "            DATUM[\"Unknown based on GRS80 ellipsoid\",\n"
+        "                ELLIPSOID[\"GRS 1980\",6378137,298.257222101,\n"
+        "                    LENGTHUNIT[\"metre\",1],\n"
+        "                    ID[\"EPSG\",7019]]],\n"
+        "            PRIMEM[\"Greenwich\",0,\n"
+        "                ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+        "                ID[\"EPSG\",8901]],\n"
+        "            CS[ellipsoidal,2],\n"
+        "                AXIS[\"longitude\",east,\n"
+        "                    ORDER[1],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433,\n"
+        "                        ID[\"EPSG\",9122]]],\n"
+        "                AXIS[\"latitude\",north,\n"
+        "                    ORDER[2],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433,\n"
+        "                        ID[\"EPSG\",9122]]]]],\n"
+        "    TARGETCRS[\n"
+        "        GEOGCRS[\"WGS 84\",\n"
+        "            DATUM[\"World Geodetic System 1984\",\n"
+        "                ELLIPSOID[\"WGS 84\",6378137,298.257223563,\n"
+        "                    LENGTHUNIT[\"metre\",1]]],\n"
+        "            PRIMEM[\"Greenwich\",0,\n"
+        "                ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "            CS[ellipsoidal,2],\n"
+        "                AXIS[\"geodetic latitude (Lat)\",north,\n"
+        "                    ORDER[1],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "                AXIS[\"geodetic longitude (Lon)\",east,\n"
+        "                    ORDER[2],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "            ID[\"EPSG\",4326]]],\n"
+        "    ABRIDGEDTRANSFORMATION[\"Transformation from unknown to WGS84\",\n"
+        "        METHOD[\"PROJ-based operation method: +proj=pipeline +step "
+        "+proj=unitconvert +xy_in=deg +xy_out=rad +step +proj=axisswap "
+        "+order=2,1 "
+        "+step +proj=cart +ellps=GRS80 +step +proj=helmert "
+        "+convention=coordinate_frame +exact +step +inv +proj=cart "
+        "+ellps=WGS84 "
+        "+step +proj=axisswap +order=2,1 "
+        "+step +proj=unitconvert +xy_in=rad +xy_out=deg\"]]]";
+
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto boundCRS = nn_dynamic_pointer_cast<BoundCRS>(obj);
+    ASSERT_TRUE(boundCRS != nullptr);
+    EXPECT_EQ(boundCRS->transformation()->exportToPROJString(
+                  PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=cart +ellps=GRS80 "
+              "+step +proj=helmert +convention=coordinate_frame +exact "
+              "+step +inv +proj=cart +ellps=WGS84 "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=rad +xy_out=deg");
 }

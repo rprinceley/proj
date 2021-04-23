@@ -3009,8 +3009,9 @@ TEST(wkt_parse, COORDINATEOPERATION) {
     auto wkt =
         "COORDINATEOPERATION[\"transformationName\",\n"
         "    SOURCECRS[" +
-        src_wkt + "],\n"
-                  "    TARGETCRS[" +
+        src_wkt +
+        "],\n"
+        "    TARGETCRS[" +
         dst_wkt +
         "],\n"
         "    METHOD[\"operationMethodName\",\n"
@@ -3083,8 +3084,9 @@ TEST(wkt_parse, COORDINATEOPERATION_wkt2_2019) {
         "COORDINATEOPERATION[\"transformationName\",\n"
         "    VERSION[\"my version\"],\n"
         "    SOURCECRS[" +
-        src_wkt + "],\n"
-                  "    TARGETCRS[" +
+        src_wkt +
+        "],\n"
+        "    TARGETCRS[" +
         dst_wkt +
         "],\n"
         "    METHOD[\"operationMethodName\",\n"
@@ -5901,6 +5903,15 @@ static const struct {
          {"False northing", 2},
      }},
 
+    {"Equal_Earth",
+     {{"False_Easting", 1}, {"False_Northing", 2}, {"Central_Meridian", 3}},
+     "Equal Earth",
+     {
+         {"Longitude of natural origin", 3},
+         {"False easting", 1},
+         {"False northing", 2},
+     }},
+
     {
         "Unknown_Method",
         {{"False_Easting", 1},
@@ -6836,11 +6847,13 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[" +
-                   src_wkt + "],\n"
-                             "    TARGETCRS[" +
-                   dst_wkt + "],\n"
-                             "    METHOD[\"operationMethodName\"],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   src_wkt +
+                   "],\n"
+                   "    TARGETCRS[" +
+                   dst_wkt +
+                   "],\n"
+                   "    METHOD[\"operationMethodName\"],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_NO_THROW(WKTParser().createFromWKT(wkt));
     }
@@ -6849,9 +6862,10 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    TARGETCRS[" +
-                   dst_wkt + "],\n"
-                             "    METHOD[\"operationMethodName\"],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   dst_wkt +
+                   "],\n"
+                   "    METHOD[\"operationMethodName\"],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
     }
@@ -6861,9 +6875,10 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[FOO],\n"
                    "    TARGETCRS[" +
-                   dst_wkt + "],\n"
-                             "    METHOD[\"operationMethodName\"],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   dst_wkt +
+                   "],\n"
+                   "    METHOD[\"operationMethodName\"],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
     }
@@ -6872,9 +6887,10 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[" +
-                   src_wkt + "],\n"
-                             "    METHOD[\"operationMethodName\"],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   src_wkt +
+                   "],\n"
+                   "    METHOD[\"operationMethodName\"],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
     }
@@ -6883,10 +6899,11 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[" +
-                   src_wkt + "],\n"
-                             "    TARGETCRS[FOO],\n"
-                             "    METHOD[\"operationMethodName\"],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   src_wkt +
+                   "],\n"
+                   "    TARGETCRS[FOO],\n"
+                   "    METHOD[\"operationMethodName\"],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
     }
@@ -6895,8 +6912,9 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[" +
-                   src_wkt + "],\n"
-                             "    TARGETCRS[" +
+                   src_wkt +
+                   "],\n"
+                   "    TARGETCRS[" +
                    dst_wkt + "]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
@@ -6906,11 +6924,13 @@ TEST(wkt_parse, invalid_COORDINATEOPERATION) {
     {
         auto wkt = "COORDINATEOPERATION[\"transformationName\",\n"
                    "    SOURCECRS[" +
-                   src_wkt + "],\n"
-                             "    TARGETCRS[" +
-                   dst_wkt + "],\n"
-                             "    METHOD[],\n"
-                             "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
+                   src_wkt +
+                   "],\n"
+                   "    TARGETCRS[" +
+                   dst_wkt +
+                   "],\n"
+                   "    METHOD[],\n"
+                   "    PARAMETERFILE[\"paramName\",\"foo.bin\"]]";
 
         EXPECT_THROW(WKTParser().createFromWKT(wkt), ParsingException);
     }
@@ -10586,10 +10606,10 @@ TEST(io, createFromUserInput) {
 
     {
         // Approximate match on each piece of the compound CRS
-        auto obj = createFromUserInput("WGS84 + EGM96", dbContext);
+        auto obj = createFromUserInput("WGS84 + NAVD88 height", dbContext);
         auto crs = nn_dynamic_pointer_cast<CompoundCRS>(obj);
         ASSERT_TRUE(crs != nullptr);
-        EXPECT_EQ(crs->nameStr(), "WGS 84 + EGM96 height");
+        EXPECT_EQ(crs->nameStr(), "WGS 84 + NAVD88 height");
     }
 
     {
@@ -10605,6 +10625,14 @@ TEST(io, createFromUserInput) {
                  ParsingException);
     EXPECT_THROW(createFromUserInput("foobar + EGM96 height", dbContext),
                  ParsingException);
+
+    {
+        auto obj = createFromUserInput("World Geodetic System 1984 ensemble",
+                                       dbContext);
+        auto ensemble = nn_dynamic_pointer_cast<DatumEnsemble>(obj);
+        ASSERT_TRUE(ensemble != nullptr);
+        EXPECT_EQ(ensemble->identifiers().size(), 1U);
+    }
 }
 
 // ---------------------------------------------------------------------------

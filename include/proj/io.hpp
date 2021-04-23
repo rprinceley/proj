@@ -243,6 +243,10 @@ class PROJ_GCC_DLL WKTFormatter {
     PROJ_DLL WKTFormatter &setStrict(bool strict) noexcept;
     PROJ_DLL bool isStrict() const noexcept;
 
+    PROJ_DLL WKTFormatter &
+    setAllowEllipsoidalHeightAsVerticalCRS(bool allow) noexcept;
+    PROJ_DLL bool isAllowedEllipsoidalHeightAsVerticalCRS() const noexcept;
+
     PROJ_DLL const std::string &toString() const;
 
     PROJ_PRIVATE :
@@ -711,8 +715,8 @@ class PROJ_GCC_DLL WKTNode {
     PROJ_DLL void addChild(WKTNodeNNPtr &&child);
     PROJ_DLL const WKTNodePtr &lookForChild(const std::string &childName,
                                             int occurrence = 0) const noexcept;
-    PROJ_DLL int countChildrenOfName(const std::string &childName) const
-        noexcept;
+    PROJ_DLL int
+    countChildrenOfName(const std::string &childName) const noexcept;
 
     PROJ_DLL std::string toString() const;
 
@@ -1036,6 +1040,8 @@ class PROJ_GCC_DLL AuthorityFactory {
         DYNAMIC_GEODETIC_REFERENCE_FRAME,
         /** Object of type datum::DynamicVerticalReferenceFrame */
         DYNAMIC_VERTICAL_REFERENCE_FRAME,
+        /** Object of type datum::DatumEnsemble */
+        DATUM_ENSEMBLE,
     };
 
     PROJ_DLL std::set<std::string>
@@ -1229,6 +1235,18 @@ class PROJ_GCC_DLL AuthorityFactory {
 
   private:
     PROJ_OPAQUE_PRIVATE_DATA
+
+    PROJ_INTERNAL void
+    createGeodeticDatumOrEnsemble(const std::string &code,
+                                  datum::GeodeticReferenceFramePtr &outDatum,
+                                  datum::DatumEnsemblePtr &outDatumEnsemble,
+                                  bool turnEnsembleAsDatum) const;
+
+    PROJ_INTERNAL void
+    createVerticalDatumOrEnsemble(const std::string &code,
+                                  datum::VerticalReferenceFramePtr &outDatum,
+                                  datum::DatumEnsemblePtr &outDatumEnsemble,
+                                  bool turnEnsembleAsDatum) const;
 };
 
 // ---------------------------------------------------------------------------

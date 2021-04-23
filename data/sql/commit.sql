@@ -75,14 +75,14 @@ FOR EACH ROW BEGIN
                       AND g1.source_crs_code = g2.source_crs_code
                       AND g1.target_crs_auth_name = g2.target_crs_auth_name
                       AND g1.target_crs_code = g2.target_crs_code
-                      WHERE g1.auth_name = 'PROJ' AND g2.auth_name = 'EPSG')
+                      WHERE g1.auth_name = 'PROJ' AND g1.code NOT LIKE '%_RESTRICTED_TO_VERTCRS%' AND g2.auth_name = 'EPSG')
         OR EXISTS (SELECT 1 FROM grid_transformation g1
                       JOIN grid_transformation g2
                       ON g1.source_crs_auth_name = g2.target_crs_auth_name
                       AND g1.source_crs_code = g2.target_crs_code
                       AND g1.target_crs_auth_name = g1.source_crs_auth_name
                       AND g1.target_crs_code = g1.source_crs_code
-                      WHERE g1.auth_name = 'PROJ' AND g2.auth_name = 'EPSG');
+                      WHERE g1.auth_name = 'PROJ' AND g1.code NOT LIKE '%_RESTRICTED_TO_VERTCRS%' AND g2.auth_name = 'EPSG');
 
     SELECT RAISE(ABORT, 'Arg! there is now a EPSG:102100 object. Hack in createFromUserInput() will no longer work')
         WHERE EXISTS(SELECT 1 FROM crs_view WHERE auth_name = 'EPSG' AND code = '102100');
@@ -118,21 +118,32 @@ FOR EACH ROW BEGIN
                       g.method_name LIKE 'Geographic3D to GravityRelatedHeight%' AND
                       g.target_crs_auth_name || g.target_crs_code NOT IN
                       (SELECT auth_name || code FROM vertical_crs));
-    SELECT RAISE(ABORT, 'One grid_transformation with Geographic3D to GravityRelatedHeight has not its source_crs in geodetic_crs table with type = ''geographic 3D''')
+    SELECT RAISE(ABORT, 'One grid_transformation with Geographic3D to GravityRelatedHeight or Geog3D to Geog2D+XXX has not its source_crs in geodetic_crs table with type = ''geographic 3D''')
         WHERE EXISTS (SELECT * FROM grid_transformation g WHERE
                       g.deprecated = 0 AND
-                      g.method_name LIKE 'Geographic3D to GravityRelatedHeight%' AND
-                      NOT (g.auth_name = 'EPSG' AND g.code IN (7648, 7649, 7650)) AND -- those are wrongly registered as they use a geocentric CRS. Reported to EPSG
+                      (g.method_name LIKE 'Geographic3D to %' OR g.method_name LIKE 'Geog3D to %') AND
                       g.source_crs_auth_name || g.source_crs_code NOT IN
                       (SELECT auth_name || code FROM geodetic_crs
                        WHERE type = 'geographic 3D'));
+
+    -- check that grids with 'Vertical Offset by Grid Interpolation' methods are properly registered
+    SELECT RAISE(ABORT, 'One grid_transformation with Vertical Offset by Grid Interpolation has not its source_crs in vertical_crs table')
+        WHERE EXISTS (SELECT * FROM grid_transformation g WHERE
+                      g.method_name LIKE 'Vertical Offset by Grid Interpolation%' AND
+                      g.source_crs_auth_name || g.source_crs_code NOT IN
+                      (SELECT auth_name || code FROM vertical_crs));
+    SELECT RAISE(ABORT, 'One grid_transformation with Vertical Offset by Grid Interpolation has not its target_crs in vertical_crs table')
+        WHERE EXISTS (SELECT * FROM grid_transformation g WHERE
+                      g.method_name LIKE 'Vertical Offset by Grid Interpolation%' AND
+                      g.target_crs_auth_name || g.target_crs_code NOT IN
+                      (SELECT auth_name || code FROM vertical_crs));
 
     -- check that transformations intersect the area of use of their source/target CRS
     -- EPSG, ESRI and IGNF have cases where this does not hold.
     SELECT RAISE(ABORT, 'The area of use of at least one coordinate_operation does not intersect the one of its source CRS')
         WHERE EXISTS (SELECT * FROM coordinate_operation_view v, crs_view c, usage vu, extent ve, usage cu, extent ce WHERE
                       v.deprecated = 0 AND
-                      v.auth_name NOT IN ('EPSG', 'ESRI', 'IGNF') AND
+                      (v.table_name = 'grid_transformation' OR v.auth_name NOT IN ('EPSG', 'ESRI', 'IGNF')) AND
                       v.source_crs_auth_name = c.auth_name AND
                       v.source_crs_code = c.code AND
                       vu.object_table_name = v.table_name AND
@@ -149,7 +160,8 @@ FOR EACH ROW BEGIN
     SELECT RAISE(ABORT, 'The area of use of at least one coordinate_operation does not intersect the one of its target CRS')
         WHERE EXISTS (SELECT * FROM coordinate_operation_view v, crs_view c, usage vu, extent ve, usage cu, extent ce WHERE
                       v.deprecated = 0 AND
-                      v.auth_name NOT IN ('EPSG', 'ESRI', 'IGNF') AND
+                      ((v.table_name = 'grid_transformation' AND NOT (v.auth_name = 'IGNF' AND v.code = 'TSG1185'))
+                       OR v.auth_name NOT IN ('EPSG', 'ESRI', 'IGNF')) AND
                       v.target_crs_auth_name = c.auth_name AND
                       v.target_crs_code = c.code AND
                       vu.object_table_name = v.table_name AND
@@ -183,6 +195,7 @@ FOR EACH ROW BEGIN
     -- check presence of au_ga_AUSGeoid98.tif
     SELECT RAISE(ABORT, 'missing au_ga_AUSGeoid98.tif')
         WHERE NOT EXISTS(SELECT 1 FROM grid_alternatives WHERE proj_grid_name = 'au_ga_AUSGeoid98.tif');
+
 
 END;
 INSERT INTO dummy DEFAULT VALUES;

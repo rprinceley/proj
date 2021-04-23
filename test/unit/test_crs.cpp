@@ -527,7 +527,6 @@ TEST(crs, EPSG_4979_as_WKT1_GDAL) {
 
 // ---------------------------------------------------------------------------
 
-#ifdef notavailable_since_setAllowEllipsoidalHeightAsVerticalCRS_is_internal
 TEST(crs, EPSG_4979_as_WKT1_GDAL_with_ellipsoidal_height_as_vertical_crs) {
     auto crs = GeographicCRS::EPSG_4979;
     auto wkt = crs->exportToWKT(
@@ -553,7 +552,6 @@ TEST(crs, EPSG_4979_as_WKT1_GDAL_with_ellipsoidal_height_as_vertical_crs) {
                    "            AUTHORITY[\"EPSG\",\"9001\"]],\n"
                    "        AXIS[\"Ellipsoidal height\",UP]]]");
 }
-#endif
 
 // ---------------------------------------------------------------------------
 
@@ -1004,6 +1002,10 @@ TEST(crs, EPSG_32661_projected_north_pole_north_east) {
     EXPECT_EQ(
         opNormalized->exportToPROJString(PROJStringFormatter::create().get()),
         proj_string_normalized);
+
+    EXPECT_EQ(opNormalized->sourceCRS()->domains().size(), 1U);
+    EXPECT_EQ(opNormalized->sourceCRS()->remarks(),
+              "Axis order reversed compared to EPSG:4326");
 }
 
 // ---------------------------------------------------------------------------
@@ -2081,7 +2083,6 @@ TEST(crs, projectedCRS_as_WKT1_ESRI) {
 
 // ---------------------------------------------------------------------------
 
-#ifdef notavailable_since_setAllowEllipsoidalHeightAsVerticalCRS_is_internal
 TEST(crs,
      projectedCRS_3D_as_WKT1_GDAL_with_ellipsoidal_height_as_vertical_crs) {
     auto dbContext = DatabaseContext::create();
@@ -2123,7 +2124,6 @@ TEST(crs,
               "            AUTHORITY[\"EPSG\",\"9001\"]],\n"
               "        AXIS[\"Ellipsoidal height\",UP]]]");
 }
-#endif
 
 // ---------------------------------------------------------------------------
 
@@ -4230,7 +4230,7 @@ TEST(crs, compoundCRS_identify_db) {
     // Identify a CompoundCRS whose horizontal and vertical parts are known
     // but not the composition.
     {
-        auto obj = createFromUserInput("EPSG:4326+3855", dbContext);
+        auto obj = createFromUserInput("EPSG:4326+5703", dbContext);
         auto sourceCRS = nn_dynamic_pointer_cast<CompoundCRS>(obj);
         ASSERT_TRUE(sourceCRS != nullptr);
         auto wkt = sourceCRS->exportToWKT(
@@ -4246,7 +4246,7 @@ TEST(crs, compoundCRS_identify_db) {
         EXPECT_EQ(res.front().second, 100);
         const auto &components = res.front().first->componentReferenceSystems();
         EXPECT_EQ(components[0]->getEPSGCode(), 4326);
-        EXPECT_EQ(components[1]->getEPSGCode(), 3855);
+        EXPECT_EQ(components[1]->getEPSGCode(), 5703);
     }
 }
 
@@ -5515,8 +5515,9 @@ static ParametricCSNNPtr createParametricCS() {
         PropertyMap(),
         CoordinateSystemAxis::create(
             PropertyMap().set(IdentifiedObject::NAME_KEY, "pressure"), "hPa",
-            AxisDirection::UP, UnitOfMeasure("HectoPascal", 100,
-                                             UnitOfMeasure::Type::PARAMETRIC)));
+            AxisDirection::UP,
+            UnitOfMeasure("HectoPascal", 100,
+                          UnitOfMeasure::Type::PARAMETRIC)));
 }
 
 // ---------------------------------------------------------------------------

@@ -110,9 +110,9 @@ message(STATUS "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 7 MINOR 2 PATCH 1)
-set(PROJ_API_VERSION "19")
-set(PROJ_BUILD_VERSION "21.1.2")
+proj_version(MAJOR 8 MINOR 0 PATCH 0)
+set(PROJ_API_VERSION "22")
+set(PROJ_BUILD_VERSION "22.0.0")
 
 ################################################################################
 # Build features and variants
@@ -178,6 +178,13 @@ endif()
 
 set(SQLITE3_INCLUDE_DIR ${PROJ_SOURCE_DIR}/sqlite3)
 set(EXE_SQLITE3 ${PROJ_BINARY_DIR}/bin/sqlite3)
+################################################################################
+
+option(PROJ_LIB_ENV_VAR_TRIED_LAST "Whether the PROJ_LIB environment variable should be tried after the hardcoded location" OFF)
+if(PROJ_LIB_ENV_VAR_TRIED_LAST)
+    add_definitions(-DPROJ_LIB_ENV_VAR_TRIED_LAST)
+endif()
+
 ################################################################################
 # threading configuration
 ################################################################################
@@ -254,12 +261,6 @@ set(CMAKECONFIGDIR "${DEFAULT_CMAKEDIR}"
 ################################################################################
 include(CTest)
 
-# Support older option, to be removed by PROJ 8.0
-if(DEFINED PROJ_TESTS)
-  message(DEPRECATION "PROJ_TESTS has been replaced with BUILD_TESTING")
-  set(BUILD_TESTING ${PROJ_TESTS})
-endif()
-
 if(BUILD_TESTING)
   include(ProjTest)
 else()
@@ -279,4 +280,19 @@ add_subdirectory(man)
 add_subdirectory(cmake)
 if(BUILD_TESTING)
   add_subdirectory(test)
+endif()
+
+set(docfiles COPYING NEWS AUTHORS)
+install(FILES ${docfiles}
+        DESTINATION "${DOCDIR}")
+
+################################################################################
+# pkg-config support
+################################################################################
+if(UNIX OR MINGW)
+  configure_proj_pc()
+
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/proj.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endif()

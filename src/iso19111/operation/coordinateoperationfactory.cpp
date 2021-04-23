@@ -30,8 +30,8 @@
 #define FROM_PROJ_CPP
 #endif
 
-#include "proj/coordinateoperation.hpp"
 #include "proj/common.hpp"
+#include "proj/coordinateoperation.hpp"
 #include "proj/crs.hpp"
 #include "proj/io.hpp"
 #include "proj/metadata.hpp"
@@ -50,6 +50,7 @@
 #include "proj.h"
 #include "proj_internal.h" // M_PI
 // clang-format on
+#include "proj_constants.h"
 
 #include <algorithm>
 #include <cassert>
@@ -1856,14 +1857,14 @@ createBallparkGeographicOffset(const crs::CRSNNPtr &sourceCRS,
         accuracies.emplace_back(metadata::PositionalAccuracy::create("0"));
     }
 
-    if (dynamic_cast<const crs::SingleCRS *>(sourceCRS.get())
-                ->coordinateSystem()
-                ->axisList()
-                .size() == 3 ||
-        dynamic_cast<const crs::SingleCRS *>(targetCRS.get())
-                ->coordinateSystem()
-                ->axisList()
-                .size() == 3) {
+    const auto singleSourceCRS =
+        dynamic_cast<const crs::SingleCRS *>(sourceCRS.get());
+    const auto singleTargetCRS =
+        dynamic_cast<const crs::SingleCRS *>(targetCRS.get());
+    if ((singleSourceCRS &&
+         singleSourceCRS->coordinateSystem()->axisList().size() == 3) ||
+        (singleTargetCRS &&
+         singleTargetCRS->coordinateSystem()->axisList().size() == 3)) {
         return Transformation::createGeographic3DOffsets(
             map, sourceCRS, targetCRS, angle0, angle0, common::Length(0),
             accuracies);
@@ -1892,8 +1893,8 @@ struct MyPROJStringExportableGeodToGeod final
     ~MyPROJStringExportableGeodToGeod() override;
 
     void
-        // cppcheck-suppress functionStatic
-        _exportToPROJString(io::PROJStringFormatter *formatter) const override {
+    // cppcheck-suppress functionStatic
+    _exportToPROJString(io::PROJStringFormatter *formatter) const override {
 
         formatter->startInversion();
         geodSrc->_exportToPROJString(formatter);
@@ -1922,8 +1923,8 @@ struct MyPROJStringExportableHorizVertical final
     ~MyPROJStringExportableHorizVertical() override;
 
     void
-        // cppcheck-suppress functionStatic
-        _exportToPROJString(io::PROJStringFormatter *formatter) const override {
+    // cppcheck-suppress functionStatic
+    _exportToPROJString(io::PROJStringFormatter *formatter) const override {
 
         formatter->pushOmitZUnitConversion();
 
@@ -1970,8 +1971,67 @@ struct MyPROJStringExportableHorizVerticalHorizPROJBased final
     ~MyPROJStringExportableHorizVerticalHorizPROJBased() override;
 
     void
-        // cppcheck-suppress functionStatic
-        _exportToPROJString(io::PROJStringFormatter *formatter) const override {
+    // cppcheck-suppress functionStatic
+    _exportToPROJString(io::PROJStringFormatter *formatter) const override {
+
+        bool saveHorizontalCoords = false;
+        const auto transf =
+            dynamic_cast<Transformation *>(opSrcCRSToGeogCRS.get());
+        if (transf && opSrcCRSToGeogCRS->sourceCRS()->_isEquivalentTo(
+                          opGeogCRStoDstCRS->targetCRS()
+                              ->demoteTo2D(std::string(), nullptr)
+                              .get(),
+                          util::IComparable::Criterion::EQUIVALENT)) {
+            const int methodEPSGCode = transf->method()->getEPSGCode();
+
+            const bool bGeocentricTranslation =
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_GEOCENTRIC_TRANSLATION_GEOCENTRIC ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_GEOCENTRIC_TRANSLATION_GEOGRAPHIC_2D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_GEOCENTRIC_TRANSLATION_GEOGRAPHIC_3D;
+
+            if ((bGeocentricTranslation &&
+                 !(transf->parameterValueNumericAsSI(
+                       EPSG_CODE_PARAMETER_X_AXIS_TRANSLATION) == 0 &&
+                   transf->parameterValueNumericAsSI(
+                       EPSG_CODE_PARAMETER_Y_AXIS_TRANSLATION) == 0 &&
+                   transf->parameterValueNumericAsSI(
+                       EPSG_CODE_PARAMETER_Z_AXIS_TRANSLATION) == 0)) ||
+
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_COORDINATE_FRAME_GEOCENTRIC ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_COORDINATE_FRAME_GEOGRAPHIC_2D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_COORDINATE_FRAME_GEOGRAPHIC_3D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_COORDINATE_FRAME_GEOCENTRIC ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_COORDINATE_FRAME_GEOGRAPHIC_2D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_COORDINATE_FRAME_GEOGRAPHIC_3D ||
+                methodEPSGCode == EPSG_CODE_METHOD_POSITION_VECTOR_GEOCENTRIC ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_POSITION_VECTOR_GEOGRAPHIC_2D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_POSITION_VECTOR_GEOGRAPHIC_3D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_POSITION_VECTOR_GEOCENTRIC ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_POSITION_VECTOR_GEOGRAPHIC_2D ||
+                methodEPSGCode ==
+                    EPSG_CODE_METHOD_TIME_DEPENDENT_POSITION_VECTOR_GEOGRAPHIC_3D) {
+                saveHorizontalCoords = true;
+            }
+        }
+
+        if (saveHorizontalCoords) {
+            formatter->addStep("push");
+            formatter->addParam("v_1");
+            formatter->addParam("v_2");
+        }
 
         formatter->pushOmitZUnitConversion();
 
@@ -1994,6 +2054,12 @@ struct MyPROJStringExportableHorizVerticalHorizPROJBased final
         opGeogCRStoDstCRS->_exportToPROJString(formatter);
 
         formatter->popOmitZUnitConversion();
+
+        if (saveHorizontalCoords) {
+            formatter->addStep("pop");
+            formatter->addParam("v_1");
+            formatter->addParam("v_2");
+        }
     }
 };
 
@@ -2321,10 +2387,9 @@ CoordinateOperationFactory::Private::createOperationsGeogToGeog(
     }
 
     // Do they differ by vertical units ?
-    if (vconvSrc != vconvDst &&
-        geogSrc->ellipsoid()->_isEquivalentTo(
-            geogDst->ellipsoid().get(),
-            util::IComparable::Criterion::EQUIVALENT)) {
+    if (vconvSrc != vconvDst && geogSrc->ellipsoid()->_isEquivalentTo(
+                                    geogDst->ellipsoid().get(),
+                                    util::IComparable::Criterion::EQUIVALENT)) {
         if (offset_pm.value() == 0 && !axisReversal2D && !axisReversal3D) {
             // If only by vertical units, use a Change of Vertical
             // Unit
@@ -2615,9 +2680,13 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
                                      bool isNullFirst) {
         const auto opsSecond =
             createOperations(candidateSrcGeod, candidateDstGeod, context);
-        const auto opsThird =
-            createOperations(candidateDstGeod, targetCRS, context);
+        const auto opsThird = createOperations(
+            sourceAndTargetAre3D
+                ? candidateDstGeod->promoteTo3D(std::string(), dbContext)
+                : candidateDstGeod,
+            targetCRS, context);
         assert(!opsThird.empty());
+        const CoordinateOperationNNPtr &opThird(opsThird[0]);
 
         for (auto &opSecond : opsSecond) {
             // Check that it is not a transformation synthetized by
@@ -2633,8 +2702,7 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
             }
 
             std::vector<CoordinateOperationNNPtr> subOps;
-            const bool isNullThird =
-                isNullTransformation(opsThird[0]->nameStr());
+            const bool isNullThird = isNullTransformation(opThird->nameStr());
             CoordinateOperationNNPtr opSecondCloned(
                 (isNullFirst || isNullThird || sourceAndTargetAre3D)
                     ? opSecond->shallowClone()
@@ -2666,12 +2734,31 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
                 }
             }
             if (sourceAndTargetAre3D) {
-                opSecondCloned->getPrivate()->use3DHelmert_ = true;
-                auto invCO = dynamic_cast<InverseCoordinateOperation *>(
-                    opSecondCloned.get());
-                if (invCO) {
-                    auto invCOForward = invCO->forwardOperation().get();
-                    invCOForward->getPrivate()->use3DHelmert_ = true;
+
+                // Force Helmert operations to use the 3D domain, even if the
+                // ones we found in EPSG are advertized for the 2D domain.
+                auto concat =
+                    dynamic_cast<ConcatenatedOperation *>(opSecondCloned.get());
+                if (concat) {
+                    std::vector<CoordinateOperationNNPtr> newSteps;
+                    for (const auto &step : concat->operations()) {
+                        auto newStep = step->shallowClone();
+                        setCRSs(newStep.get(),
+                                newStep->sourceCRS()->promoteTo3D(std::string(),
+                                                                  dbContext),
+                                newStep->targetCRS()->promoteTo3D(std::string(),
+                                                                  dbContext));
+                        newSteps.emplace_back(newStep);
+                    }
+                    opSecondCloned =
+                        ConcatenatedOperation::createComputeMetadata(
+                            newSteps, disallowEmptyIntersection);
+                } else {
+                    setCRSs(opSecondCloned.get(),
+                            opSecondCloned->sourceCRS()->promoteTo3D(
+                                std::string(), dbContext),
+                            opSecondCloned->targetCRS()->promoteTo3D(
+                                std::string(), dbContext));
                 }
             }
             if (isNullFirst) {
@@ -2686,7 +2773,7 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
                 subOps.emplace_back(opSecondCloned);
             } else {
                 subOps.emplace_back(opSecondCloned);
-                subOps.emplace_back(opsThird[0]);
+                subOps.emplace_back(opThird);
             }
 #ifdef TRACE_CREATE_OPERATIONS
             std::string debugStr;
@@ -2727,6 +2814,10 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
 
     for (const auto &candidateSrcGeod : candidatesSrcGeod) {
         if (candidateSrcGeod->nameStr() == sourceCRS->nameStr()) {
+            auto sourceSrcGeodModified(
+                sourceAndTargetAre3D
+                    ? candidateSrcGeod->promoteTo3D(std::string(), dbContext)
+                    : candidateSrcGeod);
             for (const auto &candidateDstGeod : candidatesDstGeod) {
                 if (candidateDstGeod->nameStr() == targetCRS->nameStr()) {
 #ifdef TRACE_CREATE_OPERATIONS
@@ -2735,8 +2826,8 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
                                 objectAsStr(candidateDstGeod.get()) + "->" +
                                 objectAsStr(targetCRS.get()) + ")");
 #endif
-                    const auto opsFirst =
-                        createOperations(sourceCRS, candidateSrcGeod, context);
+                    const auto opsFirst = createOperations(
+                        sourceCRS, sourceSrcGeodModified, context);
                     assert(!opsFirst.empty());
                     const bool isNullFirst =
                         isNullTransformation(opsFirst[0]->nameStr());
@@ -2759,8 +2850,12 @@ void CoordinateOperationFactory::Private::createOperationsWithDatumPivot(
 #ifdef TRACE_CREATE_OPERATIONS
         ENTER_BLOCK("");
 #endif
+        auto sourceSrcGeodModified(
+            sourceAndTargetAre3D
+                ? candidateSrcGeod->promoteTo3D(std::string(), dbContext)
+                : candidateSrcGeod);
         const auto opsFirst =
-            createOperations(sourceCRS, candidateSrcGeod, context);
+            createOperations(sourceCRS, sourceSrcGeodModified, context);
         assert(!opsFirst.empty());
         const bool isNullFirst = isNullTransformation(opsFirst[0]->nameStr());
 
@@ -3196,26 +3291,6 @@ bool CoordinateOperationFactory::Private::createOperationsFromDatabase(
                    CoordinateOperationContext::IntermediateCRSUse::NEVER) {
 
         bool tryWithGeodeticDatumIntermediate = res.empty();
-        if (!tryWithGeodeticDatumIntermediate) {
-            // This is in particular for the GDA94 to WGS 84 (G1762) case
-            // As we have a WGS 84 -> WGS 84 (G1762) null-transformation in the
-            // PROJ authority, previous steps might have use that WGS 84
-            // intermediate directly. They might also have generated a path
-            // through ITRF2008, as there is a path
-            // GDA94 (geoc.) -> ITRF2008 (geoc.) -> WGS84 (G1762) (geoc.)
-            // But there's a better path using
-            // GDA94 (geog.) --> GDA2020 (geog.) and
-            // GDA2020 (geoc.) -> WGS84 (G1762) (geoc.) that requires to
-            // explore intermediates through their datum, and not directly
-            // trough the CRS code.
-            // Do that only if the number of results we got through other
-            // algorithms is small, or if all results we have go through an
-            // operation in the PROJ authority.
-            constexpr size_t ARBITRARY_SMALL_NUMBER = 5U;
-            tryWithGeodeticDatumIntermediate =
-                res.size() < ARBITRARY_SMALL_NUMBER ||
-                hasResultSetOnlyResultsWithPROJStep(res);
-        }
         if (tryWithGeodeticDatumIntermediate) {
             auto resWithIntermediate = findsOpsInRegistryWithIntermediate(
                 sourceCRS, targetCRS, context, true);
@@ -3285,98 +3360,144 @@ CoordinateOperationFactory::Private::createOperationsGeogToVertFromGeoid(
 
     ENTER_FUNCTION();
 
-    const auto useTransf = [&targetCRS, &context,
+    const auto useTransf = [&sourceCRS, &targetCRS, &context,
                             vertDst](const CoordinateOperationNNPtr &op) {
+        // If the source geographic CRS has a non-metre vertical unit, we need
+        // to create an intermediate and operation to do the vertical unit
+        // conversion from that vertical unit to the one of the geographic CRS
+        // of the source of the operation
+        const auto geogCRS =
+            dynamic_cast<const crs::GeographicCRS *>(sourceCRS.get());
+        assert(geogCRS);
+        const auto &srcAxisList = geogCRS->coordinateSystem()->axisList();
+        CoordinateOperationPtr opPtr;
+        const auto opSourceCRSGeog =
+            dynamic_cast<const crs::GeographicCRS *>(op->sourceCRS().get());
+        // I assume opSourceCRSGeog should always be null in practice...
+        if (opSourceCRSGeog && srcAxisList.size() == 3 &&
+            srcAxisList[2]->unit().conversionToSI() != 1) {
+            const auto &authFactory = context.context->getAuthorityFactory();
+            const auto dbContext =
+                authFactory ? authFactory->databaseContext().as_nullable()
+                            : nullptr;
+            auto tmpCRSWithSrcZ =
+                opSourceCRSGeog->demoteTo2D(std::string(), dbContext)
+                    ->promoteTo3D(std::string(), dbContext, srcAxisList[2]);
+
+            std::vector<CoordinateOperationNNPtr> opsUnitConvert;
+            createOperationsGeogToGeog(
+                opsUnitConvert, tmpCRSWithSrcZ, NN_NO_CHECK(op->sourceCRS()),
+                context,
+                dynamic_cast<const crs::GeographicCRS *>(tmpCRSWithSrcZ.get()),
+                opSourceCRSGeog);
+            assert(opsUnitConvert.size() == 1);
+            opPtr = opsUnitConvert.front().as_nullable();
+        }
+
+        std::vector<CoordinateOperationNNPtr> ops;
+        if (opPtr)
+            ops.emplace_back(NN_NO_CHECK(opPtr));
+        ops.emplace_back(op);
+
         const auto targetOp =
             dynamic_cast<const crs::VerticalCRS *>(op->targetCRS().get());
         assert(targetOp);
         if (targetOp->_isEquivalentTo(
                 vertDst, util::IComparable::Criterion::EQUIVALENT)) {
-            return op;
+            auto ret = ConcatenatedOperation::createComputeMetadata(
+                ops, disallowEmptyIntersection);
+            return ret;
         }
         std::vector<CoordinateOperationNNPtr> tmp;
         createOperationsVertToVert(NN_NO_CHECK(op->targetCRS()), targetCRS,
                                    context, targetOp, vertDst, tmp);
         assert(!tmp.empty());
+        ops.emplace_back(tmp.front());
         auto ret = ConcatenatedOperation::createComputeMetadata(
-            {op, tmp.front()}, disallowEmptyIntersection);
+            ops, disallowEmptyIntersection);
         return ret;
     };
 
-    const auto getProjGeoidTransformation = [&sourceCRS, &targetCRS, &vertDst,
-                                             &context](
-        const CoordinateOperationNNPtr &model,
-        const std::string &projFilename) {
-
-        const auto getNameVertCRSMetre = [](const std::string &name) {
-            if (name.empty())
-                return std::string("unnamed");
-            auto ret(name);
-            bool haveOriginalUnit = false;
-            if (name.back() == ')') {
-                const auto pos = ret.rfind(" (");
+    const auto getProjGeoidTransformation =
+        [&sourceCRS, &targetCRS, &vertDst,
+         &context](const CoordinateOperationNNPtr &model,
+                   const std::string &projFilename) {
+            const auto getNameVertCRSMetre = [](const std::string &name) {
+                if (name.empty())
+                    return std::string("unnamed");
+                auto ret(name);
+                bool haveOriginalUnit = false;
+                if (name.back() == ')') {
+                    const auto pos = ret.rfind(" (");
+                    if (pos != std::string::npos) {
+                        haveOriginalUnit = true;
+                        ret = ret.substr(0, pos);
+                    }
+                }
+                const auto pos = ret.rfind(" depth");
                 if (pos != std::string::npos) {
-                    haveOriginalUnit = true;
-                    ret = ret.substr(0, pos);
+                    ret = ret.substr(0, pos) + " height";
                 }
-            }
-            const auto pos = ret.rfind(" depth");
-            if (pos != std::string::npos) {
-                ret = ret.substr(0, pos) + " height";
-            }
-            if (!haveOriginalUnit) {
-                ret += " (metre)";
-            }
-            return ret;
-        };
+                if (!haveOriginalUnit) {
+                    ret += " (metre)";
+                }
+                return ret;
+            };
 
-        const auto &axis = vertDst->coordinateSystem()->axisList()[0];
-        const auto geogSrcCRS =
-            dynamic_cast<crs::GeographicCRS *>(model->interpolationCRS().get())
-                ? NN_NO_CHECK(model->interpolationCRS())
-                : sourceCRS;
-        const auto vertCRSMetre =
-            axis->unit() == common::UnitOfMeasure::METRE &&
-                    axis->direction() == cs::AxisDirection::UP
-                ? targetCRS
-                : util::nn_static_pointer_cast<crs::CRS>(
-                      crs::VerticalCRS::create(
-                          util::PropertyMap().set(
-                              common::IdentifiedObject::NAME_KEY,
-                              getNameVertCRSMetre(targetCRS->nameStr())),
-                          vertDst->datum(), vertDst->datumEnsemble(),
-                          cs::VerticalCS::createGravityRelatedHeight(
-                              common::UnitOfMeasure::METRE)));
-        const auto properties = util::PropertyMap().set(
-            common::IdentifiedObject::NAME_KEY,
-            buildOpName("Transformation", vertCRSMetre, geogSrcCRS));
-
-        // Try to find a representative value for the accuracy of this grid
-        // from the registered transformations.
-        std::vector<metadata::PositionalAccuracyNNPtr> accuracies;
-        const auto &modelAccuracies = model->coordinateOperationAccuracies();
-        if (modelAccuracies.empty()) {
+            const auto &axis = vertDst->coordinateSystem()->axisList()[0];
             const auto &authFactory = context.context->getAuthorityFactory();
-            if (authFactory) {
-                const auto transformationsForGrid =
-                    io::DatabaseContext::getTransformationsForGridName(
-                        authFactory->databaseContext(), projFilename);
-                double accuracy = -1;
-                for (const auto &transf : transformationsForGrid) {
-                    accuracy = std::max(accuracy, getAccuracy(transf));
-                }
-                if (accuracy >= 0) {
-                    accuracies.emplace_back(
-                        metadata::PositionalAccuracy::create(
-                            toString(accuracy)));
+            const auto dbContext =
+                authFactory ? authFactory->databaseContext().as_nullable()
+                            : nullptr;
+
+            const auto geogSrcCRS =
+                dynamic_cast<crs::GeographicCRS *>(
+                    model->interpolationCRS().get())
+                    ? NN_NO_CHECK(model->interpolationCRS())
+                    : sourceCRS->demoteTo2D(std::string(), dbContext)
+                          ->promoteTo3D(std::string(), dbContext);
+            const auto vertCRSMetre =
+                axis->unit() == common::UnitOfMeasure::METRE &&
+                        axis->direction() == cs::AxisDirection::UP
+                    ? targetCRS
+                    : util::nn_static_pointer_cast<crs::CRS>(
+                          crs::VerticalCRS::create(
+                              util::PropertyMap().set(
+                                  common::IdentifiedObject::NAME_KEY,
+                                  getNameVertCRSMetre(targetCRS->nameStr())),
+                              vertDst->datum(), vertDst->datumEnsemble(),
+                              cs::VerticalCS::createGravityRelatedHeight(
+                                  common::UnitOfMeasure::METRE)));
+            const auto properties = util::PropertyMap().set(
+                common::IdentifiedObject::NAME_KEY,
+                buildOpName("Transformation", vertCRSMetre, geogSrcCRS));
+
+            // Try to find a representative value for the accuracy of this grid
+            // from the registered transformations.
+            std::vector<metadata::PositionalAccuracyNNPtr> accuracies;
+            const auto &modelAccuracies =
+                model->coordinateOperationAccuracies();
+            if (modelAccuracies.empty()) {
+                if (authFactory) {
+                    const auto transformationsForGrid =
+                        io::DatabaseContext::getTransformationsForGridName(
+                            authFactory->databaseContext(), projFilename);
+                    double accuracy = -1;
+                    for (const auto &transf : transformationsForGrid) {
+                        accuracy = std::max(accuracy, getAccuracy(transf));
+                    }
+                    if (accuracy >= 0) {
+                        accuracies.emplace_back(
+                            metadata::PositionalAccuracy::create(
+                                toString(accuracy)));
+                    }
                 }
             }
-        }
 
-        return Transformation::createGravityRelatedHeightToGeographic3D(
-            properties, vertCRSMetre, geogSrcCRS, nullptr, projFilename,
-            !modelAccuracies.empty() ? modelAccuracies : accuracies);
-    };
+            return Transformation::createGravityRelatedHeightToGeographic3D(
+                properties, vertCRSMetre, geogSrcCRS, nullptr, projFilename,
+                !modelAccuracies.empty() ? modelAccuracies : accuracies);
+        };
 
     std::vector<CoordinateOperationNNPtr> res;
     const auto &authFactory = context.context->getAuthorityFactory();
@@ -3476,8 +3597,8 @@ std::vector<CoordinateOperationNNPtr> CoordinateOperationFactory::Private::
 
 std::vector<CoordinateOperationNNPtr> CoordinateOperationFactory::Private::
     createOperationsGeogToVertWithAlternativeGeog(
-        const crs::CRSNNPtr & /*sourceCRS*/, // geographic CRS
-        const crs::CRSNNPtr &targetCRS,      // vertical CRS
+        const crs::CRSNNPtr &sourceCRS, // geographic CRS
+        const crs::CRSNNPtr &targetCRS, // vertical CRS
         Private::Context &context) {
 
     ENTER_FUNCTION();
@@ -3501,10 +3622,39 @@ std::vector<CoordinateOperationNNPtr> CoordinateOperationFactory::Private::
     // Generally EPSG has operations from GeogCrs to VertCRS
     auto ops = findOpsInRegistryDirectTo(targetCRS, context);
 
+    const auto geogCRS =
+        dynamic_cast<const crs::GeographicCRS *>(sourceCRS.get());
+    assert(geogCRS);
+    const auto &srcAxisList = geogCRS->coordinateSystem()->axisList();
     for (const auto &op : ops) {
-        const auto tmpCRS = op->sourceCRS();
-        if (tmpCRS && dynamic_cast<const crs::GeographicCRS *>(tmpCRS.get())) {
-            res.emplace_back(op);
+        const auto tmpCRS =
+            dynamic_cast<const crs::GeographicCRS *>(op->sourceCRS().get());
+        if (tmpCRS) {
+            if (srcAxisList.size() == 3 &&
+                srcAxisList[2]->unit().conversionToSI() != 1) {
+
+                const auto &authFactory =
+                    context.context->getAuthorityFactory();
+                const auto dbContext =
+                    authFactory->databaseContext().as_nullable();
+                auto tmpCRSWithSrcZ =
+                    tmpCRS->demoteTo2D(std::string(), dbContext)
+                        ->promoteTo3D(std::string(), dbContext, srcAxisList[2]);
+
+                std::vector<CoordinateOperationNNPtr> opsUnitConvert;
+                createOperationsGeogToGeog(
+                    opsUnitConvert, tmpCRSWithSrcZ,
+                    NN_NO_CHECK(op->sourceCRS()), context,
+                    dynamic_cast<const crs::GeographicCRS *>(
+                        tmpCRSWithSrcZ.get()),
+                    tmpCRS);
+                assert(opsUnitConvert.size() == 1);
+                auto concat = ConcatenatedOperation::createComputeMetadata(
+                    {opsUnitConvert.front(), op}, disallowEmptyIntersection);
+                res.emplace_back(concat);
+            } else {
+                res.emplace_back(op);
+            }
         }
     }
 
@@ -3538,35 +3688,38 @@ void CoordinateOperationFactory::Private::
     // NAD83 only exists in 2D version in EPSG, so if it has been
     // promoted to 3D, when researching a vertical to geog
     // transformation, try to down cast to 2D.
-    const auto geog3DToVertTryThroughGeog2D = [&res, &context](
-        const crs::GeographicCRS *geogSrcIn, const crs::VerticalCRS *vertDstIn,
-        const crs::CRSNNPtr &targetCRSIn) {
-        if (res.empty() && geogSrcIn && vertDstIn &&
-            geogSrcIn->coordinateSystem()->axisList().size() == 3) {
-            const auto &authFactory = context.context->getAuthorityFactory();
-            const auto dbContext =
-                authFactory ? authFactory->databaseContext().as_nullable()
-                            : nullptr;
-            const auto candidatesSrcGeod(findCandidateGeodCRSForDatum(
-                authFactory, geogSrcIn,
-                geogSrcIn->datumNonNull(dbContext).get()));
-            for (const auto &candidate : candidatesSrcGeod) {
-                auto geogCandidate =
-                    util::nn_dynamic_pointer_cast<crs::GeographicCRS>(
-                        candidate);
-                if (geogCandidate &&
-                    geogCandidate->coordinateSystem()->axisList().size() == 2) {
-                    bool ignored;
-                    res =
-                        findOpsInRegistryDirect(NN_NO_CHECK(geogCandidate),
-                                                targetCRSIn, context, ignored);
-                    break;
+    const auto geog3DToVertTryThroughGeog2D =
+        [&res, &context](const crs::GeographicCRS *geogSrcIn,
+                         const crs::VerticalCRS *vertDstIn,
+                         const crs::CRSNNPtr &targetCRSIn) {
+            if (res.empty() && geogSrcIn && vertDstIn &&
+                geogSrcIn->coordinateSystem()->axisList().size() == 3) {
+                const auto &authFactory =
+                    context.context->getAuthorityFactory();
+                const auto dbContext =
+                    authFactory ? authFactory->databaseContext().as_nullable()
+                                : nullptr;
+                const auto candidatesSrcGeod(findCandidateGeodCRSForDatum(
+                    authFactory, geogSrcIn,
+                    geogSrcIn->datumNonNull(dbContext).get()));
+                for (const auto &candidate : candidatesSrcGeod) {
+                    auto geogCandidate =
+                        util::nn_dynamic_pointer_cast<crs::GeographicCRS>(
+                            candidate);
+                    if (geogCandidate &&
+                        geogCandidate->coordinateSystem()->axisList().size() ==
+                            2) {
+                        bool ignored;
+                        res = findOpsInRegistryDirect(
+                            NN_NO_CHECK(geogCandidate), targetCRSIn, context,
+                            ignored);
+                        break;
+                    }
                 }
+                return true;
             }
-            return true;
-        }
-        return false;
-    };
+            return false;
+        };
 
     if (geog3DToVertTryThroughGeog2D(geogSrc, vertDst, targetCRS)) {
         // do nothing
@@ -4205,7 +4358,7 @@ void CoordinateOperationFactory::Private::createOperationsVertToGeogBallpark(
     double convDst = 1.0;
     const auto &geogAxis = geogDst->coordinateSystem()->axisList();
     bool dstIsUp = true;
-    bool dstIsDown = true;
+    bool dstIsDown = false;
     if (geogAxis.size() == 3) {
         const auto &dstAxis = geogAxis[2];
         convDst = dstAxis->unit().conversionToSI();
@@ -4345,51 +4498,71 @@ getOps(const CoordinateOperationNNPtr &op) {
 
 // ---------------------------------------------------------------------------
 
-static bool useDifferentTransformationsForSameSourceTarget(
+static std::string normalize2D3DInName(const std::string &s) {
+    std::string out = s;
+    const char *const patterns[] = {
+        " (2D)",
+        " (geographic3D horizontal)",
+        " (geog2D)",
+        " (geog3D)",
+    };
+    for (const char *pattern : patterns) {
+        out = replaceAll(out, pattern, "");
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+
+static bool useCompatibleTransformationsForSameSourceTarget(
     const CoordinateOperationNNPtr &opA, const CoordinateOperationNNPtr &opB) {
-    auto subOpsA = getOps(opA);
-    auto subOpsB = getOps(opB);
+    const auto subOpsA = getOps(opA);
+    const auto subOpsB = getOps(opB);
+
     for (const auto &subOpA : subOpsA) {
         if (!dynamic_cast<const Transformation *>(subOpA.get()))
             continue;
-        if (subOpA->sourceCRS()->nameStr() == "unknown" ||
-            subOpA->targetCRS()->nameStr() == "unknown")
+        const auto subOpAName = normalize2D3DInName(subOpA->nameStr());
+        const auto &subOpASourceCRSName = subOpA->sourceCRS()->nameStr();
+        const auto &subOpATargetCRSName = subOpA->targetCRS()->nameStr();
+        if (subOpASourceCRSName == "unknown" ||
+            subOpATargetCRSName == "unknown")
             continue;
         for (const auto &subOpB : subOpsB) {
             if (!dynamic_cast<const Transformation *>(subOpB.get()))
                 continue;
-            if (subOpB->sourceCRS()->nameStr() == "unknown" ||
-                subOpB->targetCRS()->nameStr() == "unknown")
+            const auto &subOpBSourceCRSName = subOpB->sourceCRS()->nameStr();
+            const auto &subOpBTargetCRSName = subOpB->targetCRS()->nameStr();
+            if (subOpBSourceCRSName == "unknown" ||
+                subOpBTargetCRSName == "unknown")
                 continue;
 
-            if (subOpA->sourceCRS()->nameStr() ==
-                    subOpB->sourceCRS()->nameStr() &&
-                subOpA->targetCRS()->nameStr() ==
-                    subOpB->targetCRS()->nameStr()) {
-                if (starts_with(subOpA->nameStr(), NULL_GEOGRAPHIC_OFFSET) &&
+            if (subOpASourceCRSName == subOpBSourceCRSName &&
+                subOpATargetCRSName == subOpBTargetCRSName) {
+                const auto &subOpBName = normalize2D3DInName(subOpB->nameStr());
+                if (starts_with(subOpAName, NULL_GEOGRAPHIC_OFFSET) &&
                     starts_with(subOpB->nameStr(), NULL_GEOGRAPHIC_OFFSET)) {
                     continue;
                 }
-
-                if (!subOpA->isEquivalentTo(subOpB.get())) {
-                    return true;
+                if (subOpAName != subOpBName) {
+                    return false;
                 }
-            } else if (subOpA->sourceCRS()->nameStr() ==
-                           subOpB->targetCRS()->nameStr() &&
-                       subOpA->targetCRS()->nameStr() ==
-                           subOpB->sourceCRS()->nameStr()) {
-                if (starts_with(subOpA->nameStr(), NULL_GEOGRAPHIC_OFFSET) &&
-                    starts_with(subOpB->nameStr(), NULL_GEOGRAPHIC_OFFSET)) {
+            } else if (subOpASourceCRSName == subOpBTargetCRSName &&
+                       subOpATargetCRSName == subOpBSourceCRSName) {
+                const auto &subOpBName = subOpB->nameStr();
+                if (starts_with(subOpAName, NULL_GEOGRAPHIC_OFFSET) &&
+                    starts_with(subOpBName, NULL_GEOGRAPHIC_OFFSET)) {
                     continue;
                 }
 
-                if (!subOpA->isEquivalentTo(subOpB->inverse().get())) {
-                    return true;
+                if (subOpAName !=
+                    normalize2D3DInName(subOpB->inverse()->nameStr())) {
+                    return false;
                 }
             }
         }
     }
-    return false;
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -4564,11 +4737,18 @@ void CoordinateOperationFactory::Private::createOperationsCompoundToGeog(
                 !srcGeogCRS->_isEquivalentTo(
                     geogDst, util::IComparable::Criterion::EQUIVALENT) &&
                 !srcGeogCRS->is2DPartOf3D(NN_NO_CHECK(geogDst), dbContext)) {
-                auto verticalTransformsTmp = createOperations(
-                    componentsSrc[1],
+                auto geogCRSTmp =
                     NN_NO_CHECK(srcGeogCRS)
-                        ->promoteTo3D(std::string(), dbContext),
-                    context);
+                        ->demoteTo2D(std::string(), dbContext)
+                        ->promoteTo3D(
+                            std::string(), dbContext,
+                            geogDst->coordinateSystem()->axisList().size() == 3
+                                ? geogDst->coordinateSystem()->axisList()[2]
+                                : cs::VerticalCS::createGravityRelatedHeight(
+                                      common::UnitOfMeasure::METRE)
+                                      ->axisList()[0]);
+                auto verticalTransformsTmp =
+                    createOperations(componentsSrc[1], geogCRSTmp, context);
                 bool foundRegisteredTransform = false;
                 foundRegisteredTransformWithAllGridsAvailable = false;
                 for (const auto &op : verticalTransformsTmp) {
@@ -4638,30 +4818,41 @@ void CoordinateOperationFactory::Private::createOperationsCompoundToGeog(
                         (*ids.front()->codeSpace()) + ':' + ids.front()->code();
                 }
 
-                const auto computeOpsToInterp =
-                    [&srcToInterpOps, &interpToTargetOps, &componentsSrc,
-                     &interpolationGeogCRS, &targetCRS, &dbContext,
-                     &context]() {
-                        srcToInterpOps = createOperations(
-                            componentsSrc[0], NN_NO_CHECK(interpolationGeogCRS),
-                            context);
-                        auto target2D =
-                            targetCRS->demoteTo2D(std::string(), dbContext);
-                        if (!componentsSrc[0]->isEquivalentTo(
-                                target2D.get(),
-                                util::IComparable::Criterion::EQUIVALENT)) {
-                            // We do the transformation from the
-                            // interpolationCRS
-                            // to the target one in 3D (see #2225)
-                            // But we don't do that between sourceCRS and
-                            // interpolationCRS, as this would mess with an
-                            // orthometric elevation.
-                            auto interp3D = interpolationGeogCRS->promoteTo3D(
-                                std::string(), dbContext);
-                            interpToTargetOps =
-                                createOperations(interp3D, targetCRS, context);
-                        }
-                    };
+                const auto computeOpsToInterp = [&srcToInterpOps,
+                                                 &interpToTargetOps,
+                                                 &componentsSrc,
+                                                 &interpolationGeogCRS,
+                                                 &targetCRS, &geogDst,
+                                                 &dbContext, &context]() {
+                    // Do the sourceCRS to interpolation CRS in 2D only
+                    // to avoid altering the orthometric elevation
+                    srcToInterpOps = createOperations(
+                        componentsSrc[0], NN_NO_CHECK(interpolationGeogCRS),
+                        context);
+
+                    // But do the interpolation CRS to targetCRS in 3D
+                    // to have proper ellipsoid height transformation.
+                    // We need to force the vertical axis of this 3D'ified
+                    // interpolation CRS to be the same as the target CRS,
+                    // to avoid potential double vertical unit conversion,
+                    // as the vertical transformation already takes care of
+                    // that.
+                    auto interp3D =
+                        interpolationGeogCRS
+                            ->demoteTo2D(std::string(), dbContext)
+                            ->promoteTo3D(
+                                std::string(), dbContext,
+                                geogDst->coordinateSystem()
+                                            ->axisList()
+                                            .size() == 3
+                                    ? geogDst->coordinateSystem()->axisList()[2]
+                                    : cs::VerticalCS::
+                                          createGravityRelatedHeight(
+                                              common::UnitOfMeasure::METRE)
+                                              ->axisList()[0]);
+                    interpToTargetOps =
+                        createOperations(interp3D, targetCRS, context);
+                };
 
                 if (!key.empty()) {
                     auto iter = cacheHorizToInterpAndInterpToTarget.find(key);
@@ -4690,32 +4881,88 @@ void CoordinateOperationFactory::Private::createOperationsCompoundToGeog(
 #ifdef TRACE_CREATE_OPERATIONS
                 ENTER_BLOCK("creating HorizVerticalHorizPROJBased operations");
 #endif
+                const bool srcAndTargetGeogAreSame =
+                    componentsSrc[0]->isEquivalentTo(
+                        targetCRS->demoteTo2D(std::string(), dbContext).get(),
+                        util::IComparable::Criterion::EQUIVALENT);
+
+                // Lambda to add to the set the name of geodetic datum of the
+                // CRS
+                const auto addDatumOfToSet = [&dbContext](
+                                                 std::set<std::string> &set,
+                                                 const crs::CRSNNPtr &crs) {
+                    auto geodCRS = crs->extractGeodeticCRS();
+                    if (geodCRS) {
+                        set.insert(geodCRS->datumNonNull(dbContext)->nameStr());
+                    }
+                };
+
+                // Lambda to return the set of names of geodetic datums used
+                // by the source and target CRS of a list of operations.
+                const auto makeDatumSet =
+                    [&addDatumOfToSet](
+                        const std::vector<CoordinateOperationNNPtr> &ops) {
+                        std::set<std::string> datumSetOps;
+                        for (const auto &subOp : ops) {
+                            if (!dynamic_cast<const Transformation *>(
+                                    subOp.get()))
+                                continue;
+                            addDatumOfToSet(datumSetOps,
+                                            NN_NO_CHECK(subOp->sourceCRS()));
+                            addDatumOfToSet(datumSetOps,
+                                            NN_NO_CHECK(subOp->targetCRS()));
+                        }
+                        return datumSetOps;
+                    };
+
+                std::map<CoordinateOperation *, std::set<std::string>>
+                    mapSetDatumsUsed;
+                if (srcAndTargetGeogAreSame) {
+                    // When the geographic CRS of the source and target, we
+                    // want to make sure that the transformation from the
+                    // source to the interpolation CRS uses the same datums as
+                    // the one from the interpolation CRS to the target CRS.
+                    // A simplistic view would be that the srcToInterp and
+                    // interpToTarget should be the same, but they are
+                    // subtelties, like interpToTarget being done in 3D, so with
+                    // additional conversion steps, slightly different names in
+                    // operations between 2D and 3D. The initial filter on
+                    // checking that we use the same set of datum enable us
+                    // to be confident we reject upfront geodetically-dubious
+                    // operations.
+                    for (const auto &op : srcToInterpOps) {
+                        mapSetDatumsUsed[op.get()] = makeDatumSet(getOps(op));
+                    }
+                    for (const auto &op : interpToTargetOps) {
+                        mapSetDatumsUsed[op.get()] = makeDatumSet(getOps(op));
+                    }
+                }
+
                 for (const auto &srcToInterp : srcToInterpOps) {
-                    if (interpToTargetOps.empty()) {
+                    for (const auto &interpToTarget : interpToTargetOps) {
+
+                        if ((srcAndTargetGeogAreSame &&
+                             mapSetDatumsUsed[srcToInterp.get()] !=
+                                 mapSetDatumsUsed[interpToTarget.get()]) ||
+                            !useCompatibleTransformationsForSameSourceTarget(
+                                srcToInterp, interpToTarget)) {
+#ifdef TRACE_CREATE_OPERATIONS
+                            logTrace(
+                                "Considering that '" + srcToInterp->nameStr() +
+                                "' and '" + interpToTarget->nameStr() +
+                                "' do not use consistent operations in the pre "
+                                "and post-vertical transformation steps");
+#endif
+                            continue;
+                        }
+
                         try {
                             auto op = createHorizVerticalHorizPROJBased(
                                 sourceCRS, targetCRS, srcToInterp,
-                                verticalTransform, srcToInterp->inverse(),
+                                verticalTransform, interpToTarget,
                                 interpolationGeogCRS, true);
                             res.emplace_back(op);
                         } catch (const std::exception &) {
-                        }
-                    } else {
-                        for (const auto &interpToTarget : interpToTargetOps) {
-
-                            if (useDifferentTransformationsForSameSourceTarget(
-                                    srcToInterp, interpToTarget)) {
-                                continue;
-                            }
-
-                            try {
-                                auto op = createHorizVerticalHorizPROJBased(
-                                    sourceCRS, targetCRS, srcToInterp,
-                                    verticalTransform, interpToTarget,
-                                    interpolationGeogCRS, true);
-                                res.emplace_back(op);
-                            } catch (const std::exception &) {
-                            }
                         }
                     }
                 }
@@ -5107,26 +5354,27 @@ crs::CRSNNPtr CRS::getResolvedCRS(const crs::CRSNNPtr &crs,
     // Even if they aren't equivalent, we update extentOut with the one of the
     // identified CRS if our input one is absent/not reliable.
 
-    const auto tryToIdentifyByName = [&crs, &name, &authFactory, approxExtent,
-                                      &extentOut](
-        io::AuthorityFactory::ObjectType objectType) {
-        if (name != "unknown" && name != "unnamed") {
-            auto matches = authFactory->createObjectsFromName(
-                name, {objectType}, false, 2);
-            if (matches.size() == 1) {
-                const auto match =
-                    util::nn_static_pointer_cast<crs::CRS>(matches.front());
-                if (approxExtent || !extentOut) {
-                    extentOut = operation::getExtent(match);
-                }
-                if (match->isEquivalentTo(
-                        crs.get(), util::IComparable::Criterion::EQUIVALENT)) {
-                    return match;
+    const auto tryToIdentifyByName =
+        [&crs, &name, &authFactory, approxExtent,
+         &extentOut](io::AuthorityFactory::ObjectType objectType) {
+            if (name != "unknown" && name != "unnamed") {
+                auto matches = authFactory->createObjectsFromName(
+                    name, {objectType}, false, 2);
+                if (matches.size() == 1) {
+                    const auto match =
+                        util::nn_static_pointer_cast<crs::CRS>(matches.front());
+                    if (approxExtent || !extentOut) {
+                        extentOut = operation::getExtent(match);
+                    }
+                    if (match->isEquivalentTo(
+                            crs.get(),
+                            util::IComparable::Criterion::EQUIVALENT)) {
+                        return match;
+                    }
                 }
             }
-        }
-        return crs;
-    };
+            return crs;
+        };
 
     auto geogCRS = dynamic_cast<crs::GeographicCRS *>(crs.get());
     if (geogCRS && authFactory) {

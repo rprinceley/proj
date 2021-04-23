@@ -531,8 +531,10 @@ TEST(factory, AuthorityFactory_createGeodeticCRS_geographic2D) {
     EXPECT_EQ(gcrs->identifiers()[0]->code(), "4326");
     EXPECT_EQ(*(gcrs->identifiers()[0]->codeSpace()), "EPSG");
     EXPECT_EQ(*(gcrs->name()->description()), "WGS 84");
-    EXPECT_TRUE(
-        gcrs->datum()->isEquivalentTo(factory->createDatum("6326").get()));
+    ASSERT_TRUE(gcrs->datum() == nullptr);
+    ASSERT_TRUE(gcrs->datumEnsemble() != nullptr);
+    EXPECT_TRUE(gcrs->datumEnsemble()->isEquivalentTo(
+        factory->createDatumEnsemble("6326").get()));
     EXPECT_TRUE(gcrs->coordinateSystem()->isEquivalentTo(
         factory->createCoordinateSystem("6422").get()));
     auto domain = crs->domains()[0];
@@ -566,8 +568,10 @@ TEST(factory, AuthorityFactory_createGeodeticCRS_geographic3D) {
     EXPECT_EQ(gcrs->identifiers()[0]->code(), "4979");
     EXPECT_EQ(*(gcrs->identifiers()[0]->codeSpace()), "EPSG");
     EXPECT_EQ(*(gcrs->name()->description()), "WGS 84");
-    EXPECT_TRUE(
-        gcrs->datum()->isEquivalentTo(factory->createDatum("6326").get()));
+    ASSERT_TRUE(gcrs->datum() == nullptr);
+    ASSERT_TRUE(gcrs->datumEnsemble() != nullptr);
+    EXPECT_TRUE(gcrs->datumEnsemble()->isEquivalentTo(
+        factory->createDatumEnsemble("6326").get()));
     EXPECT_TRUE(gcrs->coordinateSystem()->isEquivalentTo(
         factory->createCoordinateSystem("6423").get()));
 }
@@ -582,8 +586,10 @@ TEST(factory, AuthorityFactory_createGeodeticCRS_geocentric) {
     EXPECT_EQ(crs->identifiers()[0]->code(), "4978");
     EXPECT_EQ(*(crs->identifiers()[0]->codeSpace()), "EPSG");
     EXPECT_EQ(*(crs->name()->description()), "WGS 84");
-    EXPECT_TRUE(
-        crs->datum()->isEquivalentTo(factory->createDatum("6326").get()));
+    ASSERT_TRUE(crs->datum() == nullptr);
+    ASSERT_TRUE(crs->datumEnsemble() != nullptr);
+    EXPECT_TRUE(crs->datumEnsemble()->isEquivalentTo(
+        factory->createDatumEnsemble("6326").get()));
     EXPECT_TRUE(crs->coordinateSystem()->isEquivalentTo(
         factory->createCoordinateSystem("6500").get()));
 }
@@ -609,6 +615,20 @@ TEST(factory, AuthorityFactory_createVerticalCRS) {
     auto extent = domain->domainOfValidity();
     ASSERT_TRUE(extent != nullptr);
     EXPECT_TRUE(extent->isEquivalentTo(factory->createExtent("1262").get()));
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(factory, AuthorityFactory_createVerticalCRS_with_datum_ensemble) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    EXPECT_THROW(factory->createVerticalCRS("-1"),
+                 NoSuchAuthorityCodeException);
+
+    auto crs = factory->createVerticalCRS("9451"); // BI height
+    ASSERT_TRUE(crs->datum() == nullptr);
+    ASSERT_TRUE(crs->datumEnsemble() != nullptr);
+    EXPECT_TRUE(crs->datumEnsemble()->isEquivalentTo(
+        factory->createDatumEnsemble("1288").get()));
 }
 
 // ---------------------------------------------------------------------------
@@ -1774,11 +1794,13 @@ class FactoryWithTmpDatabase : public ::testing::Test {
                 << last_error();
             ASSERT_TRUE(execute("INSERT INTO usage VALUES('FOO',"
                                 "'geodetic_datum_" +
-                                val + "_usage',"
-                                      "'geodetic_datum',"
-                                      "'FOO','" +
-                                val + "',"
-                                      "'EPSG','1262','EPSG','1024');"))
+                                val +
+                                "_usage',"
+                                "'geodetic_datum',"
+                                "'FOO','" +
+                                val +
+                                "',"
+                                "'EPSG','1262','EPSG','1024');"))
                 << last_error();
 
             ASSERT_TRUE(execute("INSERT INTO geodetic_crs "
@@ -1790,9 +1812,10 @@ class FactoryWithTmpDatabase : public ::testing::Test {
                 << last_error();
             ASSERT_TRUE(execute("INSERT INTO usage VALUES('FOO',"
                                 "'geodetic_crs_" +
-                                val + "_usage',"
-                                      "'geodetic_crs',"
-                                      "'NS_" +
+                                val +
+                                "_usage',"
+                                "'geodetic_crs',"
+                                "'NS_" +
                                 val + "','" + val +
                                 "','EPSG','1262','EPSG','1024');"))
                 << last_error();
@@ -1815,11 +1838,13 @@ class FactoryWithTmpDatabase : public ::testing::Test {
             << last_error();
         ASSERT_TRUE(execute("INSERT INTO usage VALUES('OTHER',"
                             "'helmert_transformation" +
-                            src + '_' + dst + "_usage',"
-                                              "'helmert_transformation',"
-                                              "'OTHER','" +
-                            src + "_" + dst + "',"
-                                              "'EPSG','1262','EPSG','1024');"))
+                            src + '_' + dst +
+                            "_usage',"
+                            "'helmert_transformation',"
+                            "'OTHER','" +
+                            src + "_" + dst +
+                            "',"
+                            "'EPSG','1262','EPSG','1024');"))
             << last_error();
     }
 
@@ -1836,16 +1861,18 @@ class FactoryWithTmpDatabase : public ::testing::Test {
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, false, {std::make_pair(std::string("NS_PIVOT"),
-                                              std::string("PIVOT"))});
+                false, false,
+                {std::make_pair(std::string("NS_PIVOT"),
+                                std::string("PIVOT"))});
             EXPECT_EQ(res.size(), 1U);
             EXPECT_TRUE(res.empty() ||
                         nn_dynamic_pointer_cast<ConcatenatedOperation>(res[0]));
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
                 "NS_SOURCE", "SOURCE", "NS_TARGET", "TARGET", false, false,
-                false, false, {std::make_pair(std::string("NS_PIVOT"),
-                                              std::string("NOT_EXISTING"))});
+                false, false,
+                {std::make_pair(std::string("NS_PIVOT"),
+                                std::string("NOT_EXISTING"))});
             EXPECT_EQ(res.size(), 0U);
 
             res = factoryOTHER->createFromCRSCodesWithIntermediates(
@@ -2786,6 +2813,7 @@ TEST(factory, attachExtraDatabases_none) {
     auto factory = AuthorityFactory::create(ctxt, "EPSG");
     auto crs = factory->createGeodeticCRS("4979");
     auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+    EXPECT_TRUE(gcrs != nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -2857,12 +2885,14 @@ TEST(factory, attachExtraDatabases_auxiliary) {
                 auto factory = AuthorityFactory::create(ctxt, "EPSG");
                 auto crs = factory->createGeodeticCRS("4326");
                 auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+                EXPECT_TRUE(gcrs != nullptr);
             }
             // Look for object located in auxiliary DB
             {
                 auto factory = AuthorityFactory::create(ctxt, "OTHER");
                 auto crs = factory->createGeodeticCRS("OTHER_4326");
                 auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+                EXPECT_TRUE(gcrs != nullptr);
             }
         }
 
@@ -2874,12 +2904,14 @@ TEST(factory, attachExtraDatabases_auxiliary) {
                 auto factory = AuthorityFactory::create(ctxt, "EPSG");
                 auto crs = factory->createGeodeticCRS("4326");
                 auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+                EXPECT_TRUE(gcrs != nullptr);
             }
             // Look for object located in auxiliary DB
             {
                 auto factory = AuthorityFactory::create(ctxt, "OTHER");
                 auto crs = factory->createGeodeticCRS("OTHER_4326");
                 auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+                EXPECT_TRUE(gcrs != nullptr);
             }
         }
 
@@ -2890,6 +2922,7 @@ TEST(factory, attachExtraDatabases_auxiliary) {
                 auto factory = AuthorityFactory::create(ctxt, "EPSG");
                 auto crs = factory->createGeodeticCRS("4326");
                 auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(crs);
+                EXPECT_TRUE(gcrs != nullptr);
             }
             // Look for object located in auxiliary DB
             {
@@ -3172,6 +3205,29 @@ TEST(factory, createObjectsFromName) {
             .size(),
         1U);
 
+    {
+        auto res = factory->createObjectsFromName(
+            "World Geodetic System 1984 ensemble",
+            {AuthorityFactory::ObjectType::DATUM_ENSEMBLE}, false);
+        EXPECT_EQ(res.size(), 1U);
+        if (!res.empty()) {
+            EXPECT_EQ(res.front()->getEPSGCode(), 6326);
+            EXPECT_TRUE(dynamic_cast<DatumEnsemble *>(res.front().get()) !=
+                        nullptr);
+        }
+    }
+
+    {
+        auto res = factory->createObjectsFromName(
+            "World Geodetic System 1984 ensemble", {}, false);
+        EXPECT_EQ(res.size(), 1U);
+        if (!res.empty()) {
+            EXPECT_EQ(res.front()->getEPSGCode(), 6326);
+            EXPECT_TRUE(dynamic_cast<DatumEnsemble *>(res.front().get()) !=
+                        nullptr);
+        }
+    }
+
     const auto types = std::vector<AuthorityFactory::ObjectType>{
         AuthorityFactory::ObjectType::PRIME_MERIDIAN,
         AuthorityFactory::ObjectType::ELLIPSOID,
@@ -3193,6 +3249,7 @@ TEST(factory, createObjectsFromName) {
         AuthorityFactory::ObjectType::CONVERSION,
         AuthorityFactory::ObjectType::TRANSFORMATION,
         AuthorityFactory::ObjectType::CONCATENATED_OPERATION,
+        AuthorityFactory::ObjectType::DATUM_ENSEMBLE,
     };
     for (const auto type : types) {
         factory->createObjectsFromName("i_dont_exist", {type}, false, 1);

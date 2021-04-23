@@ -182,7 +182,24 @@ paragraph for more details.
     This is the same as :c:func:`proj_create_crs_to_crs` except that the source and
     target CRS are passed as PJ* objects which must be of the CRS variety.
 
-    :param `options`: should be set to NULL currently.
+    :param `options`: a list of NUL terminated options, or NULL.
+
+    The list of supported options is:
+
+    - AUTHORITY=name: to restrict the authority of coordinate operations
+      looked up in the database. When not specified, coordinate
+      ``operations from any authority`` will be searched, with the restrictions set
+      in the authority_to_authority_preference database table related to the authority
+      of the source/target CRS themselves.
+      If authority is set to "any", then coordinate operations from any authority will be searched
+      If authority is a non-empty string different of ``any``, then coordinate operations
+      will be searched only in that authority namespace (e.g ``EPSG``).
+
+    - ACCURACY=value: to set the minimum desired accuracy (in metres) of the
+      candidate coordinate operations.
+
+    - ALLOW_BALLPARK=YES/NO: can be set to NO to disallow the use of
+      :term:`Ballpark transformation` in the candidate coordinate operations.
 
 .. doxygenfunction:: proj_normalize_for_visualization
    :project: doxygen_api
@@ -356,13 +373,22 @@ Coordinate transformation
 
     Batch transform an array of :c:type:`PJ_COORD`.
 
+    Performs transformation on all points, even if errors occur on some points
+    (new to 8.0. Previous versions would exit early in case of failure on a given point)
+
+    Individual points that fail to transform will have their components set to
+    ``HUGE_VAL``
+
     :param P: Transformation object
     :type P: :c:type:`PJ` *
     :param `direction`: Transformation direction.
     :type `direction`: PJ_DIRECTION
     :param n: Number of coordinates in :c:data:`coord`
     :type n: `size_t`
-    :returns: `int` 0 if all observations are transformed without error, otherwise returns error number
+    :returns: `int` 0 if all observations are transformed without error, otherwise returns error number.
+              This error number will be a precise error number if all coordinates that fail to transform
+              for the same reason, or a generic error code if they fail for different
+              reasons.
 
 
 Error reporting
@@ -376,6 +402,8 @@ Error reporting
     context is read. A text representation of the error number can be retrieved
     with :c:func:`proj_errno_string`.
 
+    Consult :ref:`error_codes` for the list of error codes (PROJ >= 8.0)
+
     :param P: Transformation object
     :type P: :c:type:`PJ` *
 
@@ -387,6 +415,8 @@ Error reporting
     codes indicates an error either with the transformation setup or during a
     transformation. A text representation of the error number can be retrieved
     with :c:func:`proj_errno_string`.
+
+    Consult :ref:`error_codes` for the list of error codes (PROJ >= 8.0)
 
     :param ctx: threading context.
     :type ctx: :c:type:`PJ_CONTEXT` *
@@ -451,6 +481,22 @@ Error reporting
     .. versionadded:: 5.1.0
 
     Get a text representation of an error number.
+
+    .. deprecated:: This function is potentially thread-unsafe, replaced by :c:func:`proj_context_errno_string`.
+
+    :param err: Error number.
+    :type err: `int`
+
+    :returns: `const char*` String with description of error.
+
+.. c:function:: const char* proj_context_errno_string(PJ_CONTEXT* ctx, int err)
+
+    .. versionadded:: 8.0.0
+
+    Get a text representation of an error number.
+
+    :param ctx: threading context.
+    :type ctx: :c:type:`PJ_CONTEXT` *
 
     :param err: Error number.
     :type err: `int`
@@ -577,7 +623,13 @@ Distances
     Calculate geodesic distance between two points in geodetic coordinates. The
     calculated distance is between the two points located on the ellipsoid.
 
-    :param P: Transformation object
+    The coordinates in :c:data:`a` and :c:data:`b` needs to be given as longitude
+    and latitude in radians. Note that the axis order of the :c:data:`P` object
+    is not taken into account in this function, so even though a CRS object comes
+    with axis ordering latitude/longitude coordinates used in this function should
+    be reordered as longitude/latitude.
+
+    :param P: Transformation or CRS object
     :type P: const :c:type:`PJ` *
     :param PJ_COORD a: Coordinate of first point
     :param PJ_COORD b: Coordinate of second point
@@ -589,7 +641,13 @@ Distances
     Similar to :c:func:`proj_lp_dist` but also takes the height above the ellipsoid
     into account.
 
-    :param P: Transformation object
+    The coordinates in :c:data:`a` and :c:data:`b` needs to be given as longitude
+    and latitude in radians. Note that the axis order of the :c:data:`P` object
+    is not taken into account in this function, so even though a CRS object comes
+    with axis ordering latitude/longitude coordinates used in this function should
+    be reordered as longitude/latitude.
+
+    :param P: Transformation or CRS object
     :type P: const :c:type:`PJ` *
     :param PJ_COORD a: Coordinate of first point
     :param PJ_COORD b: Coordinate of second point
@@ -610,6 +668,27 @@ Distances
     :param PJ_COORD a: First coordinate
     :param PJ_COORD b: Second coordinate
     :returns: `double` Distance between :c:data:`a` and :c:data:`b` in meters.
+
+.. c:function:: PJ_COORD proj_geod(const PJ *P, PJ_COORD a, PJ_COORD b)
+
+    Calculate the geodesic distance as well as forward and reverse azimuth
+    between two points on the ellipsoid.
+
+    The coordinates in :c:data:`a` and :c:data:`b` needs to be given as longitude
+    and latitude in radians. Note that the axis order of the :c:data:`P` object
+    is not taken into account in this function, so even though a CRS object comes
+    with axis ordering latitude/longitude coordinates used in this function should
+    be reordered as longitude/latitude.
+
+    :param P: Transformation or CRS object
+    :type P: const :c:type:`PJ` *
+    :param PJ_COORD a: Coordinate of first point
+    :param PJ_COORD b: Coordinate of second point
+    :returns: `PJ_COORD` where the first value is the distance between :c:data:`a`
+              and :c:data:`b` in meters, the second value is the forward azimuth
+              and the thir value is the reverse azimuth. The fourth coordinate
+              value is unused.
+
 
 
 Various
@@ -783,17 +862,6 @@ Setting custom I/O functions
 
 .. doxygenfunction:: proj_context_set_sqlite3_vfs_name
    :project: doxygen_api
-   
-.. c:function:: void proj_context_set_search_paths (PJ_CONTEXT *ctx , int count_paths, const char* const* paths)
-
-    Sets the resource files search paths.
-
-    :param ctx: Threading context.
-    :type ctx: :c:type:`PJ_CONTEXT` *
-    :param `count_paths`: Number of paths.
-    :type `count_paths`: `int`
-    :param `paths`: Array of paths.
-    :type `paths`: `const char* const*`
 
 
 Network related functionality

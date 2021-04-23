@@ -5,7 +5,7 @@ Computation of coordinate operations between two CRS
 ================================================================================
 
 :Author: Even Rouault
-:Last Updated: 2020-01-02
+:Last Updated: 2021-02-10
 
 Introduction
 ------------
@@ -50,7 +50,7 @@ geographic CRS:
 
 The algorithm involves many cases, so we will progress in the explanation from
 the most simple case to more complex ones. We document here the working of this
-algorithm as implemented in PROJ 6.3.0.
+algorithm as implemented in PROJ 8.0.0.
 The results of some examples might also be quite sensitive to the content of the
 PROJ database and the PROJ version used.
 
@@ -149,11 +149,12 @@ performed in the order they are listed below:
 10. in case of same accuracy, consider as more relevant an operation that does
     not use grids (operations that use only parameters will be faster)
 11. consider as more relevant an operation that involves less transformation steps
+    (transformation steps considered are the ones listed in the WKT output, not PROJ pipeline steps)
 12. and for completeness, if two operations are comparable given all the above criteria,
     consider as more relevant the one which has the shorter name, and if they
-    have the same length, consider as more relevant the one whose name comes first in
-    lexicographic order (obviously completely arbitrary, but a sorting
-    algorithm must be able to compare all entries)
+    have the same length, consider as more relevant the one whose name comes last in
+    lexicographic order (e.g. "FOO to BAR (3)" will have higher precedence than
+    "FOO to BAR (2)")
 
 Geodetic/geographic CRS to Geodetic/geographic CRS, without known identifiers
 -----------------------------------------------------------------------------
@@ -479,7 +480,7 @@ conversions between geographic and geocentric CRS to have a consistent concatena
 operation, like the following:
 1. GDA94 to GDA2020 (1): from EPSG
 2. Conversion from GDA2020 (geog2D) to GDA2020 (geocentric): synthetized by PROJ
-3. GDA2020 to WGS 84 (G1762) (1): frmo EPSG
+3. GDA2020 to WGS 84 (G1762) (1): from EPSG
 4. Conversion from WGS 84 (G1762) (geocentric) to WGS 84 (G1762) (geog2D): synthetized by PROJ
 
 Projected CRS to any target CRS

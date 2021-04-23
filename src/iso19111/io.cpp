@@ -74,7 +74,6 @@
 // clang-format off
 #include "proj.h"
 #include "proj_internal.h"
-#include "proj_api.h"
 // clang-format on
 
 using namespace NS_PROJ::common;
@@ -271,8 +270,6 @@ bool WKTFormatter::isStrict() const noexcept { return d->params_.strict_; }
 
 // ---------------------------------------------------------------------------
 
-//! @cond Doxygen_Suppress
-
 /** \brief Set whether the formatter should export, in WKT1, a Geographic or
  * Projected 3D CRS as a compound CRS whose vertical part represents an
  * ellipsoidal height.
@@ -292,8 +289,6 @@ WKTFormatter::setAllowEllipsoidalHeightAsVerticalCRS(bool allow) noexcept {
 bool WKTFormatter::isAllowedEllipsoidalHeightAsVerticalCRS() const noexcept {
     return d->params_.allowEllipsoidalHeightAsVerticalCRS_;
 }
-
-//! @endcond
 
 // ---------------------------------------------------------------------------
 
@@ -921,9 +916,9 @@ struct WKTNode::Private {
 
 // ---------------------------------------------------------------------------
 
-const WKTNodeNNPtr &WKTNode::Private::lookForChild(const std::string &childName,
-                                                   int occurrence) const
-    noexcept {
+const WKTNodeNNPtr &
+WKTNode::Private::lookForChild(const std::string &childName,
+                               int occurrence) const noexcept {
     int occCount = 0;
     for (const auto &child : children_) {
         if (ci_equal(child->GP()->value(), childName)) {
@@ -2215,6 +2210,10 @@ GeodeticReferenceFrameNNPtr WKTParser::Private::buildGeodeticReferenceFrame(
             name = "World Geodetic System 1984";
             authNameFromAlias = Identifier::EPSG;
             codeFromAlias = "6326";
+        } else if (name == "D_ETRS_1989") {
+            name = "European Terrestrial Reference System 1989";
+            authNameFromAlias = Identifier::EPSG;
+            codeFromAlias = "6258";
         } else {
             tableNameForAlias = "geodetic_datum";
         }
@@ -3409,8 +3408,8 @@ ConversionNNPtr WKTParser::Private::buildProjectionFromESRI(
     }
 
     struct ci_less_struct {
-        bool operator()(const std::string &lhs, const std::string &rhs) const
-            noexcept {
+        bool operator()(const std::string &lhs,
+                        const std::string &rhs) const noexcept {
             return ci_less(lhs, rhs);
         }
     };
@@ -3751,14 +3750,12 @@ ConversionNNPtr WKTParser::Private::buildProjectionStandard(
     // Krovak East-North Oriented methods
     if (ci_equal(projectionName, "Krovak") &&
         projCRSNode->countChildrenOfName(WKTConstants::AXIS) == 2 &&
-        &buildAxis(
-             projCRSNode->GP()->lookForChild(WKTConstants::AXIS, 0),
-             defaultLinearUnit, UnitOfMeasure::Type::LINEAR, false,
-             1)->direction() == &AxisDirection::SOUTH &&
-        &buildAxis(
-             projCRSNode->GP()->lookForChild(WKTConstants::AXIS, 1),
-             defaultLinearUnit, UnitOfMeasure::Type::LINEAR, false,
-             2)->direction() == &AxisDirection::WEST) {
+        &buildAxis(projCRSNode->GP()->lookForChild(WKTConstants::AXIS, 0),
+                   defaultLinearUnit, UnitOfMeasure::Type::LINEAR, false, 1)
+                ->direction() == &AxisDirection::SOUTH &&
+        &buildAxis(projCRSNode->GP()->lookForChild(WKTConstants::AXIS, 1),
+                   defaultLinearUnit, UnitOfMeasure::Type::LINEAR, false, 2)
+                ->direction() == &AxisDirection::WEST) {
         mapping = getMapping(EPSG_CODE_METHOD_KROVAK);
     }
 
@@ -6427,6 +6424,9 @@ static BaseObjectNNPtr createFromUserInput(const std::string &text,
         if (type == "datum") {
             return factory->createDatum(code);
         }
+        if (type == "ensemble") {
+            return factory->createDatumEnsemble(code);
+        }
         if (type == "ellipsoid") {
             return factory->createEllipsoid(code);
         }
@@ -6440,50 +6440,52 @@ static BaseObjectNNPtr createFromUserInput(const std::string &text,
         auto factory =
             AuthorityFactory::create(NN_NO_CHECK(dbContext), std::string());
 
-        const auto searchObject = [&factory](
-            const std::string &objectName, bool approximateMatch,
-            const std::vector<AuthorityFactory::ObjectType> &objectTypes,
-            bool &goOn) {
-            constexpr size_t limitResultCount = 10;
-            auto res = factory->createObjectsFromName(
-                objectName, objectTypes, approximateMatch, limitResultCount);
-            if (res.size() == 1) {
-                return res.front();
-            }
-            if (res.size() > 1) {
-                if (objectTypes.size() == 1 &&
-                    objectTypes[0] == AuthorityFactory::ObjectType::CRS) {
-                    for (size_t ndim = 2; ndim <= 3; ndim++) {
-                        for (const auto &obj : res) {
-                            auto crs =
-                                dynamic_cast<crs::GeographicCRS *>(obj.get());
-                            if (crs &&
-                                crs->coordinateSystem()->axisList().size() ==
-                                    ndim) {
-                                return obj;
+        const auto searchObject =
+            [&factory](
+                const std::string &objectName, bool approximateMatch,
+                const std::vector<AuthorityFactory::ObjectType> &objectTypes,
+                bool &goOn) {
+                constexpr size_t limitResultCount = 10;
+                auto res = factory->createObjectsFromName(
+                    objectName, objectTypes, approximateMatch,
+                    limitResultCount);
+                if (res.size() == 1) {
+                    return res.front();
+                }
+                if (res.size() > 1) {
+                    if (objectTypes.size() == 1 &&
+                        objectTypes[0] == AuthorityFactory::ObjectType::CRS) {
+                        for (size_t ndim = 2; ndim <= 3; ndim++) {
+                            for (const auto &obj : res) {
+                                auto crs = dynamic_cast<crs::GeographicCRS *>(
+                                    obj.get());
+                                if (crs && crs->coordinateSystem()
+                                                   ->axisList()
+                                                   .size() == ndim) {
+                                    return obj;
+                                }
                             }
                         }
                     }
-                }
 
-                std::string msg("several objects matching this name: ");
-                bool first = true;
-                for (const auto &obj : res) {
-                    if (msg.size() > 200) {
-                        msg += ", ...";
-                        break;
+                    std::string msg("several objects matching this name: ");
+                    bool first = true;
+                    for (const auto &obj : res) {
+                        if (msg.size() > 200) {
+                            msg += ", ...";
+                            break;
+                        }
+                        if (!first) {
+                            msg += ", ";
+                        }
+                        first = false;
+                        msg += obj->nameStr();
                     }
-                    if (!first) {
-                        msg += ", ";
-                    }
-                    first = false;
-                    msg += obj->nameStr();
+                    throw ParsingException(msg);
                 }
-                throw ParsingException(msg);
-            }
-            goOn = true;
-            throw ParsingException("dummy");
-        };
+                goOn = true;
+                throw ParsingException("dummy");
+            };
 
         const auto searchCRS = [&searchObject](const std::string &objectName) {
             bool goOn = false;
@@ -6544,6 +6546,8 @@ static BaseObjectNNPtr createFromUserInput(const std::string &text,
                                                   ELLIPSOID,
                                               AuthorityFactory::ObjectType::
                                                   DATUM,
+                                              AuthorityFactory::ObjectType::
+                                                  DATUM_ENSEMBLE,
                                               AuthorityFactory::ObjectType::
                                                   COORDINATE_OPERATION},
                     goOn);
@@ -6804,7 +6808,9 @@ WKTParser::guessDialect(const std::string &wkt) noexcept {
         }
     }
     static const char *const wkt2_2019_only_substrings[] = {
-        "CS[TemporalDateTime,", "CS[TemporalCount,", "CS[TemporalMeasure,",
+        "CS[TemporalDateTime,",
+        "CS[TemporalCount,",
+        "CS[TemporalMeasure,",
     };
     for (const auto &substrings : wkt2_2019_only_substrings) {
         if (ci_find(wkt, substrings) != std::string::npos) {
@@ -9082,7 +9088,7 @@ static double getNumericValue(const std::string &paramValue,
 // ---------------------------------------------------------------------------
 namespace {
 template <class T> inline void ignoreRetVal(T) {}
-}
+} // namespace
 
 GeographicCRSNNPtr PROJStringParser::Private::buildGeographicCRS(
     int iStep, int iUnitConvert, int iAxisSwap, bool ignorePROJAxis) {
@@ -9670,14 +9676,15 @@ CRSNNPtr PROJStringParser::Private::buildProjectedCRS(
                    parameters, values)
                    .as_nullable();
 
-        if (is_in_stringlist(methodName, "PROJ ob_tran o_proj=longlat,"
-                                         "PROJ ob_tran o_proj=lonlat,"
-                                         "PROJ ob_tran o_proj=latlon,"
-                                         "PROJ ob_tran o_proj=latlong")) {
-            return DerivedGeographicCRS::create(
-                PropertyMap().set(IdentifiedObject::NAME_KEY, "unnamed"),
-                geogCRS, NN_NO_CHECK(conv),
-                buildEllipsoidalCS(iStep, iUnitConvert, iAxisSwap, false));
+        for (const char *substr :
+             {"PROJ ob_tran o_proj=longlat", "PROJ ob_tran o_proj=lonlat",
+              "PROJ ob_tran o_proj=latlon", "PROJ ob_tran o_proj=latlong"}) {
+            if (starts_with(methodName, substr)) {
+                return DerivedGeographicCRS::create(
+                    PropertyMap().set(IdentifiedObject::NAME_KEY, "unnamed"),
+                    geogCRS, NN_NO_CHECK(conv),
+                    buildEllipsoidalCS(iStep, iUnitConvert, iAxisSwap, false));
+            }
         }
     }
 
@@ -9925,7 +9932,7 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
         paralist *list = pj_expand_init(ctx, init);
         ctx->projStringParserCreateFromPROJStringRecursionCounter--;
         if (!list) {
-            pj_dealloc(init);
+            free(init);
             throw ParsingException("cannot expand " + projString);
         }
         std::string expanded;
@@ -9948,7 +9955,7 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
             }
 
             auto n = t->next;
-            pj_dealloc(t);
+            free(t);
             t = n;
         }
         for (const auto &pair : d->steps_[0].paramValues) {
@@ -10092,9 +10099,8 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
             } else {
                 for (auto cur = pj->params; cur; cur = cur->next) {
                     const char *equal = strchr(cur->param, '=');
-                    if (equal &&
-                        static_cast<size_t>(equal - cur->param) ==
-                            kv.key.size()) {
+                    if (equal && static_cast<size_t>(equal - cur->param) ==
+                                     kv.key.size()) {
                         if (memcmp(cur->param, kv.key.c_str(), kv.key.size()) ==
                             0) {
                             recognizedByPROJ = (cur->used == 1);
@@ -10192,13 +10198,14 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
                     iProjStep,
                     d->buildProjectedCRS(
                         iProjStep,
-                        d->buildGeographicCRS(
-                            iFirstGeogStep, iFirstUnitConvert < iFirstGeogStep
-                                                ? iFirstUnitConvert
-                                                : -1,
-                            iFirstAxisSwap < iFirstGeogStep ? iFirstAxisSwap
-                                                            : -1,
-                            true),
+                        d->buildGeographicCRS(iFirstGeogStep,
+                                              iFirstUnitConvert < iFirstGeogStep
+                                                  ? iFirstUnitConvert
+                                                  : -1,
+                                              iFirstAxisSwap < iFirstGeogStep
+                                                  ? iFirstAxisSwap
+                                                  : -1,
+                                              true),
                         iFirstUnitConvert < iFirstGeogStep ? iSecondUnitConvert
                                                            : iFirstUnitConvert,
                         iFirstAxisSwap < iFirstGeogStep ? iSecondAxisSwap
