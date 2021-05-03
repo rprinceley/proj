@@ -992,8 +992,11 @@ std::string FileManager::getProjLibEnvVar(PJ_CONTEXT *ctx) {
     (void)ctx;
     std::string str;
     const char *envvar = getenv("PROJ_LIB");
-    if (!envvar)
-        return str;
+    if (!envvar) {
+        envvar = getenv("GDAL_DATA");
+        if (!envvar)
+            return str;
+    }
     str = envvar;
 #ifdef _WIN32
     // Assume this is UTF-8. If not try to convert from ANSI page
