@@ -55,7 +55,7 @@ function(proj_target_output_name TARGET_NAME OUTPUT_NAME)
   if(WIN32)
     string(LENGTH "${${PROJECT_NAME}_ABI_VERSION}" abilen)
     if(abilen GREATER 0)
-      set(SUFFIX "_${${PROJECT_NAME}_ABI_VERSION}")
+      set(SUFFIX "_gdal_")
     endif()
   endif()
 
