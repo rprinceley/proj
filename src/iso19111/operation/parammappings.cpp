@@ -642,6 +642,10 @@ static const MethodMapping projectionMethodMappings[] = {
     {EPSG_NAME_METHOD_CASSINI_SOLDNER, EPSG_CODE_METHOD_CASSINI_SOLDNER,
      "Cassini_Soldner", "cass", nullptr, paramsNatOrigin},
 
+    {EPSG_NAME_METHOD_HYPERBOLIC_CASSINI_SOLDNER,
+     EPSG_CODE_METHOD_HYPERBOLIC_CASSINI_SOLDNER, nullptr, "cass", "hyperbolic",
+     paramsNatOrigin},
+
     {PROJ_WKT2_NAME_METHOD_EQUIDISTANT_CONIC, 0, "Equidistant_Conic", "eqdc",
      nullptr, paramsEQDC},
 
@@ -920,6 +924,7 @@ const struct MethodNameCode methodNameCodes[] = {
     METHOD_NAME_CODE(COLOMBIA_URBAN),
     // Other conversions
     METHOD_NAME_CODE(CHANGE_VERTICAL_UNIT),
+    METHOD_NAME_CODE(CHANGE_VERTICAL_UNIT_NO_CONV_FACTOR),
     METHOD_NAME_CODE(HEIGHT_DEPTH_REVERSAL),
     METHOD_NAME_CODE(AXIS_ORDER_REVERSAL_2D),
     METHOD_NAME_CODE(AXIS_ORDER_REVERSAL_3D),
@@ -1304,9 +1309,12 @@ static const MethodMapping otherMethodMappings[] = {
     {EPSG_NAME_METHOD_CHANGE_VERTICAL_UNIT,
      EPSG_CODE_METHOD_CHANGE_VERTICAL_UNIT, nullptr, nullptr, nullptr,
      paramsChangeVerticalUnit},
+    {EPSG_NAME_METHOD_CHANGE_VERTICAL_UNIT_NO_CONV_FACTOR,
+     EPSG_CODE_METHOD_CHANGE_VERTICAL_UNIT_NO_CONV_FACTOR, nullptr, nullptr,
+     nullptr, nullptr},
     {EPSG_NAME_METHOD_HEIGHT_DEPTH_REVERSAL,
      EPSG_CODE_METHOD_HEIGHT_DEPTH_REVERSAL, nullptr, nullptr, nullptr,
-     paramsChangeVerticalUnit},
+     nullptr},
     {EPSG_NAME_METHOD_AXIS_ORDER_REVERSAL_2D,
      EPSG_CODE_METHOD_AXIS_ORDER_REVERSAL_2D, nullptr, nullptr, nullptr,
      nullptr},

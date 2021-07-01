@@ -1033,6 +1033,22 @@ TEST(operation, geogCRS_to_geogCRS_init_IGNF_to_init_IGNF_context) {
 
 // ---------------------------------------------------------------------------
 
+TEST(operation, geogCRS_to_geogCRS_context_deprecated) {
+    auto authFactory =
+        AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        authFactory->createCoordinateReferenceSystem(
+            "4226"), // Cote d'Ivoire (deprecated)
+        authFactory->createCoordinateReferenceSystem("4258"), // ETRS89
+        ctxt);
+    ASSERT_TRUE(!list.empty());
+    EXPECT_EQ(list[0]->nameStr(),
+              "Ballpark geographic offset from Cote d'Ivoire to ETRS89");
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(operation, geogCRS_to_geogCRS_3D) {
 
     auto geogcrs_m_obj = PROJStringParser().createFromPROJString(
@@ -1531,6 +1547,37 @@ TEST(operation, geocentric_to_geogCRS_3D_different_datum_context) {
 
 // ---------------------------------------------------------------------------
 
+TEST(operation, createBetweenGeodeticCRSWithDatumBasedIntermediates) {
+    auto dbContext = DatabaseContext::create();
+    auto authFactoryEPSG = AuthorityFactory::create(dbContext, "EPSG");
+    auto ctxt =
+        CoordinateOperationContext::create(authFactoryEPSG, nullptr, 0.0);
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        // IG05/12 Intermediate CRS
+        authFactoryEPSG->createCoordinateReferenceSystem("6990"),
+        // ITRF2014
+        authFactoryEPSG->createCoordinateReferenceSystem("9000"), ctxt);
+    ASSERT_EQ(list.size(), 1U);
+    EXPECT_EQ(list[0]->nameStr(),
+              "Inverse of ITRF2008 to IG05/12 Intermediate CRS + "
+              "Conversion from ITRF2008 (geog2D) to ITRF2008 (geocentric) + "
+              "ITRF2008 to ITRF2014 (1) + "
+              "Conversion from ITRF2014 (geocentric) to ITRF2014 (geog2D)");
+
+    auto listInv = CoordinateOperationFactory::create()->createOperations(
+        // ITRF2014
+        authFactoryEPSG->createCoordinateReferenceSystem("9000"),
+        // IG05/12 Intermediate CRS
+        authFactoryEPSG->createCoordinateReferenceSystem("6990"), ctxt);
+    ASSERT_EQ(listInv.size(), 1U);
+    EXPECT_EQ(listInv[0]->nameStr(),
+              "Conversion from ITRF2014 (geog2D) to ITRF2014 (geocentric) + "
+              "Inverse of ITRF2008 to ITRF2014 (1) + "
+              "Conversion from ITRF2008 (geocentric) to ITRF2008 (geog2D) + "
+              "ITRF2008 to IG05/12 Intermediate CRS");
+}
+
+// ---------------------------------------------------------------------------
 TEST(operation, esri_projectedCRS_to_geogCRS_with_ITRF_intermediate_context) {
     auto dbContext = DatabaseContext::create();
     auto authFactoryEPSG = AuthorityFactory::create(dbContext, "EPSG");
@@ -2134,7 +2181,7 @@ TEST(operation, projCRS_to_projCRS_through_geog3D) {
               "+step +proj=cart +ellps=WGS84 "
               "+step +proj=helmert +x=-0.16959 +y=0.35312 +z=0.51846 "
               "+rx=-0.03385 +ry=0.16325 +rz=-0.03446 +s=0.03693 "
-              "+convention=position_vector "
+              "+convention=coordinate_frame "
               "+step +inv +proj=cart +ellps=GRS80 "
               "+step +proj=pop +v_3 "
               "+step +proj=tmerc +lat_0=0 +lon_0=-84 +k=0.9999 +x_0=500000 "
@@ -2990,7 +3037,7 @@ TEST(operation, transformation_VERTCON_to_PROJ_string) {
         PropertyMap(), VerticalReferenceFrame::create(PropertyMap()),
         VerticalCS::createGravityRelatedHeight(UnitOfMeasure::METRE));
 
-    // Use of this type of transformation is a bit of non-sense here
+    // Use of this type of transformation is a bit of nonsense here
     // since it should normally be used with NGVD29 and NAVD88 for VerticalCRS,
     // and NAD27/NAD83 as horizontal CRS...
     auto vtransformation = Transformation::createVERTCON(
@@ -3310,7 +3357,7 @@ TEST(operation,
         NN_NO_CHECK(src), GeographicCRS::EPSG_4979);
     ASSERT_TRUE(op != nullptr);
     EXPECT_EQ(op->nameStr(), "axis order change (2D) + "
-                             "Transformation from unknown to unknown + "
+                             "Conversion from unknown to unknown + "
                              "unknown to WGS84 ellipsoidal height");
     EXPECT_EQ(
         op->exportToPROJString(PROJStringFormatter::create().get()),
@@ -3672,7 +3719,7 @@ TEST(operation,
             "Inverse of unnamed + "
             "Transformation from NAD83 to WGS84 + "
             "Ballpark geographic offset from WGS 84 to NAD83(2011) + "
-            "Transformation from NAVD88 height (ftUS) to NAVD88 height + "
+            "Conversion from NAVD88 height (ftUS) to NAVD88 height + "
             "Inverse of NAD83(2011) to NAVD88 height (1) + "
             "Conversion from NAD83(2011) (geog3D) to NAD83(2011) "
             "(geocentric)") {
@@ -3770,7 +3817,7 @@ TEST(operation, compoundCRS_to_compoundCRS_with_vertical_transform) {
         PropertyMap(), VerticalReferenceFrame::create(PropertyMap()),
         VerticalCS::createGravityRelatedHeight(UnitOfMeasure::METRE));
 
-    // Use of this type of transformation is a bit of non-sense here
+    // Use of this type of transformation is a bit of nonsense here
     // since it should normally be used with NGVD29 and NAVD88 for VerticalCRS,
     // and NAD27/NAD83 as horizontal CRS...
     auto vtransformation = Transformation::createVERTCON(
@@ -4054,7 +4101,7 @@ TEST(
     EXPECT_EQ(list[0]->nameStr(),
               "Inverse of unnamed + "
               "Transformation from NAD83 to WGS84 + "
-              "NAVD88 height to NAVD88 height (ftUS) + "
+              "Conversion from NAVD88 height to NAVD88 height (ftUS) + "
               "Inverse of Transformation from NAD83 to WGS84 + "
               "unnamed");
     auto grids = list[0]->gridsNeeded(dbContext, false);
@@ -4359,6 +4406,73 @@ TEST(
                                                  "1957 height to ETRS89 + "
                                                  "EVRF2007 height (1)'");
     }
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, compoundCRS_to_compoundCRS_issue_2720) {
+    auto dbContext = DatabaseContext::create();
+    auto objSrc = WKTParser().attachDatabaseContext(dbContext).createFromWKT(
+        "COMPD_CS[\"Orthographic + EGM96 geoid height\","
+        "PROJCS[\"Orthographic\","
+        "GEOGCS[\"GCS_WGS_1984\","
+        "DATUM[\"D_unknown\","
+        "SPHEROID[\"WGS84\",6378137,298.257223563]],"
+        "PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]],"
+        "PROJECTION[\"Orthographic\"],"
+        "PARAMETER[\"Latitude_Of_Center\",36.1754430555555000],"
+        "PARAMETER[\"Longitude_Of_Center\",-86.7740944444444000],"
+        "PARAMETER[\"false_easting\",0],"
+        "PARAMETER[\"false_northing\",0],"
+        "UNIT[\"Meter\",1]],"
+        "VERT_CS[\"EGM96 geoid height\","
+        "VERT_DATUM[\"EGM96 geoid\",2005,"
+        "EXTENSION[\"PROJ4_GRIDS\",\"egm96_15.gtx\"],"
+        "AUTHORITY[\"EPSG\",\"5171\"]],"
+        "UNIT[\"metre\",1,"
+        "AUTHORITY[\"EPSG\",\"9001\"]],"
+        "AXIS[\"Up\",UP],"
+        "AUTHORITY[\"EPSG\",\"5773\"]]]");
+    auto src = nn_dynamic_pointer_cast<CRS>(objSrc);
+    ASSERT_TRUE(src != nullptr);
+
+    auto objDst = WKTParser().attachDatabaseContext(dbContext).createFromWKT(
+        "COMPD_CS[\"WGS84 Coordinate System + EGM96 geoid height\","
+        "GEOGCS[\"WGS84 Coordinate System\","
+        "DATUM[\"WGS 1984\","
+        "SPHEROID[\"WGS 1984\",6378137,298.257223563],"
+        "TOWGS84[0,0,0,0,0,0,0],"
+        "AUTHORITY[\"EPSG\",\"6326\"]],"
+        "PRIMEM[\"Greenwich\",0],"
+        "UNIT[\"degree\",0.0174532925199433],"
+        "AUTHORITY[\"EPSG\",\"4326\"]],"
+        "VERT_CS[\"EGM96 geoid height\","
+        "VERT_DATUM[\"EGM96 geoid\",2005,"
+        "EXTENSION[\"PROJ4_GRIDS\",\"egm96_15.gtx\"],"
+        "AUTHORITY[\"EPSG\",\"5171\"]],"
+        "UNIT[\"metre\",1,"
+        "AUTHORITY[\"EPSG\",\"9001\"]],"
+        "AXIS[\"Up\",UP],"
+        "AUTHORITY[\"EPSG\",\"5773\"]]]");
+    auto dst = nn_dynamic_pointer_cast<CRS>(objDst);
+    ASSERT_TRUE(dst != nullptr);
+
+    auto authFactory = AuthorityFactory::create(dbContext, "EPSG");
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    ctxt->setGridAvailabilityUse(
+        CoordinateOperationContext::GridAvailabilityUse::
+            IGNORE_GRID_AVAILABILITY);
+
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        NN_CHECK_ASSERT(src), NN_CHECK_ASSERT(dst), ctxt);
+    EXPECT_EQ(list.size(), 1U);
+
+    EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +inv +proj=ortho +f=0 +lat_0=36.1754430555555 "
+              "+lon_0=-86.7740944444444 +x_0=0 +y_0=0 +ellps=WGS84 "
+              "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
+              "+step +proj=axisswap +order=2,1");
 }
 
 // ---------------------------------------------------------------------------
@@ -5257,7 +5371,7 @@ TEST(operation, compoundCRS_to_geogCRS_with_vertical_unit_change) {
     ASSERT_EQ(listCompoundToGeog.size(), listCompoundMetreToGeog.size());
 
     EXPECT_EQ(listCompoundToGeog[0]->nameStr(),
-              "Inverse of NAVD88 height to NAVD88 height (ftUS) + " +
+              "Conversion from NAVD88 height (ftUS) to NAVD88 height + " +
                   listCompoundMetreToGeog[0]->nameStr());
     EXPECT_EQ(
         listCompoundToGeog[0]->exportToPROJString(
@@ -5322,7 +5436,7 @@ TEST(
     ASSERT_GE(listCompoundToGeog.size(), 1U);
 
     EXPECT_EQ(listCompoundToGeog[0]->nameStr(),
-              "Inverse of NAVD88 height to NAVD88 height (ftUS) + " +
+              "Conversion from NAVD88 height (ftUS) to NAVD88 height + " +
                   listCompoundMetreToGeog[0]->nameStr());
     EXPECT_EQ(
         listCompoundToGeog[0]->exportToPROJString(
@@ -5378,7 +5492,7 @@ TEST(operation, compoundCRS_to_geogCRS_with_height_depth_reversal) {
     ASSERT_EQ(listCompoundToGeog.size(), listCompoundMetreToGeog.size());
 
     EXPECT_EQ(listCompoundToGeog[0]->nameStr(),
-              "Inverse of NAVD88 height to NAVD88 depth + " +
+              "Conversion from NAVD88 depth to NAVD88 height + " +
                   listCompoundMetreToGeog[0]->nameStr());
     EXPECT_EQ(
         listCompoundToGeog[0]->exportToPROJString(
@@ -5442,8 +5556,7 @@ TEST(
     ASSERT_EQ(listCompoundToGeog.size(), listCompoundMetreToGeog.size());
 
     EXPECT_EQ(listCompoundToGeog[0]->nameStr(),
-              "Inverse of NAVD88 height (ftUS) to NAVD88 depth (ftUS) + "
-              "Inverse of NAVD88 height to NAVD88 height (ftUS) + " +
+              "Conversion from NAVD88 depth (ftUS) to NAVD88 height + " +
                   listCompoundMetreToGeog[0]->nameStr());
     EXPECT_EQ(
         listCompoundToGeog[0]->exportToPROJString(
@@ -5457,8 +5570,7 @@ TEST(
                            .get()),
                    "+step +proj=unitconvert +xy_in=deg +xy_out=rad",
                    "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
-                   "+step +proj=axisswap +order=1,2,-3 "
-                   "+step +proj=unitconvert +z_in=us-ft +z_out=m"));
+                   "+step +proj=affine +s33=-0.304800609601219"));
 
     // Check reverse path
     auto listGeogToCompound =
@@ -6389,7 +6501,7 @@ TEST(operation, compoundCRS_to_PROJJSON_with_non_metre_height) {
 
     // The untypical potentially a bit buggy thing (and what caused a bug)
     // is the US-ft unit for the vertical axis of the base CRS ...
-    // When outputing that to WKT, and
+    // When outputting that to WKT, and
     // re-exporting to PROJJSON, one gets metre, which conforms more to the
     // official definition of NAD83(2011) 3D.
     // The vertical unit of the base CRS shouldn't matter much anyway, so this

@@ -377,7 +377,7 @@ CoordinateOperationContext::getGridAvailabilityUse() const {
  * The current implementation is limited to researching one intermediate
  * step.
  *
- * By default, with the IF_NO_DIRECT_TRANSFORMATION stratgey, all potential
+ * By default, with the IF_NO_DIRECT_TRANSFORMATION strategy, all potential
  * C candidates will be used if there is no direct transformation.
  */
 void CoordinateOperationContext::setAllowUseIntermediateCRS(
@@ -440,7 +440,7 @@ CoordinateOperationContext::getIntermediateCRS() const {
  * If authorityFactory->getAuthority() is set to "any", then coordinate
  * operations from any authority will be searched
  * If authorityFactory->getAuthority() is a non-empty string different of "any",
- * then coordinate operatiosn will be searched only in that authority namespace.
+ * then coordinate operations will be searched only in that authority namespace.
  *
  * @param authorityFactory Authority factory, or null if no database lookup
  * is allowed.
@@ -2097,6 +2097,17 @@ static std::string buildTransfName(const std::string &srcName,
 
 // ---------------------------------------------------------------------------
 
+static std::string buildConvName(const std::string &srcName,
+                                 const std::string &targetName) {
+    std::string name("Conversion from ");
+    name += srcName;
+    name += " to ";
+    name += targetName;
+    return name;
+}
+
+// ---------------------------------------------------------------------------
+
 static SingleOperationNNPtr createPROJBased(
     const util::PropertyMap &properties,
     const io::IPROJStringExportableNNPtr &projExportable,
@@ -3282,22 +3293,19 @@ bool CoordinateOperationFactory::Private::createOperationsFromDatabase(
         res.insert(res.end(), resWithIntermediate.begin(),
                    resWithIntermediate.end());
         doFilterAndCheckPerfectOp = !res.empty();
+    }
 
-    } else if (!context.inCreateOperationsWithDatumPivotAntiRecursion &&
-               !resFindDirectNonEmptyBeforeFiltering && geodSrc && geodDst &&
-               !sameGeodeticDatum &&
-               context.context->getIntermediateCRS().empty() &&
-               context.context->getAllowUseIntermediateCRS() !=
-                   CoordinateOperationContext::IntermediateCRSUse::NEVER) {
-
-        bool tryWithGeodeticDatumIntermediate = res.empty();
-        if (tryWithGeodeticDatumIntermediate) {
-            auto resWithIntermediate = findsOpsInRegistryWithIntermediate(
-                sourceCRS, targetCRS, context, true);
-            res.insert(res.end(), resWithIntermediate.begin(),
-                       resWithIntermediate.end());
-            doFilterAndCheckPerfectOp = !res.empty();
-        }
+    if (res.empty() && !context.inCreateOperationsWithDatumPivotAntiRecursion &&
+        !resFindDirectNonEmptyBeforeFiltering && geodSrc && geodDst &&
+        !sameGeodeticDatum && context.context->getIntermediateCRS().empty() &&
+        context.context->getAllowUseIntermediateCRS() !=
+            CoordinateOperationContext::IntermediateCRSUse::NEVER) {
+        // Currently triggered by "IG05/12 Intermediate CRS" to ITRF2014
+        auto resWithIntermediate = findsOpsInRegistryWithIntermediate(
+            sourceCRS, targetCRS, context, true);
+        res.insert(res.end(), resWithIntermediate.begin(),
+                   resWithIntermediate.end());
+        doFilterAndCheckPerfectOp = !res.empty();
     }
 
     if (doFilterAndCheckPerfectOp) {
@@ -4276,8 +4284,8 @@ void CoordinateOperationFactory::Private::createOperationsVertToVert(
         ((srcIsUp && dstIsDown) || (srcIsDown && dstIsUp));
 
     const double factor = convSrc / convDst;
-    auto name = buildTransfName(sourceCRS->nameStr(), targetCRS->nameStr());
     if (!equivalentVDatum) {
+        auto name = buildTransfName(sourceCRS->nameStr(), targetCRS->nameStr());
         name += BALLPARK_VERTICAL_TRANSFORMATION;
         auto conv = Transformation::createChangeVerticalUnit(
             util::PropertyMap().set(common::IdentifiedObject::NAME_KEY, name),
@@ -4288,6 +4296,7 @@ void CoordinateOperationFactory::Private::createOperationsVertToVert(
         conv->setHasBallparkTransformation(true);
         res.push_back(conv);
     } else if (convSrc != convDst || !heightDepthReversal) {
+        auto name = buildConvName(sourceCRS->nameStr(), targetCRS->nameStr());
         auto conv = Conversion::createChangeVerticalUnit(
             util::PropertyMap().set(common::IdentifiedObject::NAME_KEY, name),
             // In case of a height depth reversal, we should probably have
@@ -4296,6 +4305,7 @@ void CoordinateOperationFactory::Private::createOperationsVertToVert(
         conv->setCRSs(sourceCRS, targetCRS, nullptr);
         res.push_back(conv);
     } else {
+        auto name = buildConvName(sourceCRS->nameStr(), targetCRS->nameStr());
         auto conv = Conversion::createHeightDepthReversal(
             util::PropertyMap().set(common::IdentifiedObject::NAME_KEY, name));
         conv->setCRSs(sourceCRS, targetCRS, nullptr);
@@ -5070,13 +5080,13 @@ void CoordinateOperationFactory::Private::createOperationsCompoundToCompound(
             createOperations(sourceCRS, intermGeogSrc, context);
         const auto opsGeogToTarget =
             createOperations(intermGeogDst, targetCRS, context);
-        const bool hasNonTrivalSrcTransf =
+        const bool hasNonTrivialSrcTransf =
             !opsSrcToGeog.empty() &&
             !opsSrcToGeog.front()->hasBallparkTransformation();
         const bool hasNonTrivialTargetTransf =
             !opsGeogToTarget.empty() &&
             !opsGeogToTarget.front()->hasBallparkTransformation();
-        if (hasNonTrivalSrcTransf && hasNonTrivialTargetTransf) {
+        if (hasNonTrivialSrcTransf && hasNonTrivialTargetTransf) {
             const auto opsGeogSrcToGeogDst =
                 createOperations(intermGeogSrc, intermGeogDst, context);
             for (const auto &op1 : opsSrcToGeog) {

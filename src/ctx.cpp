@@ -91,13 +91,16 @@ pj_ctx pj_ctx::createDefault()
     ctx.logger = pj_stderr_logger;
     NS_PROJ::FileManager::fillDefaultNetworkInterface(&ctx);
 
-    if( getenv("PROJ_DEBUG") != nullptr )
+    const char* projDebug = getenv("PROJ_DEBUG");
+    if( projDebug != nullptr )
     {
-        if( atoi(getenv("PROJ_DEBUG")) >= -PJ_LOG_TRACE )
-            ctx.debug_level = atoi(getenv("PROJ_DEBUG"));
+        const int debugLevel = atoi(projDebug);
+        if( debugLevel >= -PJ_LOG_TRACE )
+            ctx.debug_level = debugLevel;
         else
             ctx.debug_level = PJ_LOG_TRACE;
     }
+
     return ctx;
 }
 
@@ -111,17 +114,6 @@ projCppContext* pj_ctx::get_cpp_context()
         cpp_context = new projCppContext(this);
     }
     return cpp_context;
-}
-
-/**************************************************************************/
-/*                           safeAutoCloseDbIfNeeded()                      */
-/**************************************************************************/
-
-void pj_ctx::safeAutoCloseDbIfNeeded()
-{
-    if (cpp_context) {
-        cpp_context->autoCloseDbIfNeeded();
-    }
 }
 
 /************************************************************************/

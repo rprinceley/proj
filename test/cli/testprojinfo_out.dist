@@ -251,6 +251,26 @@ PROJJSON:
   }
 }
 
+Testing projinfo "+proj=merc +lat_ts=5 +datum=WGS84 +type=crs" --output-id HOBU:MY_CRS -o SQL -q
+INSERT INTO geodetic_crs VALUES('HOBU','GEODETIC_CRS_MY_CRS','unknown','','geographic 2D','EPSG','6424','EPSG','6326',NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_GEODETIC_CRS_MY_CRS','geodetic_crs','HOBU','GEODETIC_CRS_MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+INSERT INTO conversion VALUES('HOBU','CONVERSION_MY_CRS','unknown','','EPSG','9805','Mercator (variant B)','EPSG','8823','Latitude of 1st standard parallel',5,'EPSG','9122','EPSG','8802','Longitude of natural origin',0,'EPSG','9122','EPSG','8806','False easting',0,'EPSG','9001','EPSG','8807','False northing',0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_CONVERSION_MY_CRS','conversion','HOBU','CONVERSION_MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+INSERT INTO projected_crs VALUES('HOBU','MY_CRS','unknown','','EPSG','4400','HOBU','GEODETIC_CRS_MY_CRS','HOBU','CONVERSION_MY_CRS',NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_PROJECTED_CRS_MY_CRS','projected_crs','HOBU','MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+
+Testing projinfo "+proj=merc +lat_ts=5 +datum=WGS84 +type=crs" --output-id HOBU:MY_CRS --authority HOBU -o SQL -q
+INSERT INTO ellipsoid VALUES('HOBU','ELLPS_GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','WGS 84','','PROJ','EARTH',6378137,'EPSG','9001',298.257223563,NULL,0);
+INSERT INTO prime_meridian VALUES('HOBU','PM_GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','Greenwich',0,'EPSG','9122',0);
+INSERT INTO geodetic_datum VALUES('HOBU','GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','World Geodetic System 1984','','HOBU','ELLPS_GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','HOBU','PM_GEODETIC_DATUM_GEODETIC_CRS_MY_CRS',NULL,NULL,NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','geodetic_datum','HOBU','GEODETIC_DATUM_GEODETIC_CRS_MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+INSERT INTO geodetic_crs VALUES('HOBU','GEODETIC_CRS_MY_CRS','unknown','','geographic 2D','EPSG','6424','HOBU','GEODETIC_DATUM_GEODETIC_CRS_MY_CRS',NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_GEODETIC_CRS_MY_CRS','geodetic_crs','HOBU','GEODETIC_CRS_MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+INSERT INTO conversion VALUES('HOBU','CONVERSION_MY_CRS','unknown','','EPSG','9805','Mercator (variant B)','EPSG','8823','Latitude of 1st standard parallel',5,'EPSG','9122','EPSG','8802','Longitude of natural origin',0,'EPSG','9122','EPSG','8806','False easting',0,'EPSG','9001','EPSG','8807','False northing',0,'EPSG','9001',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_CONVERSION_MY_CRS','conversion','HOBU','CONVERSION_MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+INSERT INTO projected_crs VALUES('HOBU','MY_CRS','unknown','','EPSG','4400','HOBU','GEODETIC_CRS_MY_CRS','HOBU','CONVERSION_MY_CRS',NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_PROJECTED_CRS_MY_CRS','projected_crs','HOBU','MY_CRS','PROJ','EXTENT_UNKNOWN','PROJ','SCOPE_UNKNOWN');
+
 Testing projinfo -s EPSG:4326 -t EPSG:32631 --single-line
 Candidate operations found: 1
 -------------------------------------
@@ -322,8 +342,8 @@ COORDINATEOPERATION["Ballpark geographic offset from NAD27 to NAD83",
 
 Testing projinfo -s NAD27 -t NAD83 --grid-check none --spatial-test intersects --summary --hide-ballpark
 Candidate operations found: 9
-DERIVED_FROM(EPSG):1313, NAD27 to NAD83 (4), 1.5 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast.
-DERIVED_FROM(EPSG):1312, NAD27 to NAD83 (3), 2.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast.
+DERIVED_FROM(EPSG):1313, NAD27 to NAD83 (4), 1.5 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.
+DERIVED_FROM(EPSG):1312, NAD27 to NAD83 (3), 2.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.
 DERIVED_FROM(EPSG):1241, NAD27 to NAD83 (1), 0.15 m, United States (USA) - CONUS including EEZ -onshore and offshore - Alabama; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Gulf of Mexico (GoM) OCS.
 DERIVED_FROM(EPSG):1243, NAD27 to NAD83 (2), 0.5 m, United States (USA) - Alaska including EEZ.
 DERIVED_FROM(EPSG):1573, NAD27 to NAD83 (6), 1.5 m, Canada - Quebec.
@@ -337,7 +357,7 @@ Candidate operations found: 10
 -------------------------------------
 Operation No. 1:
 
-DERIVED_FROM(EPSG):1313, NAD27 to NAD83 (4), 1.5 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast.
+DERIVED_FROM(EPSG):1313, NAD27 to NAD83 (4), 1.5 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.
 
 PROJ string:
 +proj=pipeline
@@ -384,15 +404,15 @@ COORDINATEOPERATION["NAD27 to NAD83 (4)",
     OPERATIONACCURACY[1.5],
     USAGE[
         SCOPE["Transformation of coordinates at 1m to 2m level of accuracy."],
-        AREA["Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast."],
-        BBOX[40.04,-141.01,83.17,-47.74]],
+        AREA["Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N."],
+        BBOX[40,-141.01,83.17,-44]],
     ID["DERIVED_FROM(EPSG)",1313],
     REMARK["Uses NTv2 data files. Replaces NTv1 (transformation code 1312) except in Quebec. Input expects longitudes to be positive west; EPSG GeogCRS NAD27 (code 4267) and (code 4269) have longitudes positive east. May be used as tfm to WGS 84 - see code 1693."]]
 
 -------------------------------------
 Operation No. 2:
 
-DERIVED_FROM(EPSG):1312, NAD27 to NAD83 (3), 2.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast.
+DERIVED_FROM(EPSG):1312, NAD27 to NAD83 (3), 2.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.
 
 PROJ string:
 +proj=pipeline
@@ -439,8 +459,8 @@ COORDINATEOPERATION["NAD27 to NAD83 (3)",
     OPERATIONACCURACY[2.0],
     USAGE[
         SCOPE["Historic record only - now superseded - see remarks."],
-        AREA["Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast."],
-        BBOX[40.04,-141.01,83.17,-47.74]],
+        AREA["Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N."],
+        BBOX[40,-141.01,83.17,-44]],
     ID["DERIVED_FROM(EPSG)",1312],
     REMARK["Uses NTv1 method. Replaced in Quebec by code 1462 and elsewhere in 1997 by NTv2 (transformation code 1313). Input expects longitudes to be positive west; EPSG GeogCRS NAD27 (code 4267) and NAD83 (code 4269) have longitudes positive east."]]
 
@@ -1218,6 +1238,9 @@ unknown id, Inverse of UTM zone 31N + WGS 84 to EGM2008 height (1), 1 m, World.
 unknown id, Inverse of UTM zone 31N + WGS 84 to EGM2008 height (2), 0.5 m, World.
 unknown id, Inverse of UTM zone 31N + Inverse of Transformation from EGM2008 height to WGS 84 (ballpark vertical transformation, without ellipsoid height to vertical height correction), unknown accuracy, World, has ballpark transformation
 
+Testing -s EPSG:4326 -t EPSG:32661 --normalize-axis-order -o PROJ -q --single-line
++proj=pipeline +step +proj=unitconvert +xy_in=deg +xy_out=rad +step +proj=stere +lat_0=90 +lon_0=0 +k=0.994 +x_0=2000000 +y_0=2000000 +ellps=WGS84
+
 Testing -s EPSG:4936 -t EPSG:4978 --spatial-test intersects --summary where WGS 84 to ETRS89 (2) uses a transformation method not supported by PROJ currently (time-specific Helmert), and thus must be sorted last
 Candidate operations found: 2
 unknown id, Ballpark geocentric translation from ETRS89 to WGS 84, unknown accuracy, World, has ballpark transformation
@@ -1530,9 +1553,110 @@ Candidate operations found: 1
 Note: using '--spatial-test intersects' would bring more results (2)
 NKG:ITRF2014_TO_DK, ITRF2014 to ETRS89(DK), 0.01 m, Denmark - onshore and offshore.
 
+Testing projinfo --dump-db-structure | head -n 5
+CREATE TABLE metadata(
+    key TEXT NOT NULL PRIMARY KEY CHECK (length(key) >= 1),
+    value TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE unit_of_measure(
+
+Testing projinfo --dump-db-structure --output-id HOBU:XXXX EPSG:4326 | tail -n 4
+INSERT INTO metadata VALUES('DATABASE.LAYOUT.VERSION.MAJOR',1);
+INSERT INTO metadata VALUES('DATABASE.LAYOUT.VERSION.MINOR',1);
+INSERT INTO geodetic_crs VALUES('HOBU','XXXX','WGS 84','','geographic 2D','EPSG','6422','EPSG','6326',NULL,0);
+INSERT INTO usage VALUES('HOBU','USAGE_GEODETIC_CRS_XXXX','geodetic_crs','HOBU','XXXX','EPSG','1262','EPSG','1183');
+
+Testing PROJ_AUX_DB environment variable
+PROJ.4 string:
++proj=longlat +datum=WGS84 +no_defs +type=crs
+
+WKT2:2019 string:
+GEOGCRS["WGS 84",
+    ENSEMBLE["World Geodetic System 1984 ensemble",
+        MEMBER["World Geodetic System 1984 (Transit)"],
+        MEMBER["World Geodetic System 1984 (G730)"],
+        MEMBER["World Geodetic System 1984 (G873)"],
+        MEMBER["World Geodetic System 1984 (G1150)"],
+        MEMBER["World Geodetic System 1984 (G1674)"],
+        MEMBER["World Geodetic System 1984 (G1762)"],
+        ELLIPSOID["WGS 84",6378137,298.257223563,
+            LENGTHUNIT["metre",1]],
+        ENSEMBLEACCURACY[2.0]],
+    PRIMEM["Greenwich",0,
+        ANGLEUNIT["degree",0.0174532925199433]],
+    CS[ellipsoidal,2],
+        AXIS["geodetic latitude (Lat)",north,
+            ORDER[1],
+            ANGLEUNIT["degree",0.0174532925199433]],
+        AXIS["geodetic longitude (Lon)",east,
+            ORDER[2],
+            ANGLEUNIT["degree",0.0174532925199433]],
+    USAGE[
+        SCOPE["Horizontal component of 3D system."],
+        AREA["World."],
+        BBOX[-90,-180,90,180]],
+    ID["HOBU","XXXX"]]
+
 Testing -s EPSG:23030 -t EPSG:25830 --bbox -6,40,-5,41 --grid-check known_available --hide-ballpark --summary
 Checks that ED50 to ETRS89 (12) is in the output (superseded transformation, but replacements has unknown grid)
 Candidate operations found: 2
 unknown id, Inverse of UTM zone 30N + ED50 to ETRS89 (12) + UTM zone 30N, 0.2 m, Spain - mainland, Balearic Islands, Ceuta and Melila - onshore.
 unknown id, Inverse of UTM zone 30N + ED50 to ETRS89 (7) + UTM zone 30N, 1.5 m, Spain - onshore mainland except northwest (north of 41°30'N and west of 4°30'W).
+
+Testing --list-crs | grep "EPSG:32632\|ESRI:103668\|OGC" | sort
+EPSG:32632 "WGS 84 / UTM zone 32N"
+ESRI:103668 "NAD_1983_HARN_Adj_MN_Ramsey_Meters"
+OGC:CRS27 "NAD27 (CRS27)"
+OGC:CRS83 "NAD83 (CRS83)"
+OGC:CRS84 "WGS 84 (CRS84)"
+
+Testing --list-crs --authority OGC,EPSG | grep "EPSG:4326\|OGC" | sort
+EPSG:4326 "WGS 84"
+OGC:CRS27 "NAD27 (CRS27)"
+OGC:CRS83 "NAD83 (CRS83)"
+OGC:CRS84 "WGS 84 (CRS84)"
+
+Testing --list-crs | grep deprecated | sort
+
+Testing --list-crs vertical --bbox 0,40,1,41 --spatial-test intersects | grep "Alicante\|NAVD88" | sort
+EPSG:5782 "Alicante height"
+
+Testing --list-crs vertical --bbox -10,35,5,45 --spatial-test contains | grep "Alicante\|NAVD88" | sort
+EPSG:5782 "Alicante height"
+
+Testing --list-crs --area Spain --spatial-test intersects | grep "EPSG:9505\|EPSG:9398\|EPSG:4258\|EPSG:5703" | sort
+EPSG:4258 "ETRS89"
+EPSG:9398 "Tenerife height"
+EPSG:9505 "ETRS89 + Alicante height"
+
+Testing --list-crs --area Spain --spatial-test contains | grep "EPSG:9505\|EPSG:9398\|EPSG:4258\|EPSG:5703" | sort
+EPSG:9398 "Tenerife height"
+EPSG:9505 "ETRS89 + Alicante height"
+
+Testing --list-crs --area Spain | grep "EPSG:9505\|EPSG:9398\|EPSG:4258\|EPSG:5703" | sort
+EPSG:9398 "Tenerife height"
+EPSG:9505 "ETRS89 + Alicante height"
+
+Testing --list-crs geodetic | grep "EPSG:4326\|EPSG:4979\|EPSG:4978" | sort
+EPSG:4326 "WGS 84"
+EPSG:4978 "WGS 84"
+EPSG:4979 "WGS 84"
+
+Testing --list-crs geographic | grep "EPSG:4326\|EPSG:4979\|EPSG:4978" | sort
+EPSG:4326 "WGS 84"
+EPSG:4979 "WGS 84"
+
+Testing --list-crs geocentric,geographic_3d | grep "EPSG:4326\|EPSG:4979\|EPSG:4978" | sort
+EPSG:4978 "WGS 84"
+EPSG:4979 "WGS 84"
+
+Testing --list-crs geographic_2d,allow_deprecated --bbox -100,40,-90,41 --spatial-test intersects | grep deprecated | grep "NAD83(FBN)\|GCS_IGS08" | sort
+EPSG:8449 "NAD83(FBN)" [deprecated]
+ESRI:104010 "GCS_IGS08" [deprecated]
+
+Testing --list-crs projected --bbox -100,40,-90,41 --spatial-test intersects | grep "(2011).*Missouri East\|York" | sort
+EPSG:6512 "NAD83(2011) / Missouri East"
+
+Testing --list-crs projected --area France | grep "RGF93 / Lambert-93\|UTM zone 11N" | sort
+EPSG:2154 "RGF93 / Lambert-93"
 

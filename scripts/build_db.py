@@ -47,6 +47,15 @@ def ingest_sqlite_dump(cursor, filename):
             line = line.decode('utf-8') #python3
         else:
             line = str(line) # python2
+
+        # Historically this script was developped with code columns using TEXT
+        # so keep it that way to minimized changes in it, and in the diff of
+        # generated .sql files
+        line = line.replace('INTEGER_OR_TEXT', 'TEXT')
+
+        # Same for WITHOUT ROWID
+        line = line.replace('WITHOUT ROWID', '')
+
         sql += line
         if sqlite3.complete_statement(sql):
             sql = sql.strip()
@@ -276,6 +285,23 @@ def fill_vertical_crs(proj_db_cursor):
     #proj_db_cursor.execute(
     #    "INSERT INTO crs SELECT ?, coord_ref_sys_code, coord_ref_sys_kind FROM epsg.epsg_coordinatereferencesystem WHERE coord_ref_sys_kind IN ('vertical') AND datum_code IS NOT NULL", (EPSG_AUTHORITY,))
     proj_db_cursor.execute("INSERT INTO vertical_crs SELECT ?, coord_ref_sys_code, coord_ref_sys_name, NULL, ?, coord_sys_code, ?, datum_code, deprecated FROM epsg.epsg_coordinatereferencesystem WHERE coord_ref_sys_kind IN ('vertical') AND datum_code IS NOT NULL", (EPSG_AUTHORITY, EPSG_AUTHORITY, EPSG_AUTHORITY))
+
+    proj_db_cursor.execute("SELECT * FROM epsg.epsg_coordinatereferencesystem WHERE coord_ref_sys_kind IN ('vertical') AND datum_code IS NULL AND projection_conv_code NOT IN (7812, 7813)")
+    res = proj_db_cursor.fetchall()
+    for row in res:
+        assert False, row
+
+    proj_db_cursor.execute("SELECT * FROM epsg.epsg_coordinatereferencesystem crs1 WHERE crs1.coord_ref_sys_kind IN ('vertical') AND crs1.datum_code IS NULL AND NOT EXISTS (SELECT 1 FROM epsg.epsg_coordinatereferencesystem crs2 WHERE crs2.coord_ref_sys_code = crs1.base_crs_code AND crs2.coord_ref_sys_kind IN ('vertical'))")
+    res = proj_db_cursor.fetchall()
+    for row in res:
+        assert False, row
+
+    # Insert vertical_crs that are based on another one, such as EPSG:8228 that is based on EPSG:5703
+    proj_db_cursor.execute("INSERT INTO vertical_crs SELECT ?, crs1.coord_ref_sys_code, crs1.coord_ref_sys_name, NULL, ?, crs1.coord_sys_code, ?, crs2.datum_code, crs1.deprecated FROM epsg.epsg_coordinatereferencesystem crs1 JOIN epsg.epsg_coordinatereferencesystem crs2 ON crs1.base_crs_code = crs2.coord_ref_sys_code WHERE crs1.coord_ref_sys_kind IN ('vertical') AND crs1.datum_code IS NULL AND crs2.datum_code iS NOT NULL", (EPSG_AUTHORITY, EPSG_AUTHORITY, EPSG_AUTHORITY))
+
+    # Extra punishment for EPSG:8051 that is based on EPSG:5715 which is based on EPSG:5714
+    proj_db_cursor.execute("INSERT INTO vertical_crs SELECT ?, crs1.coord_ref_sys_code, crs1.coord_ref_sys_name, NULL, ?, crs1.coord_sys_code, ?, crs3.datum_code, crs1.deprecated FROM epsg.epsg_coordinatereferencesystem crs1 JOIN epsg.epsg_coordinatereferencesystem crs2 ON crs1.base_crs_code = crs2.coord_ref_sys_code JOIN epsg.epsg_coordinatereferencesystem crs3 ON crs2.base_crs_code = crs3.coord_ref_sys_code WHERE crs1.coord_ref_sys_kind IN ('vertical') AND crs1.datum_code IS NULL AND crs2.datum_code IS NULL", (EPSG_AUTHORITY, EPSG_AUTHORITY, EPSG_AUTHORITY))
+
 
 def fill_conversion(proj_db_cursor):
 
@@ -595,7 +621,8 @@ def fill_grid_transformation(proj_db_cursor):
         # 1100: Geog3D to Geog2D+GravityRelatedHeight (PL txt)
         # 1101: Vertical Offset by Grid Interpolation (PL txt)
         # 1103: Geog3D to Geog2D+GravityRelatedHeight (EGM)
-        elif method_code in (1071, 1080, 1081, 1083, 1084, 1085, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1100, 1101, 1103) and n_params == 2:
+        # 1105: Geog3D to Geog2D+GravityRelatedHeight (ITAL2005)
+        elif method_code in (1071, 1080, 1081, 1083, 1084, 1085, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1100, 1101, 1103, 1105) and n_params == 2:
             assert param_code[1] == 1048, (code, method_code, param_code[1])
             interpolation_crs_auth_name = EPSG_AUTHORITY
             interpolation_crs_code = str(int(param_value[1])) # needed to avoid codes like XXXX.0

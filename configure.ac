@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([PROJ], [8.0.0],
+AC_INIT([PROJ], [8.1.0],
         [https://github.com/OSGeo/PROJ/issues], proj, [https://proj.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_LANG(C)
@@ -358,8 +358,10 @@ dnl ---------------------------------------------------------------------------
 dnl Generate files
 dnl ---------------------------------------------------------------------------
 
-AC_CONFIG_FILES([Makefile cmake/Makefile src/Makefile include/Makefile include/proj/Makefile include/proj/internal/Makefile
-                 include/proj/internal/nlohmann/Makefile
+AC_CONFIG_FILES([Makefile cmake/Makefile src/Makefile include/Makefile include/proj/Makefile
+                 include/proj/internal/Makefile
+                 include/proj/internal/vendor/Makefile
+                 include/proj/internal/vendor/nlohmann/Makefile
                  test/Makefile test/cli/Makefile test/gie/Makefile test/gigs/Makefile test/unit/Makefile
                  man/Makefile man/man1/Makefile data/Makefile])
 if ! test "x$with_external_gtest" = "xyes" ; then

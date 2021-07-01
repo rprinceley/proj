@@ -45,8 +45,8 @@ INSERT INTO "scope" VALUES('EPSG','1065','Academic research, not officially adop
 INSERT INTO "scope" VALUES('EPSG','1066','Recommended by OSi and OSNI for all horizontal CTs in the Republic and Northern Ireland.',0);
 INSERT INTO "scope" VALUES('EPSG','1067','Post-1996 data based on the classical geodetic network.',0);
 INSERT INTO "scope" VALUES('EPSG','1068','Pre-1996 data related to the classical geodetic network.',0);
-INSERT INTO "scope" VALUES('EPSG','1069','Adopted as official definition of OSGB 1936 from 2002 to August 2016. Accuracy by definition exact. Accuracy compared to triangulation coordinates 0.1m at 67% confidence level.',0);
-INSERT INTO "scope" VALUES('EPSG','1070','Adopted as official definition of OSGB 1936 from August 2016. Accuracy by definition exact. Accuracy compared to triangulation coordinates 0.1m at 67% confidence level.',0);
+INSERT INTO "scope" VALUES('EPSG','1069','Adopted as official definition of OSGB36 from 2002 to August 2016. Accuracy by definition exact. Accuracy compared to triangulation coordinates 0.1m at 67% confidence level.',0);
+INSERT INTO "scope" VALUES('EPSG','1070','Adopted as official definition of OSGB36 from August 2016. Accuracy by definition exact. Accuracy compared to triangulation coordinates 0.1m at 67% confidence level.',0);
 INSERT INTO "scope" VALUES('EPSG','1071','Arctic small scale mapping - Alaska-centred.',0);
 INSERT INTO "scope" VALUES('EPSG','1072','Arctic small scale mapping - Canada-centred.',0);
 INSERT INTO "scope" VALUES('EPSG','1073','Arctic small scale mapping - Greenland-centred.',0);
@@ -77,7 +77,7 @@ INSERT INTO "scope" VALUES('EPSG','1097','Cartography System of Distrito Federal
 INSERT INTO "scope" VALUES('EPSG','1098','Web mapping and visualisation.',0);
 INSERT INTO "scope" VALUES('EPSG','1099','Change of height to a different vertical reference surface and unit.',0);
 INSERT INTO "scope" VALUES('EPSG','1100','Change of prime meridian.',0);
-INSERT INTO "scope" VALUES('EPSG','1101','Change of height or depth unit to facilitate transformation through concatenated operations.',0);
+INSERT INTO "scope" VALUES('EPSG','1101','Change of height or depth unit.',0);
 INSERT INTO "scope" VALUES('EPSG','1102','Cadastre, engineering survey, civilian topographic mapping.',0);
 INSERT INTO "scope" VALUES('EPSG','1103','Coastal hydrography.',0);
 INSERT INTO "scope" VALUES('EPSG','1104','Coastal hydrography, offshore oil and gas exploration and production.',0);
