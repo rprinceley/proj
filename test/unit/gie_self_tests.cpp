@@ -442,6 +442,17 @@ TEST(gie, info_functions) {
     /* we can't expect perfect numerical accuracy so testing with a tolerance */
     ASSERT_NEAR(-2.0, proj_dmstor(&buf[0], NULL), 1e-7);
 
+    /* test UTF-8 degree sign on DMS input */
+    ASSERT_NEAR(0.34512432, proj_dmstor("19°46'27\"E", NULL), 1e-7);
+
+    /* test ISO 8859-1, cp1252, et al. degree sign on DMS input */
+    ASSERT_NEAR(0.34512432,
+                proj_dmstor("19"
+                            "\260"
+                            "46'27\"E",
+                            NULL),
+                1e-7);
+
     /* test proj_derivatives_retrieve() and proj_factors_retrieve() */
     P = proj_create(PJ_DEFAULT_CTX, "+proj=merc +ellps=WGS84");
     a = proj_coord(0, 0, 0, 0);
@@ -463,6 +474,33 @@ TEST(gie, info_functions) {
               0.0); /* meridian convergence should be 0 */
 
     proj_destroy(P);
+
+    // Test with a projected CRS
+    {
+        P = proj_create(PJ_DEFAULT_CTX, "EPSG:3395");
+
+        const auto factors2 = proj_factors(P, a);
+
+        EXPECT_EQ(factors.angular_distortion, factors2.angular_distortion);
+        EXPECT_EQ(factors.meridian_parallel_angle,
+                  factors2.meridian_parallel_angle);
+        EXPECT_EQ(factors.meridian_convergence, factors2.meridian_convergence);
+        EXPECT_EQ(factors.tissot_semimajor, factors2.tissot_semimajor);
+
+        proj_destroy(P);
+    }
+
+    // Test with a geographic CRS --> error
+    {
+        P = proj_create(PJ_DEFAULT_CTX, "EPSG:4326");
+
+        const auto factors2 = proj_factors(P, a);
+        EXPECT_NE(proj_errno(P), 0);
+        proj_errno_reset(P);
+        EXPECT_EQ(factors2.meridian_parallel_angle, 0);
+
+        proj_destroy(P);
+    }
 
     /* Check that proj_list_* functions work by looping through them */
     size_t n = 0;

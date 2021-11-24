@@ -10,6 +10,7 @@ pkgdata_DATA = proj.ini GL27 nad.lst nad27 nad83 world other.extra \
 SQL_ORDERED_LIST = sql/begin.sql \
 		sql/proj_db_table_defs.sql \
 		sql/conversion_triggers.sql \
+		sql/customizations_early.sql \
 		sql/metadata.sql \
 		sql/unit_of_measure.sql \
 		sql/extent.sql \
@@ -40,6 +41,7 @@ SQL_ORDERED_LIST = sql/begin.sql \
 		sql/esri.sql \
 		sql/ignf.sql \
 		sql/nkg.sql \
+		sql/iau.sql \
 		sql/grid_alternatives.sql \
 		sql/grid_alternatives_generated_noaa.sql \
 		sql/customizations.sql \
@@ -127,6 +129,8 @@ EXTRA_DIST = proj.ini GL27 nad.lst nad27 nad83 \
 		tests/tinshift_crs_implicit.json \
 		tests/tinshift_simplified_kkj_etrs.json \
 		tests/tinshift_simplified_n60_n2000.json \
+		tests/tinshift_fallback_nearest_side.json \
+		tests/tinshift_fallback_nearest_centroid.json \
 		generate_proj_db.cmake sql_filelist.cmake \
 		$(SQL_ORDERED_LIST)
 

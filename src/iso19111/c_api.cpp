@@ -222,6 +222,13 @@ static PJ *pj_obj_create(PJ_CONTEXT *ctx, const IdentifiedObjectNNPtr &objIn) {
                     const auto &ellps = geodCRS->ellipsoid();
                     const double a = ellps->semiMajorAxis().getSIValue();
                     const double es = ellps->squaredEccentricity();
+                    if (!(a > 0 && es >= 0 && es < 1)) {
+                        proj_log_error(pj, _("Invalid ellipsoid parameters"));
+                        proj_errno_set(pj,
+                                       PROJ_ERR_INVALID_OP_ILLEGAL_ARG_VALUE);
+                        proj_destroy(pj);
+                        return nullptr;
+                    }
                     pj_calc_ellipsoid_params(pj, a, es);
                     assert(pj->geod == nullptr);
                     pj->geod = static_cast<struct geod_geodesic *>(
@@ -365,6 +372,24 @@ const char *proj_context_get_database_path(PJ_CONTEXT *ctx) {
  *
  * The returned pointer remains valid while ctx is valid, and until
  * proj_context_get_database_metadata() is called.
+ *
+ * Available keys:
+ *
+ * - DATABASE.LAYOUT.VERSION.MAJOR
+ * - DATABASE.LAYOUT.VERSION.MINOR
+ * - EPSG.VERSION
+ * - EPSG.DATE
+ * - ESRI.VERSION
+ * - ESRI.DATE
+ * - IGNF.SOURCE
+ * - IGNF.VERSION
+ * - IGNF.DATE
+ * - NKG.SOURCE
+ * - NKG.VERSION
+ * - NKG.DATE
+ * - PROJ.VERSION
+ * - PROJ_DATA.VERSION : PROJ-data version most compatible with this database.
+ *
  *
  * @param ctx PROJ context, or NULL for default context
  * @param key Metadata key. Must not be NULL
@@ -1564,6 +1589,11 @@ const char *proj_as_wkt(PJ_CONTEXT *ctx, const PJ *obj, PJ_WKT_TYPE type,
  * The returned string is valid while the input obj parameter is valid,
  * and until a next call to proj_as_proj_string() with the same input
  * object.
+ * 
+ * \warning If a CRS object was not created from a PROJ string, 
+ *          exporting to a PROJ string will in most cases
+ *          cause a loss of information. This can potentially lead to
+ *          erroneous transformations.
  *
  * This function calls
  * osgeo::proj::io::IPROJStringExportable::exportToPROJString().
@@ -2759,10 +2789,19 @@ proj_get_crs_info_list_from_database(PJ_CONTEXT *ctx, const char *auth_name,
     PROJ_CRS_INFO **ret = nullptr;
     int i = 0;
     try {
-        auto factory = AuthorityFactory::create(getDBcontext(ctx),
-                                                auth_name ? auth_name : "");
-        auto list = factory->getCRSInfoList();
-        ret = new PROJ_CRS_INFO *[list.size() + 1];
+        auto dbContext = getDBcontext(ctx);
+        const std::string authName = auth_name ? auth_name : "";
+        auto actualAuthNames =
+            dbContext->getVersionedAuthoritiesFromName(authName);
+        if (actualAuthNames.empty())
+            actualAuthNames.push_back(authName);
+        std::list<AuthorityFactory::CRSInfo> concatList;
+        for (const auto &actualAuthName : actualAuthNames) {
+            auto factory = AuthorityFactory::create(dbContext, actualAuthName);
+            auto list = factory->getCRSInfoList();
+            concatList.splice(concatList.end(), std::move(list));
+        }
+        ret = new PROJ_CRS_INFO *[concatList.size() + 1];
         GeographicBoundingBoxPtr bbox;
         if (params && params->bbox_valid) {
             bbox = GeographicBoundingBox::create(
@@ -2770,7 +2809,7 @@ proj_get_crs_info_list_from_database(PJ_CONTEXT *ctx, const char *auth_name,
                        params->east_lon_degree, params->north_lat_degree)
                        .as_nullable();
         }
-        for (const auto &info : list) {
+        for (const auto &info : concatList) {
             auto type = PJ_TYPE_CRS;
             if (info.type == AuthorityFactory::ObjectType::GEOGRAPHIC_2D_CRS) {
                 type = PJ_TYPE_GEOGRAPHIC_2D_CRS;
@@ -7085,6 +7124,37 @@ PJ *proj_create_conversion_pole_rotation_grib_convention(
     return nullptr;
 }
 
+// ---------------------------------------------------------------------------
+
+/** \brief Instantiate a conversion based on the Pole Rotation method, using
+ * the conventions of the netCDF CF convention for the netCDF format.
+ *
+ * See
+ * osgeo::proj::operation::Conversion::createPoleRotationNetCDFCFConvention().
+ *
+ * Linear parameters are expressed in (linear_unit_name,
+ * linear_unit_conv_factor).
+ * Angular parameters are expressed in (ang_unit_name, ang_unit_conv_factor).
+ */
+PJ *proj_create_conversion_pole_rotation_netcdf_cf_convention(
+    PJ_CONTEXT *ctx, double grid_north_pole_latitude,
+    double grid_north_pole_longitude, double north_pole_grid_longitude,
+    const char *ang_unit_name, double ang_unit_conv_factor) {
+    SANITIZE_CTX(ctx);
+    try {
+        UnitOfMeasure angUnit(
+            createAngularUnit(ang_unit_name, ang_unit_conv_factor));
+        auto conv = Conversion::createPoleRotationNetCDFCFConvention(
+            PropertyMap(), Angle(grid_north_pole_latitude, angUnit),
+            Angle(grid_north_pole_longitude, angUnit),
+            Angle(north_pole_grid_longitude, angUnit));
+        return proj_create_conversion(ctx, conv);
+    } catch (const std::exception &e) {
+        proj_log_error(ctx, __FUNCTION__, e.what());
+    }
+    return nullptr;
+}
+
 /* END: Generated by scripts/create_c_api_projections.py*/
 
 // ---------------------------------------------------------------------------
@@ -8432,7 +8502,12 @@ PJ *proj_crs_get_datum_forced(PJ_CONTEXT *ctx, const PJ *crs) {
     const auto &datumEnsemble = l_crs->datumEnsemble();
     assert(datumEnsemble);
     auto dbContext = getDBcontextNoException(ctx, __FUNCTION__);
-    return pj_obj_create(ctx, datumEnsemble->asDatum(dbContext));
+    try {
+        return pj_obj_create(ctx, datumEnsemble->asDatum(dbContext));
+    } catch (const std::exception &e) {
+        proj_log_debug(ctx, __FUNCTION__, e.what());
+        return nullptr;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -8673,6 +8748,10 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
             if (!pjNew)
                 return nullptr;
             pjNew->ctx = ctx;
+            pjNew->descr = "Set of coordinate operations";
+            pjNew->left = obj->left;
+            pjNew->right = obj->right;
+
             for (const auto &alt : obj->alternativeCoordinateOperations) {
                 auto co = dynamic_cast<const CoordinateOperation *>(
                     alt.pj->iso_obj.get());

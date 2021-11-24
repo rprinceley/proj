@@ -201,7 +201,7 @@ def fill_geodetic_datum(proj_db_cursor):
     for (datum_code, datum_name, ellipsoid_code, prime_meridian_code, publication_date, frame_reference_epoch, deprecated) in res:
         publication_date = compute_publication_date(datum_code, datum_name, frame_reference_epoch, publication_date)
         proj_db_cursor.execute(
-        "INSERT INTO geodetic_datum VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, ?)", (EPSG_AUTHORITY, datum_code, datum_name, EPSG_AUTHORITY, ellipsoid_code, EPSG_AUTHORITY, prime_meridian_code, publication_date, frame_reference_epoch, deprecated))
+        "INSERT INTO geodetic_datum VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)", (EPSG_AUTHORITY, datum_code, datum_name, EPSG_AUTHORITY, ellipsoid_code, EPSG_AUTHORITY, prime_meridian_code, publication_date, frame_reference_epoch, deprecated))
 
 
 def fill_vertical_datum(proj_db_cursor):
@@ -211,7 +211,7 @@ def fill_vertical_datum(proj_db_cursor):
     for (datum_code, datum_name, publication_date, frame_reference_epoch, deprecated) in res:
         publication_date = compute_publication_date(datum_code, datum_name, frame_reference_epoch, publication_date)
         proj_db_cursor.execute(
-        "INSERT INTO vertical_datum VALUES (?, ?, ?, NULL, ?, ?, NULL, ?)", (EPSG_AUTHORITY, datum_code, datum_name, publication_date, frame_reference_epoch, deprecated))
+        "INSERT INTO vertical_datum VALUES (?, ?, ?, NULL, ?, ?, NULL, NULL, ?)", (EPSG_AUTHORITY, datum_code, datum_name, publication_date, frame_reference_epoch, deprecated))
 
 
 def fill_datumensemble(proj_db_cursor):
@@ -235,7 +235,7 @@ def fill_datumensemble(proj_db_cursor):
             assert ellipsoid_code, datum_code
             assert prime_meridian_code, datum_code
             proj_db_cursor.execute(
-            "INSERT INTO geodetic_datum (auth_name, code, name, description, ellipsoid_auth_name, ellipsoid_code, prime_meridian_auth_name, prime_meridian_code, publication_date, frame_reference_epoch, ensemble_accuracy, deprecated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (EPSG_AUTHORITY, datum_code, datum_name, None, EPSG_AUTHORITY, ellipsoid_code, EPSG_AUTHORITY, prime_meridian_code, None, None, ensemble_accuracy, deprecated))
+            "INSERT INTO geodetic_datum (auth_name, code, name, description, ellipsoid_auth_name, ellipsoid_code, prime_meridian_auth_name, prime_meridian_code, publication_date, frame_reference_epoch, ensemble_accuracy, anchor, deprecated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (EPSG_AUTHORITY, datum_code, datum_name, None, EPSG_AUTHORITY, ellipsoid_code, EPSG_AUTHORITY, prime_meridian_code, None, None, ensemble_accuracy, None, deprecated))
 
         proj_db_cursor.execute("SELECT datum_code, datum_sequence FROM epsg.epsg_datumensemblemember WHERE datum_ensemble_code = ? ORDER by datum_sequence", (datum_code,))
         for member_code, sequence in proj_db_cursor.fetchall():
@@ -622,7 +622,8 @@ def fill_grid_transformation(proj_db_cursor):
         # 1101: Vertical Offset by Grid Interpolation (PL txt)
         # 1103: Geog3D to Geog2D+GravityRelatedHeight (EGM)
         # 1105: Geog3D to Geog2D+GravityRelatedHeight (ITAL2005)
-        elif method_code in (1071, 1080, 1081, 1083, 1084, 1085, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1100, 1101, 1103, 1105) and n_params == 2:
+        # 1110: Geog3D to Geog2D+Depth (Gravsoft)
+        elif method_code in (1071, 1080, 1081, 1083, 1084, 1085, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1100, 1101, 1103, 1105, 1110) and n_params == 2:
             assert param_code[1] == 1048, (code, method_code, param_code[1])
             interpolation_crs_auth_name = EPSG_AUTHORITY
             interpolation_crs_code = str(int(param_value[1])) # needed to avoid codes like XXXX.0
@@ -633,7 +634,7 @@ def fill_grid_transformation(proj_db_cursor):
             interpolation_crs_code = str(int(param_value[1])) # needed to avoid codes like XXXX.0
             # ignoring parameter 2 Standard CT code
         else:
-            assert n_params == 1, (code, method_code)
+            assert n_params == 1, (code, name, method_code)
 
 
         arg = (EPSG_AUTHORITY, code, name,
@@ -650,8 +651,12 @@ def fill_grid_transformation(proj_db_cursor):
                )
 
         #proj_db_cursor.execute("INSERT INTO coordinate_operation VALUES (?,?,'grid_transformation')", (EPSG_AUTHORITY, code))
-        proj_db_cursor.execute('INSERT INTO grid_transformation VALUES (' +
-            '?,?,?, ?, ?,?,?, ?,?, ?,?, ?, ?,?,?,?, ?,?,?,?, ?,?, ?,?)', arg)
+        try:
+            proj_db_cursor.execute('INSERT INTO grid_transformation VALUES (' +
+                '?,?,?, ?, ?,?,?, ?,?, ?,?, ?, ?,?,?,?, ?,?,?,?, ?,?, ?,?)', arg)
+        except sqlite3.IntegrityError as e:
+            print(arg)
+            raise
 
 def fill_other_transformation(proj_db_cursor):
     # 9601: Longitude rotation
@@ -895,6 +900,7 @@ proj_db_cursor = proj_db_conn.cursor()
 proj_db_cursor.execute('PRAGMA foreign_keys = 1;')
 
 ingest_sqlite_dump(proj_db_cursor, os.path.join(sql_dir_name, 'proj_db_table_defs.sql'))
+proj_db_cursor.execute("INSERT INTO celestial_body VALUES('PROJ', 'EARTH', 'Earth', 6378137.0);")
 
 # A bit messy, but to avoid churn in our existing .sql files, we temporarily
 # recreate the original conversion and helmert_transformation tables
