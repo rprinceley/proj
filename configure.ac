@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([PROJ], [8.2.0],
+AC_INIT([PROJ], [8.2.1],
         [https://github.com/OSGeo/PROJ/issues], proj, [https://proj.org])
 AC_CONFIG_MACRO_DIR([m4])
 AC_LANG(C)
@@ -325,7 +325,16 @@ dnl ---------------------------------------------------------------------------
 dnl Check for extra libraries, required for static linking with pkg-config
 dnl ---------------------------------------------------------------------------
 
-EXTRA_LIBS="-lstdc++"
+EXTRA_LIBS="-lstdc++ -lsqlite3"
+if test "no$THREAD_LIB" != "no"; then
+  EXTRA_LIBS="$EXTRA_LIBS $THREAD_LIB"
+fi
+if test "x$enable_tiff" != "xno" -o "x$enable_tiff" = ""; then
+  EXTRA_LIBS="$EXTRA_LIBS -ltiff"
+fi
+if test "$FOUND_CURL" = "yes" ; then
+  EXTRA_LIBS="$EXTRA_LIBS -lcurl"
+fi
 if test "$HAVE_LIBM" != "no" ; then
   EXTRA_LIBS="$EXTRA_LIBS -lm"
 fi
