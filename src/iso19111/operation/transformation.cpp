@@ -1429,6 +1429,8 @@ createApproximateInverseIfPossible(const Transformation *op) {
                      metadata::Identifier::EPSG)
                 .set(metadata::Identifier::CODE_KEY, method_epsg_code);
         }
+        bool exactInverse =
+            (neg_rx == 0 && neg_ry == 0 && neg_rz == 0 && neg_scaleDiff == 0);
         if (fifteenParamsTransform) {
             double neg_rate_x = negate(op->parameterValueNumeric(
                 EPSG_CODE_PARAMETER_RATE_X_AXIS_TRANSLATION,
@@ -1454,9 +1456,11 @@ createApproximateInverseIfPossible(const Transformation *op) {
             double referenceEpochYear =
                 op->parameterValueNumeric(EPSG_CODE_PARAMETER_REFERENCE_EPOCH,
                                           common::UnitOfMeasure::YEAR);
+            exactInverse &= (neg_rate_rx == 0 && neg_rate_ry == 0 &&
+                             neg_rate_rz == 0 && neg_rate_scaleDiff == 0);
             return util::nn_static_pointer_cast<CoordinateOperation>(
                        createFifteenParamsTransform(
-                           createPropertiesForInverse(op, false, true),
+                           createPropertiesForInverse(op, false, !exactInverse),
                            methodProperties, op->targetCRS(), op->sourceCRS(),
                            neg_x, neg_y, neg_z, neg_rx, neg_ry, neg_rz,
                            neg_scaleDiff, neg_rate_x, neg_rate_y, neg_rate_z,
@@ -1467,7 +1471,7 @@ createApproximateInverseIfPossible(const Transformation *op) {
         } else {
             return util::nn_static_pointer_cast<CoordinateOperation>(
                        createSevenParamsTransform(
-                           createPropertiesForInverse(op, false, true),
+                           createPropertiesForInverse(op, false, !exactInverse),
                            methodProperties, op->targetCRS(), op->sourceCRS(),
                            neg_x, neg_y, neg_z, neg_rx, neg_ry, neg_rz,
                            neg_scaleDiff, op->coordinateOperationAccuracies()))
@@ -2184,6 +2188,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
         !NTv1Filename.empty()
             ? NTv1Filename
             : !NTv2Filename.empty() ? NTv2Filename : lasFilename;
+    const auto l_interpolationCRS = interpolationCRS();
 
     if (!horizontalGridName.empty() && databaseContext->lookForGridAlternative(
                                            horizontalGridName, projFilename,
@@ -2212,14 +2217,14 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
             if (inverseDirection) {
                 return create(createPropertiesForInverse(
                                   self.as_nullable().get(), true, false),
-                              l_targetCRS, l_sourceCRS, nullptr,
+                              l_targetCRS, l_sourceCRS, l_interpolationCRS,
                               methodProperties, parameters, values,
                               l_accuracies)
                     ->inverseAsTransformation();
 
             } else {
                 return create(createSimilarPropertiesTransformation(self),
-                              l_sourceCRS, l_targetCRS, nullptr,
+                              l_sourceCRS, l_targetCRS, l_interpolationCRS,
                               methodProperties, parameters, values,
                               l_accuracies);
             }
@@ -2259,14 +2264,14 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
             if (inverseDirection) {
                 return create(createPropertiesForInverse(
                                   self.as_nullable().get(), true, false),
-                              l_targetCRS, l_sourceCRS, nullptr,
+                              l_targetCRS, l_sourceCRS, l_interpolationCRS,
                               methodProperties, parameters, values,
                               l_accuracies)
                     ->inverseAsTransformation();
 
             } else {
                 return create(createSimilarPropertiesTransformation(self),
-                              l_sourceCRS, l_targetCRS, nullptr,
+                              l_sourceCRS, l_targetCRS, l_interpolationCRS,
                               methodProperties, parameters, values,
                               l_accuracies);
             }
@@ -2301,7 +2306,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                     return create(
                                createPropertiesForInverse(
                                    self.as_nullable().get(), true, false),
-                               targetCRS(), sourceCRS(), nullptr,
+                               targetCRS(), sourceCRS(), l_interpolationCRS,
                                createSimilarPropertiesMethod(method()),
                                parameters,
                                {ParameterValue::createFilename(projFilename)},
@@ -2312,7 +2317,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                 {
                     return create(
                         createSimilarPropertiesTransformation(self),
-                        sourceCRS(), targetCRS(), nullptr,
+                        sourceCRS(), targetCRS(), l_interpolationCRS,
                         createSimilarPropertiesMethod(method()), parameters,
                         {ParameterValue::createFilename(projFilename)},
                         coordinateOperationAccuracies());
@@ -2342,7 +2347,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                 std::vector<OperationParameterNNPtr>{createOpParamNameEPSGCode(
                     EPSG_CODE_PARAMETER_GEOCENTRIC_TRANSLATION_FILE)};
             return create(createSimilarPropertiesTransformation(self),
-                          sourceCRS(), targetCRS(), interpolationCRS(),
+                          sourceCRS(), targetCRS(), l_interpolationCRS,
                           createSimilarPropertiesMethod(method()), parameters,
                           {ParameterValue::createFilename(projFilename)},
                           coordinateOperationAccuracies());
@@ -2380,7 +2385,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                     return create(
                                createPropertiesForInverse(
                                    self.as_nullable().get(), true, false),
-                               targetCRS(), sourceCRS(), nullptr,
+                               targetCRS(), sourceCRS(), l_interpolationCRS,
                                createSimilarPropertiesMethod(method()),
                                parameters,
                                {ParameterValue::createFilename(projFilename)},
@@ -2389,7 +2394,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
                 } else {
                     return create(
                         createSimilarPropertiesTransformation(self),
-                        sourceCRS(), targetCRS(), nullptr,
+                        sourceCRS(), targetCRS(), l_interpolationCRS,
                         createSimilarPropertiesMethod(method()), parameters,
                         {ParameterValue::createFilename(projFilename)},
                         coordinateOperationAccuracies());

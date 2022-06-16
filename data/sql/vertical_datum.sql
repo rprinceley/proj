@@ -133,7 +133,7 @@ INSERT INTO "usage" VALUES('EPSG','13228','vertical_datum','EPSG','1176','EPSG',
 INSERT INTO "vertical_datum" VALUES('EPSG','1177','St. Helena Vertical Datum 2015',NULL,'2015-01-01',NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','13229','vertical_datum','EPSG','1177','EPSG','3183','EPSG','1178');
 INSERT INTO "vertical_datum" VALUES('EPSG','1190','Landshaedarkerfi Islands 2004',NULL,'2004-08-07',NULL,NULL,NULL,0);
-INSERT INTO "usage" VALUES('EPSG','13242','vertical_datum','EPSG','1190','EPSG','3262','EPSG','1180');
+INSERT INTO "usage" VALUES('EPSG','13242','vertical_datum','EPSG','1190','EPSG','4662','EPSG','1180');
 INSERT INTO "vertical_datum" VALUES('EPSG','1199','Greenland Vertical Reference 2000',NULL,'2000-01-01',NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','13251','vertical_datum','EPSG','1199','EPSG','4461','EPSG','1153');
 INSERT INTO "vertical_datum" VALUES('EPSG','1200','Greenland Vertical Reference 2016',NULL,'2016-01-01',NULL,NULL,NULL,0);
@@ -232,6 +232,8 @@ INSERT INTO "vertical_datum" VALUES('EPSG','1316','GNTRANS',NULL,'2003-01-01',NU
 INSERT INTO "usage" VALUES('EPSG','17277','vertical_datum','EPSG','1316','EPSG','3339','EPSG','1141');
 INSERT INTO "vertical_datum" VALUES('EPSG','1318','GNTRANS2016',NULL,'2016-01-01',NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','17278','vertical_datum','EPSG','1318','EPSG','3339','EPSG','1141');
+INSERT INTO "vertical_datum" VALUES('EPSG','1323','Svalbard vertical datum 2006',NULL,'2006-01-01',NULL,NULL,NULL,0);
+INSERT INTO "usage" VALUES('EPSG','17963','vertical_datum','EPSG','1323','EPSG','4058','EPSG','1180');
 INSERT INTO "vertical_datum" VALUES('EPSG','5100','Mean Sea Level',NULL,NULL,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','13307','vertical_datum','EPSG','5100','EPSG','1262','EPSG','1199');
 INSERT INTO "vertical_datum" VALUES('EPSG','5101','Ordnance Datum Newlyn',NULL,'1956-01-01',NULL,NULL,NULL,0);

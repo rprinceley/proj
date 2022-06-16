@@ -73,6 +73,11 @@ elseif("${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC")
     /wd4706  # Suppress warning about assignment within conditional expression
     /wd4996  # Suppress warning about sprintf, etc., being unsafe
   )
+  if("$ENV{VSCMD_ARG_TGT_ARCH}" STREQUAL "arm64")
+    # Suppress an inaccurate warning when compiling for an MSVC/ARM64 platform
+    # It incorrectly assumes a division by zero is possible despite a check
+    set(PROJ_C_WARN_FLAGS ${PROJ_C_WARN_FLAGS} /wd4723)
+  endif()
   set(PROJ_CXX_WARN_FLAGS /EHsc ${PROJ_C_WARN_FLAGS})
 elseif("${CMAKE_C_COMPILER_ID}" STREQUAL "Intel")
   if(MSVC)
@@ -110,7 +115,7 @@ message(STATUS "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 9 MINOR 0 PATCH 0)
+proj_version(MAJOR 9 MINOR 0 PATCH 1)
 set(PROJ_SOVERSION 25)
 set(PROJ_BUILD_VERSION "${PROJ_SOVERSION}.${PROJ_VERSION}")
 

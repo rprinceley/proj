@@ -340,7 +340,7 @@ add_custom_target(check_wkt2_grammar_md5 ALL
                   COMMAND ${CMAKE_COMMAND}
                       "-DIN_FILE=wkt2_grammar.y"
                       "-DTARGET=generate_wkt2_parser"
-                      "-DEXPECTED_MD5SUM=1691b7d213073d5a1b49db2e080bc96e"
+                      "-DEXPECTED_MD5SUM=35a7bcbe193edb11926e4a48e6e45702"
                       -P "${CMAKE_CURRENT_SOURCE_DIR}/check_md5sum.cmake"
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/wkt2_grammar.y"
@@ -469,10 +469,10 @@ endif()
 
 if(CURL_ENABLED)
   target_compile_definitions(proj PRIVATE -DCURL_ENABLED)
-  target_include_directories(proj PRIVATE ${CURL_INCLUDE_DIR})
+  target_include_directories(proj PRIVATE ${CURL_INCLUDE_DIRS})
   target_link_libraries(proj
     PRIVATE
-      ${CURL_LIBRARY}
+      ${CURL_LIBRARIES}
       $<$<CXX_COMPILER_ID:MSVC>:ws2_32>
       $<$<CXX_COMPILER_ID:MSVC>:wldap32>
       $<$<CXX_COMPILER_ID:MSVC>:advapi32>
