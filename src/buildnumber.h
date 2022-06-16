@@ -2,7 +2,7 @@
 #define PROJ_BUILDNUMBER_H
 
 #ifndef PROJ_VERION_BUILD_NUMBER
-#define PROJ_VERION_BUILD_NUMBER 5
+#define PROJ_VERION_BUILD_NUMBER 0
 #endif
 
 #endif
