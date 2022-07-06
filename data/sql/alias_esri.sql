@@ -48,3 +48,6 @@ INSERT INTO "alias_name" VALUES('geodetic_crs', 'EPSG', '9453', 'GBK19-IRF', 'ES
 INSERT INTO "alias_name" VALUES('geodetic_crs', 'EPSG', '9470', 'SRGI2013', 'ESRI');
 INSERT INTO "alias_name" VALUES('geodetic_crs', 'EPSG', '9547', 'LTF2004(G)', 'ESRI');
 INSERT INTO "alias_name" VALUES('geodetic_crs', 'EPSG', '9696', 'REDGEOMIN', 'ESRI');
+INSERT INTO "alias_name" VALUES('geodetic_crs', 'EPSG', '4181', 'GCS_LUREF', 'ESRI');
+INSERT INTO "alias_name" VALUES('geodetic_datum', 'EPSG', '6181', 'D_Luxembourg_Reference_Frame', 'ESRI');
+INSERT INTO "alias_name" VALUES('geodetic_datum', 'EPSG', '1160', 'D_Kyrgyz_Republic_2006', 'ESRI');
