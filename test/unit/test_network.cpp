@@ -1146,7 +1146,7 @@ TEST(networking, curl_vgridshift) {
 
     // WGS84 to EGM2008 height. Using egm08_25.tif
     auto P =
-        proj_create_crs_to_crs(ctx, "EPSG:4326", "EPSG:4326+3855", nullptr);
+        proj_create_crs_to_crs(ctx, "EPSG:4979", "EPSG:4326+3855", nullptr);
     ASSERT_NE(P, nullptr);
 
     PJ_COORD c;
@@ -1641,6 +1641,14 @@ TEST(networking, download_whole_files) {
     putenv(const_cast<char *>("PROJ_SKIP_READ_USER_WRITABLE_DIRECTORY="));
     putenv(const_cast<char *>("PROJ_USER_WRITABLE_DIRECTORY=./proj_test_tmp"));
     putenv(const_cast<char *>("PROJ_FULL_FILE_CHUNK_SIZE=100000"));
+
+    proj_context_set_enable_network(nullptr, true);
+    const auto grid_info = proj_grid_info("dk_sdfe_dvr90.tif");
+    EXPECT_EQ(std::string(grid_info.filename), "");
+    EXPECT_EQ(std::string(grid_info.gridname), "dk_sdfe_dvr90.tif");
+    EXPECT_EQ(std::string(grid_info.format), "gtiff");
+    proj_context_set_enable_network(nullptr, false);
+
     auto ctx = proj_context_create();
     proj_context_set_enable_network(ctx, true);
 

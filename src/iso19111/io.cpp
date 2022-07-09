@@ -107,10 +107,10 @@ NS_PROJ_START
 namespace io {
 
 //! @cond Doxygen_Suppress
-const char *JSONFormatter::PROJJSON_v0_4 =
-    "https://proj.org/schemas/v0.4/projjson.schema.json";
+const char *JSONFormatter::PROJJSON_v0_5 =
+    "https://proj.org/schemas/v0.5/projjson.schema.json";
 
-#define PROJJSON_DEFAULT_VERSION JSONFormatter::PROJJSON_v0_4
+#define PROJJSON_DEFAULT_VERSION JSONFormatter::PROJJSON_v0_5
 
 //! @endcond
 
@@ -171,6 +171,7 @@ struct WKTFormatter::Private {
     std::vector<double> toWGS84Parameters_{};
     std::string hDatumExtension_{};
     std::string vDatumExtension_{};
+    crs::GeographicCRSPtr geogCRSOfCompoundCRS_{};
     std::vector<bool> inversionStack_{false};
     std::string result_{};
 
@@ -804,6 +805,18 @@ const std::string &WKTFormatter::getHDatumExtension() const {
 
 // ---------------------------------------------------------------------------
 
+void WKTFormatter::setGeogCRSOfCompoundCRS(const crs::GeographicCRSPtr &crs) {
+    d->geogCRSOfCompoundCRS_ = crs;
+}
+
+// ---------------------------------------------------------------------------
+
+const crs::GeographicCRSPtr &WKTFormatter::getGeogCRSOfCompoundCRS() const {
+    return d->geogCRSOfCompoundCRS_;
+}
+
+// ---------------------------------------------------------------------------
+
 std::string WKTFormatter::morphNameToESRI(const std::string &name) {
 
     for (const auto *suffix : {"(m)", "(ftUS)", "(E-N)", "(N-E)"}) {
@@ -1248,6 +1261,7 @@ struct WKTParser::Private {
     bool esriStyle_ = false;
     bool maybeEsriStyle_ = false;
     DatabaseContextPtr dbContext_{};
+    crs::GeographicCRSPtr geogCRSOfCompoundCRS_{};
 
     static constexpr int MAX_PROPERTY_SIZE = 1024;
     PropertyMap **properties_{};
@@ -4653,15 +4667,24 @@ CRSNNPtr WKTParser::Private::buildVerticalCRS(const WKTNodeNNPtr &node) {
 
     auto &geoidModelNode = nodeP->lookForChild(WKTConstants::GEOIDMODEL);
     if (!isNull(geoidModelNode)) {
-        auto &propsModel = buildProperties(geoidModelNode);
-        const auto dummyCRS = VerticalCRS::create(
-            PropertyMap(), vdatum, datumEnsemble, NN_NO_CHECK(verticalCS));
-        const auto model(Transformation::create(
-            propsModel, dummyCRS, dummyCRS, nullptr,
-            OperationMethod::create(PropertyMap(),
-                                    std::vector<OperationParameterNNPtr>()),
-            {}, {}));
-        props.set("GEOID_MODEL", model);
+        ArrayOfBaseObjectNNPtr arrayModels = ArrayOfBaseObject::create();
+        for (const auto &childNode : nodeP->children()) {
+            const auto &childNodeChildren = childNode->GP()->children();
+            if (childNodeChildren.size() >= 1 &&
+                ci_equal(childNode->GP()->value(), WKTConstants::GEOIDMODEL)) {
+                auto &propsModel = buildProperties(childNode);
+                const auto dummyCRS =
+                    VerticalCRS::create(PropertyMap(), vdatum, datumEnsemble,
+                                        NN_NO_CHECK(verticalCS));
+                const auto model(Transformation::create(
+                    propsModel, dummyCRS, dummyCRS, nullptr,
+                    OperationMethod::create(
+                        PropertyMap(), std::vector<OperationParameterNNPtr>()),
+                    {}, {}));
+                arrayModels->add(model);
+            }
+        }
+        props.set("GEOID_MODEL", arrayModels);
     }
 
     auto crs = nn_static_pointer_cast<CRS>(VerticalCRS::create(
@@ -4682,21 +4705,31 @@ CRSNNPtr WKTParser::Private::buildVerticalCRS(const WKTNodeNNPtr &node) {
                     gridName != "g2012a_conus.gtx,g2012a_alaska.gtx,"
                                 "g2012a_guam.gtx,g2012a_hawaii.gtx,"
                                 "g2012a_puertorico.gtx,g2012a_samoa.gtx") {
+                    auto geogCRS =
+                        geogCRSOfCompoundCRS_ &&
+                                geogCRSOfCompoundCRS_->primeMeridian()
+                                        ->longitude()
+                                        .getSIValue() == 0 &&
+                                geogCRSOfCompoundCRS_->coordinateSystem()
+                                        ->axisList()[0]
+                                        ->unit() == UnitOfMeasure::DEGREE
+                            ? geogCRSOfCompoundCRS_->promoteTo3D(std::string(),
+                                                                 dbContext_)
+                            : GeographicCRS::EPSG_4979;
+
                     auto sourceTransformationCRS =
                         createBoundCRSSourceTransformationCRS(
-                            crs.as_nullable(),
-                            GeographicCRS::EPSG_4979.as_nullable());
+                            crs.as_nullable(), geogCRS.as_nullable());
                     auto transformation = Transformation::
                         createGravityRelatedHeightToGeographic3D(
                             PropertyMap().set(
                                 IdentifiedObject::NAME_KEY,
-                                sourceTransformationCRS->nameStr() +
-                                    " to WGS84 ellipsoidal height"),
-                            sourceTransformationCRS, GeographicCRS::EPSG_4979,
-                            nullptr, gridName,
+                                sourceTransformationCRS->nameStr() + " to " +
+                                    geogCRS->nameStr() + " ellipsoidal height"),
+                            sourceTransformationCRS, geogCRS, nullptr, gridName,
                             std::vector<PositionalAccuracyNNPtr>());
-                    return nn_static_pointer_cast<CRS>(BoundCRS::create(
-                        crs, GeographicCRS::EPSG_4979, transformation));
+                    return nn_static_pointer_cast<CRS>(
+                        BoundCRS::create(crs, geogCRS, transformation));
                 }
             }
         }
@@ -4746,9 +4779,14 @@ WKTParser::Private::buildDerivedVerticalCRS(const WKTNodeNNPtr &node) {
 
 CRSNNPtr WKTParser::Private::buildCompoundCRS(const WKTNodeNNPtr &node) {
     std::vector<CRSNNPtr> components;
+    bool bFirstNode = true;
     for (const auto &child : node->GP()->children()) {
         auto crs = buildCRS(child);
         if (crs) {
+            if (bFirstNode) {
+                geogCRSOfCompoundCRS_ = crs->extractGeographicCRS();
+                bFirstNode = false;
+            }
             components.push_back(NN_NO_CHECK(crs));
         }
     }
@@ -5268,6 +5306,7 @@ BaseObjectNNPtr WKTParser::Private::build(const WKTNodeNNPtr &node) {
 
 class JSONParser {
     DatabaseContextPtr dbContext_{};
+    std::string deformationModelName_{};
 
     static std::string getString(const json &j, const char *key);
     static json getObject(const json &j, const char *key);
@@ -5298,6 +5337,7 @@ class JSONParser {
     EllipsoidNNPtr buildEllipsoid(const json &j);
     PrimeMeridianNNPtr buildPrimeMeridian(const json &j);
     CoordinateSystemNNPtr buildCS(const json &j);
+    MeridianNNPtr buildMeridian(const json &j);
     CoordinateSystemAxisNNPtr buildAxis(const json &j);
     VerticalCRSNNPtr buildVerticalCRS(const json &j);
     CRSNNPtr buildCRS(const json &j);
@@ -5539,14 +5579,38 @@ ObjectDomainPtr JSONParser::buildObjectDomain(const json &j) {
         geogExtent.emplace_back(
             GeographicBoundingBox::create(west, south, east, north));
     }
-    if (scope.has_value() || !area.empty() || !geogExtent.empty()) {
+
+    std::vector<VerticalExtentNNPtr> verticalExtent;
+    if (j.contains("vertical_extent")) {
+        const auto vertical_extent = getObject(j, "vertical_extent");
+        const auto min = getNumber(vertical_extent, "minimum");
+        const auto max = getNumber(vertical_extent, "maximum");
+        const auto unit = vertical_extent.contains("unit")
+                              ? getUnit(vertical_extent, "unit")
+                              : UnitOfMeasure::METRE;
+        verticalExtent.emplace_back(VerticalExtent::create(
+            min, max, util::nn_make_shared<UnitOfMeasure>(unit)));
+    }
+
+    std::vector<TemporalExtentNNPtr> temporalExtent;
+    if (j.contains("temporal_extent")) {
+        const auto temporal_extent = getObject(j, "temporal_extent");
+        const auto start = getString(temporal_extent, "start");
+        const auto end = getString(temporal_extent, "end");
+        temporalExtent.emplace_back(TemporalExtent::create(start, end));
+    }
+
+    if (scope.has_value() || !area.empty() || !geogExtent.empty() ||
+        !verticalExtent.empty() || !temporalExtent.empty()) {
         util::optional<std::string> description;
         if (!area.empty())
             description = area;
         ExtentPtr extent;
-        if (description.has_value() || !geogExtent.empty()) {
-            extent =
-                Extent::create(description, geogExtent, {}, {}).as_nullable();
+        if (description.has_value() || !geogExtent.empty() ||
+            !verticalExtent.empty() || !temporalExtent.empty()) {
+            extent = Extent::create(description, geogExtent, verticalExtent,
+                                    temporalExtent)
+                         .as_nullable();
         }
         return ObjectDomain::create(scope, extent).as_nullable();
     }
@@ -5812,6 +5876,9 @@ BaseObjectNNPtr JSONParser::create(const json &j)
     if (type == "ConcatenatedOperation") {
         return buildConcatenatedOperation(j);
     }
+    if (type == "Axis") {
+        return buildAxis(j);
+    }
     throw ParsingException("Unsupported value of \"type\"");
 }
 
@@ -5822,12 +5889,23 @@ void JSONParser::buildGeodeticDatumOrDatumEnsemble(
     DatumEnsemblePtr &datumEnsemble) {
     if (j.contains("datum")) {
         auto datumJ = getObject(j, "datum");
+
+        if (j.contains("deformation_models")) {
+            auto deformationModelsJ = getArray(j, "deformation_models");
+            if (!deformationModelsJ.empty()) {
+                const auto &deformationModelJ = deformationModelsJ[0];
+                deformationModelName_ = getString(deformationModelJ, "name");
+                // We can handle only one for now
+            }
+        }
+
         datum = util::nn_dynamic_pointer_cast<GeodeticReferenceFrame>(
             create(datumJ));
         if (!datum) {
             throw ParsingException("datum of wrong type");
         }
 
+        deformationModelName_.clear();
     } else {
         datumEnsemble =
             buildDatumEnsemble(getObject(j, "datum_ensemble")).as_nullable();
@@ -5914,6 +5992,16 @@ VerticalCRSNNPtr JSONParser::buildVerticalCRS(const json &j) {
     DatumEnsemblePtr datumEnsemble;
     if (j.contains("datum")) {
         auto datumJ = getObject(j, "datum");
+
+        if (j.contains("deformation_models")) {
+            auto deformationModelsJ = getArray(j, "deformation_models");
+            if (!deformationModelsJ.empty()) {
+                const auto &deformationModelJ = deformationModelsJ[0];
+                deformationModelName_ = getString(deformationModelJ, "name");
+                // We can handle only one for now
+            }
+        }
+
         datum = util::nn_dynamic_pointer_cast<VerticalReferenceFrame>(
             create(datumJ));
         if (!datum) {
@@ -5929,9 +6017,8 @@ VerticalCRSNNPtr JSONParser::buildVerticalCRS(const json &j) {
         throw ParsingException("expected a vertical CS");
     }
 
-    auto props = buildProperties(j);
-    if (j.contains("geoid_model")) {
-        auto geoidModelJ = getObject(j, "geoid_model");
+    const auto buildGeoidModel = [this, &datum, &datumEnsemble,
+                                  &verticalCS](const json &geoidModelJ) {
         auto propsModel = buildProperties(geoidModelJ);
         const auto dummyCRS = VerticalCRS::create(
             PropertyMap(), datum, datumEnsemble, NN_NO_CHECK(verticalCS));
@@ -5941,14 +6028,26 @@ VerticalCRSNNPtr JSONParser::buildVerticalCRS(const json &j) {
                 getObject(geoidModelJ, "interpolation_crs");
             interpolationCRS = buildCRS(interpolationCRSJ).as_nullable();
         }
-        const auto model(Transformation::create(
+        return Transformation::create(
             propsModel, dummyCRS,
             GeographicCRS::EPSG_4979, // arbitrarily chosen. Ignored,
             interpolationCRS,
             OperationMethod::create(PropertyMap(),
                                     std::vector<OperationParameterNNPtr>()),
-            {}, {}));
-        props.set("GEOID_MODEL", model);
+            {}, {});
+    };
+
+    auto props = buildProperties(j);
+    if (j.contains("geoid_model")) {
+        auto geoidModelJ = getObject(j, "geoid_model");
+        props.set("GEOID_MODEL", buildGeoidModel(geoidModelJ));
+    } else if (j.contains("geoid_models")) {
+        auto geoidModelsJ = getArray(j, "geoid_models");
+        auto geoidModels = ArrayOfBaseObject::create();
+        for (const auto &geoidModelJ : geoidModelsJ) {
+            geoidModels->add(buildGeoidModel(geoidModelJ));
+        }
+        props.set("GEOID_MODEL", geoidModels);
     }
 
     return VerticalCRS::create(props, datum, datumEnsemble,
@@ -6138,6 +6237,22 @@ JSONParser::buildConcatenatedOperation(const json &j) {
 
 // ---------------------------------------------------------------------------
 
+MeridianNNPtr JSONParser::buildMeridian(const json &j) {
+    if (!j.contains("longitude")) {
+        throw ParsingException("Missing \"longitude\" key");
+    }
+    auto longitude = j["longitude"];
+    if (longitude.is_number()) {
+        return Meridian::create(
+            Angle(longitude.get<double>(), UnitOfMeasure::DEGREE));
+    } else if (longitude.is_object()) {
+        return Meridian::create(Angle(getMeasure(longitude)));
+    }
+    throw ParsingException("Unexpected type for value of \"longitude\"");
+}
+
+// ---------------------------------------------------------------------------
+
 CoordinateSystemAxisNNPtr JSONParser::buildAxis(const json &j) {
     auto dirString = getString(j, "direction");
     auto abbreviation = getString(j, "abbreviation");
@@ -6148,9 +6263,11 @@ CoordinateSystemAxisNNPtr JSONParser::buildAxis(const json &j) {
     if (!direction) {
         throw ParsingException(concat("unhandled axis direction: ", dirString));
     }
+    auto meridian = j.contains("meridian")
+                        ? buildMeridian(getObject(j, "meridian")).as_nullable()
+                        : nullptr;
     return CoordinateSystemAxis::create(buildProperties(j), abbreviation,
-                                        *direction, unit,
-                                        nullptr /* meridian */);
+                                        *direction, unit, meridian);
 }
 
 // ---------------------------------------------------------------------------
@@ -6337,7 +6454,10 @@ JSONParser::buildDynamicGeodeticReferenceFrame(const json &j) {
                                 UnitOfMeasure::YEAR);
     optional<std::string> deformationModel;
     if (j.contains("deformation_model")) {
+        // Before PROJJSON v0.5 / PROJ 9.1
         deformationModel = getString(j, "deformation_model");
+    } else if (!deformationModelName_.empty()) {
+        deformationModel = deformationModelName_;
     }
     return DynamicGeodeticReferenceFrame::create(
         buildProperties(j), buildEllipsoid(ellipsoidJ), getAnchor(j), pm,
@@ -6359,7 +6479,10 @@ JSONParser::buildDynamicVerticalReferenceFrame(const json &j) {
                                 UnitOfMeasure::YEAR);
     optional<std::string> deformationModel;
     if (j.contains("deformation_model")) {
+        // Before PROJJSON v0.5 / PROJ 9.1
         deformationModel = getString(j, "deformation_model");
+    } else if (!deformationModelName_.empty()) {
+        deformationModel = deformationModelName_;
     }
     return DynamicVerticalReferenceFrame::create(
         buildProperties(j), getAnchor(j), util::optional<RealizationMethod>(),
@@ -7591,7 +7714,9 @@ struct PROJStringFormatter::Private {
         PROJStringFormatter::Convention::PROJ_5;
     std::vector<double> toWGS84Parameters_{};
     std::string vDatumExtension_{};
+    std::string geoidCRSValue_{};
     std::string hDatumExtension_{};
+    crs::GeographicCRSPtr geogCRSOfCompoundCRS_{};
 
     std::list<Step> steps_{};
     std::vector<Step::KeyValue> globalParamValues_{};
@@ -8882,14 +9007,22 @@ std::set<std::string> PROJStringFormatter::getUsedGridNames() const {
 
 // ---------------------------------------------------------------------------
 
-void PROJStringFormatter::setVDatumExtension(const std::string &filename) {
+void PROJStringFormatter::setVDatumExtension(const std::string &filename,
+                                             const std::string &geoidCRSValue) {
     d->vDatumExtension_ = filename;
+    d->geoidCRSValue_ = geoidCRSValue;
 }
 
 // ---------------------------------------------------------------------------
 
 const std::string &PROJStringFormatter::getVDatumExtension() const {
     return d->vDatumExtension_;
+}
+
+// ---------------------------------------------------------------------------
+
+const std::string &PROJStringFormatter::getGeoidCRSValue() const {
+    return d->geoidCRSValue_;
 }
 
 // ---------------------------------------------------------------------------
@@ -8902,6 +9035,20 @@ void PROJStringFormatter::setHDatumExtension(const std::string &filename) {
 
 const std::string &PROJStringFormatter::getHDatumExtension() const {
     return d->hDatumExtension_;
+}
+
+// ---------------------------------------------------------------------------
+
+void PROJStringFormatter::setGeogCRSOfCompoundCRS(
+    const crs::GeographicCRSPtr &crs) {
+    d->geogCRSOfCompoundCRS_ = crs;
+}
+
+// ---------------------------------------------------------------------------
+
+const crs::GeographicCRSPtr &
+PROJStringFormatter::getGeogCRSOfCompoundCRS() const {
+    return d->geogCRSOfCompoundCRS_;
 }
 
 // ---------------------------------------------------------------------------
@@ -10073,17 +10220,54 @@ PROJStringParser::Private::buildBoundOrCompoundCRSIfNeeded(int iStep,
             VerticalCRS::create(createMapWithUnknownName(), vdatum,
                                 VerticalCS::createGravityRelatedHeight(unit));
 
+        CRSNNPtr geogCRS = GeographicCRS::EPSG_4979; // default
+        const auto &geoid_crs = getParamValue(step, "geoid_crs");
+        if (!geoid_crs.empty()) {
+            if (geoid_crs == "WGS84") {
+                // nothing to do
+            } else if (geoid_crs == "horizontal_crs") {
+                auto geogCRSOfCompoundCRS = crs->extractGeographicCRS();
+                if (geogCRSOfCompoundCRS &&
+                    geogCRSOfCompoundCRS->primeMeridian()
+                            ->longitude()
+                            .getSIValue() == 0 &&
+                    geogCRSOfCompoundCRS->coordinateSystem()
+                            ->axisList()[0]
+                            ->unit() == UnitOfMeasure::DEGREE) {
+                    geogCRS = geogCRSOfCompoundCRS->promoteTo3D(std::string(),
+                                                                nullptr);
+                } else if (geogCRSOfCompoundCRS) {
+                    auto geogCRSOfCompoundCRSDatum =
+                        geogCRSOfCompoundCRS->datumNonNull(nullptr);
+                    geogCRS = GeographicCRS::create(
+                        createMapWithUnknownName(),
+                        datum::GeodeticReferenceFrame::create(
+                            util::PropertyMap().set(
+                                common::IdentifiedObject::NAME_KEY,
+                                geogCRSOfCompoundCRSDatum->nameStr() +
+                                    " (with Greenwich prime meridian)"),
+                            geogCRSOfCompoundCRSDatum->ellipsoid(),
+                            util::optional<std::string>(),
+                            datum::PrimeMeridian::GREENWICH),
+                        EllipsoidalCS::createLongitudeLatitudeEllipsoidalHeight(
+                            UnitOfMeasure::DEGREE, UnitOfMeasure::METRE));
+                }
+            } else {
+                throw ParsingException("Unsupported value for geoid_crs: "
+                                       "should be 'WGS84' or 'horizontal_crs'");
+            }
+        }
         auto transformation =
             Transformation::createGravityRelatedHeightToGeographic3D(
                 PropertyMap().set(IdentifiedObject::NAME_KEY,
-                                  "unknown to WGS84 ellipsoidal height"),
+                                  "unknown to " + geogCRS->nameStr() +
+                                      " ellipsoidal height"),
                 VerticalCRS::create(createMapWithUnknownName(), vdatum,
                                     VerticalCS::createGravityRelatedHeight(
                                         common::UnitOfMeasure::METRE)),
-                GeographicCRS::EPSG_4979, nullptr, geoidgrids,
+                geogCRS, nullptr, geoidgrids,
                 std::vector<PositionalAccuracyNNPtr>());
-        auto boundvcrs =
-            BoundCRS::create(vcrs, GeographicCRS::EPSG_4979, transformation);
+        auto boundvcrs = BoundCRS::create(vcrs, geogCRS, transformation);
 
         crs = CompoundCRS::create(createMapWithUnknownName(),
                                   std::vector<CRSNNPtr>{crs, boundvcrs});
@@ -10756,12 +10940,18 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
                     }
                     auto geogCRS = dynamic_cast<GeographicCRS *>(crs);
                     if (geogCRS) {
+                        const auto &cs = geogCRS->coordinateSystem();
                         // Override with longitude latitude in degrees
                         return GeographicCRS::create(
                             properties, geogCRS->datum(),
                             geogCRS->datumEnsemble(),
-                            EllipsoidalCS::createLongitudeLatitude(
-                                UnitOfMeasure::DEGREE));
+                            cs->axisList().size() == 2
+                                ? EllipsoidalCS::createLongitudeLatitude(
+                                      UnitOfMeasure::DEGREE)
+                                : EllipsoidalCS::
+                                      createLongitudeLatitudeEllipsoidalHeight(
+                                          UnitOfMeasure::DEGREE,
+                                          cs->axisList()[2]->unit()));
                     }
                     auto projCRS = dynamic_cast<ProjectedCRS *>(crs);
                     if (projCRS) {
@@ -10998,6 +11188,14 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
                         }
                     } else if (strcmp(cur->param, kv.key.c_str()) == 0) {
                         recognizedByPROJ = (cur->used == 1);
+                        break;
+                    }
+                }
+            }
+            if (!recognizedByPROJ && kv.key == "geoid_crs") {
+                for (auto &pair : step.paramValues) {
+                    if (ci_equal(pair.key, "geoidgrids")) {
+                        recognizedByPROJ = true;
                         break;
                     }
                 }

@@ -2330,7 +2330,8 @@ TEST(wkt_parse, vertcrs_with_GEOIDMODEL) {
                "        AXIS[\"gravity-related height (H)\",up,\n"
                "            LENGTHUNIT[\"metre\",1]],\n"
                "    GEOIDMODEL[\"CGG2013\",\n"
-               "        ID[\"EPSG\",6648]]]";
+               "        ID[\"EPSG\",6648]],\n"
+               "    GEOIDMODEL[\"other\"]]";
 
     auto obj = WKTParser().createFromWKT(wkt);
     auto crs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
@@ -4431,7 +4432,7 @@ TEST(wkt_parse, WKT1_VERT_DATUM_EXTENSION) {
               crs->hubCRS()->nameStr());
 
     EXPECT_EQ(crs->transformation()->nameStr(),
-              "EGM2008 geoid height to WGS84 ellipsoidal height");
+              "EGM2008 geoid height to WGS 84 ellipsoidal height");
     EXPECT_EQ(crs->transformation()->method()->nameStr(),
               "GravityRelatedHeight to Geographic3D");
     ASSERT_EQ(crs->transformation()->parameterValues().size(), 1U);
@@ -4466,13 +4467,54 @@ TEST(wkt_parse, WKT1_VERT_DATUM_EXTENSION_units_ftUS) {
     ASSERT_TRUE(crs != nullptr);
 
     EXPECT_EQ(crs->transformation()->nameStr(),
-              "NAVD88 height to WGS84 ellipsoidal height"); // no (ftUS)
+              "NAVD88 height to WGS 84 ellipsoidal height"); // no (ftUS)
     auto sourceTransformationCRS = crs->transformation()->sourceCRS();
     auto sourceTransformationVertCRS =
         nn_dynamic_pointer_cast<VerticalCRS>(sourceTransformationCRS);
     EXPECT_EQ(
         sourceTransformationVertCRS->coordinateSystem()->axisList()[0]->unit(),
         UnitOfMeasure::METRE);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(wkt_parse, WKT1_COMPD_CS_VERT_DATUM_EXTENSION) {
+    auto wkt =
+        "COMPD_CS[\"NAD83 + NAVD88 height\",\n"
+        "    GEOGCS[\"NAD83\",\n"
+        "        DATUM[\"North_American_Datum_1983\",\n"
+        "            SPHEROID[\"GRS 1980\",6378137,298.257222101,\n"
+        "                AUTHORITY[\"EPSG\",\"7019\"]],\n"
+        "            AUTHORITY[\"EPSG\",\"6269\"]],\n"
+        "        PRIMEM[\"Greenwich\",0,\n"
+        "            AUTHORITY[\"EPSG\",\"8901\"]],\n"
+        "        UNIT[\"degree\",0.0174532925199433,\n"
+        "            AUTHORITY[\"EPSG\",\"9122\"]],\n"
+        "        AUTHORITY[\"EPSG\",\"4269\"]],\n"
+        "    VERT_CS[\"NAVD88 height\",\n"
+        "        VERT_DATUM[\"North American Vertical Datum 1988\",2005,\n"
+        "            EXTENSION[\"PROJ4_GRIDS\",\"@foo.gtx\"],\n"
+        "            AUTHORITY[\"EPSG\",\"5103\"]],\n"
+        "        UNIT[\"metre\",1,\n"
+        "            AUTHORITY[\"EPSG\",\"9001\"]],\n"
+        "        AXIS[\"Gravity-related height\",UP],\n"
+        "        AUTHORITY[\"EPSG\",\"5703\"]]]";
+
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<CompoundCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    auto boundVertCRS =
+        nn_dynamic_pointer_cast<BoundCRS>(crs->componentReferenceSystems()[1]);
+    ASSERT_TRUE(boundVertCRS != nullptr);
+
+    EXPECT_EQ(boundVertCRS->transformation()->nameStr(),
+              "NAVD88 height to NAD83 ellipsoidal height");
+
+    EXPECT_EQ(
+        crs->exportToWKT(
+            WKTFormatter::create(WKTFormatter::Convention::WKT1_GDAL).get()),
+        wkt);
 }
 
 // ---------------------------------------------------------------------------
@@ -9213,10 +9255,8 @@ TEST(io, projparse_longlat_geoidgrids) {
     crs->exportToWKT(f.get());
 
     auto wkt = f->toString();
-    EXPECT_TRUE(
-        wkt.find(
-            "ABRIDGEDTRANSFORMATION[\"unknown to WGS84 ellipsoidal height\"") !=
-        std::string::npos)
+    EXPECT_TRUE(wkt.find("ABRIDGEDTRANSFORMATION[\"unknown to WGS 84 "
+                         "ellipsoidal height\"") != std::string::npos)
         << wkt;
     EXPECT_TRUE(wkt.find("PARAMETERFILE[\"Geoid (height correction) model "
                          "file\",\"foo.gtx\"]") != std::string::npos)
@@ -9226,7 +9266,8 @@ TEST(io, projparse_longlat_geoidgrids) {
         crs->exportToPROJString(
             PROJStringFormatter::create(PROJStringFormatter::Convention::PROJ_4)
                 .get()),
-        "+proj=longlat +ellps=GRS80 +geoidgrids=foo.gtx +vunits=m +no_defs "
+        "+proj=longlat +ellps=GRS80 +geoidgrids=foo.gtx +geoid_crs=WGS84 "
+        "+vunits=m +no_defs "
         "+type=crs");
 }
 
@@ -12057,6 +12098,55 @@ TEST(json_import, ellipsoid_errors) {
 
 // ---------------------------------------------------------------------------
 
+TEST(json_import, axis_with_meridian) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"Axis\",\n"
+                "  \"name\": \"Northing\",\n"
+                "  \"abbreviation\": \"N\",\n"
+                "  \"direction\": \"south\",\n"
+                "  \"meridian\": {\n"
+                "    \"longitude\": 180\n"
+                "  },\n"
+                "  \"unit\": \"metre\"\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto axis = nn_dynamic_pointer_cast<CoordinateSystemAxis>(obj);
+    ASSERT_TRUE(axis != nullptr);
+    EXPECT_EQ(axis->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, axis_with_meridian_with_unit) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"Axis\",\n"
+                "  \"name\": \"Northing\",\n"
+                "  \"abbreviation\": \"N\",\n"
+                "  \"direction\": \"south\",\n"
+                "  \"meridian\": {\n"
+                "    \"longitude\": {\n"
+                "      \"value\": 200,\n"
+                "      \"unit\": {\n"
+                "        \"type\": \"AngularUnit\",\n"
+                "        \"name\": \"grad\",\n"
+                "        \"conversion_factor\": 0.0157079632679489\n"
+                "      }\n"
+                "    }\n"
+                "  },\n"
+                "  \"unit\": \"metre\"\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto axis = nn_dynamic_pointer_cast<CoordinateSystemAxis>(obj);
+    ASSERT_TRUE(axis != nullptr);
+    EXPECT_EQ(axis->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(json_import, prime_meridian) {
     auto json = "{\n"
                 "  \"$schema\": \"foo\",\n"
@@ -12151,7 +12241,6 @@ TEST(json_import,
                 "  \"type\": \"DynamicGeodeticReferenceFrame\",\n"
                 "  \"name\": \"World Geodetic System 1984\",\n"
                 "  \"frame_reference_epoch\": 1,\n"
-                "  \"deformation_model\": \"foo\",\n"
                 "  \"ellipsoid\": {\n"
                 "    \"name\": \"WGS 84\",\n"
                 "    \"semi_major_axis\": 6378137,\n"
@@ -12162,6 +12251,83 @@ TEST(json_import,
     auto dgrf = nn_dynamic_pointer_cast<DynamicGeodeticReferenceFrame>(obj);
     ASSERT_TRUE(dgrf != nullptr);
     EXPECT_EQ(dgrf->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, vertical_extent) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"GeodeticReferenceFrame\",\n"
+                "  \"name\": \"World Geodetic System 1984\",\n"
+                "  \"ellipsoid\": {\n"
+                "    \"name\": \"WGS 84\",\n"
+                "    \"semi_major_axis\": 6378137,\n"
+                "    \"inverse_flattening\": 298.257223563\n"
+                "  },\n"
+                "  \"vertical_extent\": {\n"
+                "    \"minimum\": -1000,\n"
+                "    \"maximum\": 0\n"
+                "  }\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto gdrf = nn_dynamic_pointer_cast<GeodeticReferenceFrame>(obj);
+    ASSERT_TRUE(gdrf != nullptr);
+    EXPECT_EQ(gdrf->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, vertical_extent_with_unit) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"GeodeticReferenceFrame\",\n"
+                "  \"name\": \"World Geodetic System 1984\",\n"
+                "  \"ellipsoid\": {\n"
+                "    \"name\": \"WGS 84\",\n"
+                "    \"semi_major_axis\": 6378137,\n"
+                "    \"inverse_flattening\": 298.257223563\n"
+                "  },\n"
+                "  \"vertical_extent\": {\n"
+                "    \"minimum\": -1000,\n"
+                "    \"maximum\": 0,\n"
+                "    \"unit\": {\n"
+                "      \"type\": \"LinearUnit\",\n"
+                "      \"name\": \"my_metre\",\n"
+                "      \"conversion_factor\": 1\n"
+                "    }\n"
+                "  }\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto gdrf = nn_dynamic_pointer_cast<GeodeticReferenceFrame>(obj);
+    ASSERT_TRUE(gdrf != nullptr);
+    EXPECT_EQ(gdrf->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, temporal_extent) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"GeodeticReferenceFrame\",\n"
+                "  \"name\": \"World Geodetic System 1984\",\n"
+                "  \"ellipsoid\": {\n"
+                "    \"name\": \"WGS 84\",\n"
+                "    \"semi_major_axis\": 6378137,\n"
+                "    \"inverse_flattening\": 298.257223563\n"
+                "  },\n"
+                "  \"temporal_extent\": {\n"
+                "    \"start\": \"my start\",\n"
+                "    \"end\": \"my end\"\n"
+                "  }\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto gdrf = nn_dynamic_pointer_cast<GeodeticReferenceFrame>(obj);
+    ASSERT_TRUE(gdrf != nullptr);
+    EXPECT_EQ(gdrf->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
               json);
 }
 
@@ -12182,8 +12348,7 @@ TEST(json_import, dynamic_vertical_reference_frame) {
                 "  \"$schema\": \"foo\",\n"
                 "  \"type\": \"DynamicVerticalReferenceFrame\",\n"
                 "  \"name\": \"bar\",\n"
-                "  \"frame_reference_epoch\": 1,\n"
-                "  \"deformation_model\": \"foo\"\n"
+                "  \"frame_reference_epoch\": 1\n"
                 "}";
     auto obj = createFromUserInput(json, nullptr);
     auto dvrf = nn_dynamic_pointer_cast<DynamicVerticalReferenceFrame>(obj);
@@ -12272,6 +12437,53 @@ TEST(json_import, geographic_crs) {
                 "    \"code\": 4326\n"
                 "  },\n"
                 "  \"remarks\": \"my_remarks\"\n"
+                "}";
+    auto obj = createFromUserInput(json, nullptr);
+    auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(obj);
+    ASSERT_TRUE(gcrs != nullptr);
+    EXPECT_EQ(gcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, geographic_crs_with_deformation_models) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"GeographicCRS\",\n"
+                "  \"name\": \"test\",\n"
+                "  \"datum\": {\n"
+                "    \"type\": \"DynamicGeodeticReferenceFrame\",\n"
+                "    \"name\": \"test\",\n"
+                "    \"frame_reference_epoch\": 2005,\n"
+                "    \"ellipsoid\": {\n"
+                "      \"name\": \"WGS 84\",\n"
+                "      \"semi_major_axis\": 6378137,\n"
+                "      \"inverse_flattening\": 298.257223563\n"
+                "    }\n"
+                "  },\n"
+                "  \"coordinate_system\": {\n"
+                "    \"subtype\": \"ellipsoidal\",\n"
+                "    \"axis\": [\n"
+                "      {\n"
+                "        \"name\": \"Geodetic latitude\",\n"
+                "        \"abbreviation\": \"Lat\",\n"
+                "        \"direction\": \"north\",\n"
+                "        \"unit\": \"degree\"\n"
+                "      },\n"
+                "      {\n"
+                "        \"name\": \"Geodetic longitude\",\n"
+                "        \"abbreviation\": \"Lon\",\n"
+                "        \"direction\": \"east\",\n"
+                "        \"unit\": \"degree\"\n"
+                "      }\n"
+                "    ]\n"
+                "  },\n"
+                "  \"deformation_models\": [\n"
+                "    {\n"
+                "      \"name\": \"my_model\"\n"
+                "    }\n"
+                "  ]\n"
                 "}";
     auto obj = createFromUserInput(json, nullptr);
     auto gcrs = nn_dynamic_pointer_cast<GeographicCRS>(obj);
@@ -13900,6 +14112,88 @@ TEST(json_import, vertical_crs_with_geoid_model) {
                 "      \"code\": 6648\n"
                 "    }\n"
                 "  }\n"
+                "}";
+
+    // No database
+    auto obj = createFromUserInput(json, nullptr);
+    auto vcrs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
+    ASSERT_TRUE(vcrs != nullptr);
+    EXPECT_EQ(vcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, vertical_crs_with_geoid_models) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"VerticalCRS\",\n"
+                "  \"name\": \"CGVD2013\",\n"
+                "  \"datum\": {\n"
+                "    \"type\": \"VerticalReferenceFrame\",\n"
+                "    \"name\": \"Canadian Geodetic Vertical Datum of 2013\"\n"
+                "  },\n"
+                "  \"coordinate_system\": {\n"
+                "    \"subtype\": \"vertical\",\n"
+                "    \"axis\": [\n"
+                "      {\n"
+                "        \"name\": \"Gravity-related height\",\n"
+                "        \"abbreviation\": \"H\",\n"
+                "        \"direction\": \"up\",\n"
+                "        \"unit\": \"metre\"\n"
+                "      }\n"
+                "    ]\n"
+                "  },\n"
+                "  \"geoid_models\": [\n"
+                "    {\n"
+                "      \"name\": \"CGG2013\",\n"
+                "      \"id\": {\n"
+                "        \"authority\": \"EPSG\",\n"
+                "        \"code\": 6648\n"
+                "      }\n"
+                "    },\n"
+                "    {\n"
+                "      \"name\": \"other\"\n"
+                "    }\n"
+                "  ]\n"
+                "}";
+
+    // No database
+    auto obj = createFromUserInput(json, nullptr);
+    auto vcrs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
+    ASSERT_TRUE(vcrs != nullptr);
+    EXPECT_EQ(vcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
+              json);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(json_import, vertical_crs_with_deformation_models) {
+    auto json = "{\n"
+                "  \"$schema\": \"foo\",\n"
+                "  \"type\": \"VerticalCRS\",\n"
+                "  \"name\": \"test\",\n"
+                "  \"datum\": {\n"
+                "    \"type\": \"DynamicVerticalReferenceFrame\",\n"
+                "    \"name\": \"test\",\n"
+                "    \"frame_reference_epoch\": 2005\n"
+                "  },\n"
+                "  \"coordinate_system\": {\n"
+                "    \"subtype\": \"vertical\",\n"
+                "    \"axis\": [\n"
+                "      {\n"
+                "        \"name\": \"Gravity-related height\",\n"
+                "        \"abbreviation\": \"H\",\n"
+                "        \"direction\": \"up\",\n"
+                "        \"unit\": \"metre\"\n"
+                "      }\n"
+                "    ]\n"
+                "  },\n"
+                "  \"deformation_models\": [\n"
+                "    {\n"
+                "      \"name\": \"my_model\"\n"
+                "    }\n"
+                "  ]\n"
                 "}";
 
     // No database

@@ -173,8 +173,8 @@ extern "C" {
 
 /* The version numbers should be updated with every release! **/
 #define PROJ_VERSION_MAJOR 9
-#define PROJ_VERSION_MINOR 0
-#define PROJ_VERSION_PATCH 1
+#define PROJ_VERSION_MINOR 1
+#define PROJ_VERSION_PATCH 0
 
 /* Note: the following 3 defines have been introduced in PROJ 8.0.1 */
 /* Macro to compute a PROJ version number from its components */
@@ -594,6 +594,7 @@ int PROJ_DLL proj_degree_input (PJ *P, enum PJ_DIRECTION dir);
 int PROJ_DLL proj_degree_output (PJ *P, enum PJ_DIRECTION dir);
 
 PJ_COORD PROJ_DLL proj_trans (PJ *P, PJ_DIRECTION direction, PJ_COORD coord);
+PJ PROJ_DLL* proj_trans_get_last_used_operation(PJ* P);
 int PROJ_DLL proj_trans_array (PJ *P, PJ_DIRECTION direction, size_t n, PJ_COORD *coord);
 size_t PROJ_DLL proj_trans_generic (
     PJ *P,

@@ -1672,7 +1672,8 @@ TransformationNNPtr Transformation::inverseAsTransformation() const {
         return Private::registerInv(
             this, createChangeVerticalUnit(
                       createPropertiesForInverse(this, false, false),
-                      l_targetCRS, l_sourceCRS, common::Scale(1.0 / convFactor),
+                      l_targetCRS, l_sourceCRS,
+                      common::Scale(convFactor == 0.0 ? 0.0 : 1.0 / convFactor),
                       coordinateOperationAccuracies()));
     }
 
@@ -2152,6 +2153,16 @@ createNTv1(const util::PropertyMap &properties,
 
 // ---------------------------------------------------------------------------
 
+static bool isRegularVerticalGridMethod(int methodEPSGCode) {
+    return methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_NZLVD ||
+           methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_BEV_AT ||
+           methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_GTX ||
+           methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_PL_TXT ||
+           methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_NRCAN_BYN;
+}
+
+// ---------------------------------------------------------------------------
+
 /** \brief Return an equivalent transformation to the current one, but using
  * PROJ alternative grid names.
  */
@@ -2355,10 +2366,7 @@ TransformationNNPtr Transformation::substitutePROJAlternativeGridNames(
     }
 
     if (methodEPSGCode == EPSG_CODE_METHOD_VERTCON ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_NZLVD ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_BEV_AT ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_GTX ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_PL_TXT) {
+        isRegularVerticalGridMethod(methodEPSGCode)) {
         auto fileParameter =
             parameterValue(EPSG_NAME_PARAMETER_VERTICAL_OFFSET_FILE,
                            EPSG_CODE_PARAMETER_VERTICAL_OFFSET_FILE);
@@ -2994,6 +3002,66 @@ void Transformation::_exportToPROJString(
         return;
     }
 
+    if (methodEPSGCode == EPSG_CODE_METHOD_VERTICAL_OFFSET_AND_SLOPE) {
+
+        const crs::CRS *srcCRS = sourceCRS().get();
+        const crs::CRS *tgtCRS = targetCRS().get();
+
+        const auto sourceCRSCompound =
+            dynamic_cast<const crs::CompoundCRS *>(srcCRS);
+        const auto targetCRSCompound =
+            dynamic_cast<const crs::CompoundCRS *>(tgtCRS);
+        if (sourceCRSCompound && targetCRSCompound &&
+            sourceCRSCompound->componentReferenceSystems()[0]->_isEquivalentTo(
+                targetCRSCompound->componentReferenceSystems()[0].get(),
+                util::IComparable::Criterion::EQUIVALENT)) {
+            srcCRS = sourceCRSCompound->componentReferenceSystems()[1].get();
+            tgtCRS = targetCRSCompound->componentReferenceSystems()[1].get();
+        }
+
+        auto sourceCRSVert = dynamic_cast<const crs::VerticalCRS *>(srcCRS);
+        if (!sourceCRSVert) {
+            throw io::FormattingException(
+                "Can apply Vertical offset and slope only to VerticalCRS");
+        }
+
+        auto targetCRSVert = dynamic_cast<const crs::VerticalCRS *>(tgtCRS);
+        if (!targetCRSVert) {
+            throw io::FormattingException(
+                "Can apply Vertical offset and slope only to VerticalCRS");
+        }
+
+        const auto latitudeEvaluationPoint =
+            parameterValueNumeric(EPSG_CODE_PARAMETER_ORDINATE_1_EVAL_POINT,
+                                  common::UnitOfMeasure::DEGREE);
+        const auto longitudeEvaluationPoint =
+            parameterValueNumeric(EPSG_CODE_PARAMETER_ORDINATE_2_EVAL_POINT,
+                                  common::UnitOfMeasure::DEGREE);
+        const auto offsetHeight =
+            parameterValueNumericAsSI(EPSG_CODE_PARAMETER_VERTICAL_OFFSET);
+        const auto inclinationLatitude =
+            parameterValueNumeric(EPSG_CODE_PARAMETER_INCLINATION_IN_LATITUDE,
+                                  common::UnitOfMeasure::ARC_SECOND);
+        const auto inclinationLongitude =
+            parameterValueNumeric(EPSG_CODE_PARAMETER_INCLINATION_IN_LONGITUDE,
+                                  common::UnitOfMeasure::ARC_SECOND);
+
+        formatter->startInversion();
+        sourceCRSVert->addLinearUnitConvert(formatter);
+        formatter->stopInversion();
+
+        formatter->addStep("vertoffset");
+        formatter->addParam("lat_0", latitudeEvaluationPoint);
+        formatter->addParam("lon_0", longitudeEvaluationPoint);
+        formatter->addParam("dh", offsetHeight);
+        formatter->addParam("slope_lat", inclinationLatitude);
+        formatter->addParam("slope_lon", inclinationLongitude);
+
+        targetCRSVert->addLinearUnitConvert(formatter);
+
+        return;
+    }
+
     // Substitute grid names with PROJ friendly names.
     if (formatter->databaseContext()) {
         auto alternate = substitutePROJAlternativeGridNames(
@@ -3245,10 +3313,7 @@ void Transformation::_exportToPROJString(
         }
     }
 
-    if (methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_NZLVD ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_BEV_AT ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_GTX ||
-        methodEPSGCode == EPSG_CODE_METHOD_VERTICALGRID_PL_TXT) {
+    if (isRegularVerticalGridMethod(methodEPSGCode)) {
         auto fileParameter =
             parameterValue(EPSG_NAME_PARAMETER_VERTICAL_OFFSET_FILE,
                            EPSG_CODE_PARAMETER_VERTICAL_OFFSET_FILE);

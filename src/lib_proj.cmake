@@ -118,6 +118,8 @@ set(SRC_LIBPROJ_PROJECTIONS
   projections/goode.cpp
   projections/igh.cpp
   projections/igh_o.cpp
+  projections/imoll.cpp
+  projections/imoll_o.cpp
   projections/hatano.cpp
   projections/loxim.cpp
   projections/mbt_fps.cpp
@@ -173,6 +175,7 @@ set(SRC_LIBPROJ_TRANSFORMATIONS
   transformations/xyzgridshift.cpp
   transformations/defmodel.cpp
   transformations/tinshift.cpp
+  transformations/vertoffset.cpp
 )
 
 set(SRC_LIBPROJ_ISO19111
@@ -299,7 +302,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 source_group("CMake Files" FILES CMakeLists.txt)
 
 # Embed PROJ_LIB data files location
-add_definitions(-DPROJ_LIB="${CMAKE_INSTALL_PREFIX}/${DATADIR}")
+add_definitions(-DPROJ_LIB="${PROJ_LIB_PATH}")
 
 
 ###########################################################
@@ -340,7 +343,7 @@ add_custom_target(check_wkt2_grammar_md5 ALL
                   COMMAND ${CMAKE_COMMAND}
                       "-DIN_FILE=wkt2_grammar.y"
                       "-DTARGET=generate_wkt2_parser"
-                      "-DEXPECTED_MD5SUM=35a7bcbe193edb11926e4a48e6e45702"
+                      "-DEXPECTED_MD5SUM=b8f074a1bb7cc7e578f89bacb2029170"
                       -P "${CMAKE_CURRENT_SOURCE_DIR}/check_md5sum.cmake"
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/wkt2_grammar.y"
@@ -405,7 +408,7 @@ endif()
 target_include_directories(proj INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${PROJ_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:${INCLUDEDIR}>)
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 if(WIN32)
   set_target_properties(proj
@@ -493,14 +496,14 @@ endif()
 ##############################################
 install(TARGETS proj
   EXPORT targets
-  RUNTIME DESTINATION ${BINDIR}
-  LIBRARY DESTINATION ${LIBDIR}
-  ARCHIVE DESTINATION ${LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   FRAMEWORK DESTINATION ${FRAMEWORKDIR})
 
 if(NOT BUILD_FRAMEWORKS_AND_BUNDLE)
   install(FILES ${ALL_LIBPROJ_HEADERS}
-    DESTINATION ${INCLUDEDIR})
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
 ##############################################

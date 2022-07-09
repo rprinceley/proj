@@ -4110,6 +4110,13 @@ void Conversion::_exportToPROJString(
         }
 
         auto projCRS = dynamic_cast<const crs::ProjectedCRS *>(horiz);
+        if (projCRS == nullptr) {
+            auto boundCRS = dynamic_cast<const crs::BoundCRS *>(horiz);
+            if (boundCRS) {
+                projCRS = dynamic_cast<const crs::ProjectedCRS *>(
+                    boundCRS->baseCRS().get());
+            }
+        }
         if (projCRS) {
             formatter->pushOmitZUnitConversion();
             projCRS->addUnitConvertAndAxisSwap(formatter, bAxisSpecFound);

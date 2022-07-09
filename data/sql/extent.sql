@@ -72,7 +72,7 @@ INSERT INTO "extent" VALUES('EPSG','1092','Falkland Islands','Falkland Islands (
 INSERT INTO "extent" VALUES('EPSG','1093','Faroe Islands','Faroe Islands - onshore and offshore.',59.94,65.7,-13.91,-0.48,0);
 INSERT INTO "extent" VALUES('EPSG','1094','Fiji - onshore','Fiji - onshore. Includes Viti Levu, Vanua Levu, Taveuni, the Yasawa Group, the Kadavu Group, the Lau Islands and Rotuma Islands.',-20.81,-12.42,176.81,-178.15,0);
 INSERT INTO "extent" VALUES('EPSG','1095','Finland','Finland - onshore and offshore.',58.84,70.09,19.08,31.59,0);
-INSERT INTO "extent" VALUES('EPSG','1096','France','France - onshore and offshore, mainland and Corsica.',41.15,51.56,-9.86,10.38,0);
+INSERT INTO "extent" VALUES('EPSG','1096','France','France - onshore and offshore, mainland and Corsica (France métropolitaine including Corsica).',41.15,51.56,-9.86,10.38,0);
 INSERT INTO "extent" VALUES('EPSG','1097','French Guiana','French Guiana - onshore and offshore.',2.11,8.88,-54.61,-49.45,0);
 INSERT INTO "extent" VALUES('EPSG','1098','French Polynesia','French Polynesia - onshore and offshore. Includes Society archipelago, Tuamotu archipelago, Marquesas Islands, Gambier Islands and Austral Islands.',-31.24,-4.52,-158.13,-131.97,0);
 INSERT INTO "extent" VALUES('EPSG','1099','French Southern Territories','French Southern Territories - onshore and offshore. Includes Amsterdam and St Paul, Bassas da India, Crozet, Europa, Glorieuses, Juan de Nova, Kerguelen and Tromelin.',-53.24,-10.65,37.55,81.83,0);
@@ -3641,3 +3641,4 @@ INSERT INTO "extent" VALUES('EPSG','4662','Iceland - onshore','Iceland - onshore
 INSERT INTO "extent" VALUES('EPSG','4663','UK - Leeds to Hull','United Kingdom (UK) - on or related to the rail route from the Morley tunnel through Leeds to Hull.',53.6,53.9,-1.7,0.27,0);
 INSERT INTO "extent" VALUES('EPSG','4664','UK - Inverness to Thurso','United Kingdom (UK) - on or related to the rail route from Inverness to Thurso and Wick.',57.4,58.64,-4.6,-3.0,0);
 INSERT INTO "extent" VALUES('EPSG','4665','UK - Motherwell to Inverness','United Kingdom (UK) - on or related to the Scottish central mainline rail route from Motherwell through Perth and Pitlochry to Inverness.',55.7,57.55,-4.4,-3.3,0);
+INSERT INTO "extent" VALUES('EPSG','4666','UK - Manchester, Wigan and Chester','United Kingdom (UK) - on or related to the rail route from Manchester via Wigan and Liverpool to Chester.',53.09,53.65,-3.15,-2.1,0);
