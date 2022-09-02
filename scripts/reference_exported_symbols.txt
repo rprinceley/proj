@@ -687,6 +687,7 @@ osgeo::proj::operation::SingleOperation::parameterValueNumeric(int, osgeo::proj:
 osgeo::proj::operation::SingleOperation::parameterValues() const
 osgeo::proj::operation::SingleOperation::parameterValue(std::string const&, int) const
 osgeo::proj::operation::SingleOperation::~SingleOperation()
+osgeo::proj::operation::SingleOperation::substitutePROJAlternativeGridNames(dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::io::DatabaseContext> >) const
 osgeo::proj::operation::SingleOperation::validateParameters() const
 osgeo::proj::operation::Transformation::createAbridgedMolodensky(osgeo::proj::util::PropertyMap const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::crs::CRS> > const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::crs::CRS> > const&, double, double, double, double, double, std::vector<dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::metadata::PositionalAccuracy> >, std::allocator<dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::metadata::PositionalAccuracy> > > > const&)
 osgeo::proj::operation::Transformation::createChangeVerticalUnit(osgeo::proj::util::PropertyMap const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::crs::CRS> > const&, dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::crs::CRS> > const&, osgeo::proj::common::Scale const&, std::vector<dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::metadata::PositionalAccuracy> >, std::allocator<dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::metadata::PositionalAccuracy> > > > const&)
@@ -710,7 +711,6 @@ osgeo::proj::operation::Transformation::createVerticalOffset(osgeo::proj::util::
 osgeo::proj::operation::Transformation::getTOWGS84Parameters() const
 osgeo::proj::operation::Transformation::inverse() const
 osgeo::proj::operation::Transformation::sourceCRS() const
-osgeo::proj::operation::Transformation::substitutePROJAlternativeGridNames(dropbox::oxygen::nn<std::shared_ptr<osgeo::proj::io::DatabaseContext> >) const
 osgeo::proj::operation::Transformation::targetCRS() const
 osgeo::proj::operation::Transformation::~Transformation()
 osgeo::proj::util::ArrayOfBaseObject::add(osgeo::proj::util::BaseObjectNNPtr const&)
@@ -783,6 +783,7 @@ pj_param(pj_ctx*, ARG_list*, char const*)
 pj_phi2(pj_ctx*, double, double)
 pj_pr_list(PJconsts*)
 pj_shrink(char*)
+pj_stderr_proj_lib_deprecation_warning()
 proj_alter_id
 proj_alter_name
 proj_angular_input
@@ -790,6 +791,7 @@ proj_angular_output
 proj_area_create
 proj_area_destroy
 proj_area_set_bbox
+proj_area_set_name
 proj_as_projjson
 proj_as_proj_string
 proj_assign_context
@@ -1033,6 +1035,7 @@ proj_operation_factory_context_set_allow_ballpark_transformations
 proj_operation_factory_context_set_allowed_intermediate_crs
 proj_operation_factory_context_set_allow_use_intermediate_crs
 proj_operation_factory_context_set_area_of_interest
+proj_operation_factory_context_set_area_of_interest_name
 proj_operation_factory_context_set_crs_extent_use
 proj_operation_factory_context_set_desired_accuracy
 proj_operation_factory_context_set_discard_superseded

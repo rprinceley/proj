@@ -3370,7 +3370,12 @@ WKTParser::Private::buildConversion(const WKTNodeNNPtr &node,
             Conversion::create(invConvProps, invMethodProps, parameters, values)
                 ->inverse()));
     }
-    return Conversion::create(convProps, methodProps, parameters, values);
+    auto conv = Conversion::create(convProps, methodProps, parameters, values);
+    auto interpolationCRS =
+        dealWithEPSGCodeForInterpolationCRSParameter(parameters, values);
+    if (interpolationCRS)
+        conv->setInterpolationCRS(interpolationCRS);
+    return conv;
 }
 
 // ---------------------------------------------------------------------------
@@ -3382,8 +3387,13 @@ CRSPtr WKTParser::Private::dealWithEPSGCodeForInterpolationCRSParameter(
     // crs_epsg_code] into proper interpolation CRS
     if (dbContext_ != nullptr) {
         for (size_t i = 0; i < parameters.size(); ++i) {
-            if (parameters[i]->nameStr() ==
-                EPSG_NAME_PARAMETER_EPSG_CODE_FOR_INTERPOLATION_CRS) {
+            const auto &l_name = parameters[i]->nameStr();
+            const auto epsgCode = parameters[i]->getEPSGCode();
+            if (l_name == EPSG_NAME_PARAMETER_EPSG_CODE_FOR_INTERPOLATION_CRS ||
+                epsgCode ==
+                    EPSG_CODE_PARAMETER_EPSG_CODE_FOR_INTERPOLATION_CRS ||
+                l_name == EPSG_NAME_PARAMETER_EPSG_CODE_FOR_HORIZONTAL_CRS ||
+                epsgCode == EPSG_CODE_PARAMETER_EPSG_CODE_FOR_HORIZONTAL_CRS) {
                 const int code =
                     static_cast<int>(values[i]->value().getSIValue());
                 try {
@@ -7594,10 +7604,17 @@ WKTParser::guessDialect(const std::string &wkt) noexcept {
     for (const auto &pointerKeyword : wkt1_keywords) {
         if (ci_starts_with(wkt, *pointerKeyword)) {
 
-            if (ci_find(wkt, "GEOGCS[\"GCS_") != std::string::npos ||
-                (!ci_starts_with(wkt, WKTConstants::LOCAL_CS) &&
-                 ci_find(wkt, "AXIS[") == std::string::npos &&
-                 ci_find(wkt, "AUTHORITY[") == std::string::npos)) {
+            if ((ci_find(wkt, "GEOGCS[\"GCS_") != std::string::npos ||
+                 (!ci_starts_with(wkt, WKTConstants::LOCAL_CS) &&
+                  ci_find(wkt, "AXIS[") == std::string::npos &&
+                  ci_find(wkt, "AUTHORITY[") == std::string::npos)) &&
+                // WKT1:GDAL and WKT1:ESRI have both a
+                // Hotine_Oblique_Mercator_Azimuth_Center If providing a
+                // WKT1:GDAL without AXIS, we may wrongly detect it as WKT1:ESRI
+                // and skip the rectified_grid_angle parameter cf
+                // https://github.com/OSGeo/PROJ/issues/3279
+                ci_find(wkt, "PARAMETER[\"rectified_grid_angle") ==
+                    std::string::npos) {
                 return WKTGuessedDialect::WKT1_ESRI;
             }
 
@@ -8435,6 +8452,68 @@ const std::string &PROJStringFormatter::toString() const {
                 }
             }
 
+            // The following should be optimized as a no-op
+            // +step +proj=helmert +x=25 +y=-141 +z=-78.5 +rx=0 +ry=-0.35
+            // +rz=-0.736 +s=0 +convention=coordinate_frame
+            // +step +inv +proj=helmert +x=25 +y=-141 +z=-78.5 +rx=0 +ry=0.35
+            // +rz=0.736 +s=0 +convention=position_vector
+            if (curStep.name == "helmert" && prevStep.name == "helmert" &&
+                ((curStep.inverted && !prevStep.inverted) ||
+                 (!curStep.inverted && prevStep.inverted)) &&
+                curStepParamCount == prevStepParamCount) {
+                std::set<std::string> leftParamsSet;
+                std::set<std::string> rightParamsSet;
+                std::map<std::string, std::string> leftParamsMap;
+                std::map<std::string, std::string> rightParamsMap;
+                for (const auto &kv : prevStep.paramValues) {
+                    leftParamsSet.insert(kv.key);
+                    leftParamsMap[kv.key] = kv.value;
+                }
+                for (const auto &kv : curStep.paramValues) {
+                    rightParamsSet.insert(kv.key);
+                    rightParamsMap[kv.key] = kv.value;
+                }
+                if (leftParamsSet == rightParamsSet) {
+                    bool doErase = true;
+                    try {
+                        for (const auto &param : leftParamsSet) {
+                            if (param == "convention") {
+                                // Convention must be different
+                                if (leftParamsMap[param] ==
+                                    rightParamsMap[param]) {
+                                    doErase = false;
+                                    break;
+                                }
+                            } else if (param == "rx" || param == "ry" ||
+                                       param == "rz" || param == "drx" ||
+                                       param == "dry" || param == "drz") {
+                                // Rotational parameters should have opposite
+                                // value
+                                if (c_locale_stod(leftParamsMap[param]) !=
+                                    -c_locale_stod(rightParamsMap[param])) {
+                                    doErase = false;
+                                    break;
+                                }
+                            } else {
+                                // Non rotational parameters should have the
+                                // same value
+                                if (leftParamsMap[param] !=
+                                    rightParamsMap[param]) {
+                                    doErase = false;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (const std::invalid_argument &) {
+                        break;
+                    }
+                    if (doErase) {
+                        deletePrevAndCurIter();
+                        continue;
+                    }
+                }
+            }
+
             // detect a step and its inverse
             if (curStep.inverted != prevStep.inverted &&
                 curStep.name == prevStep.name &&
@@ -8695,6 +8774,13 @@ const std::string &PROJStringFormatter::toString() const {
 PROJStringFormatter::Convention PROJStringFormatter::convention() const {
     return d->convention_;
 }
+
+// ---------------------------------------------------------------------------
+
+// Return the number of steps in the pipeline.
+// Note: this value will change after calling toString() that will run
+// optimizations.
+size_t PROJStringFormatter::getStepCount() const { return d->steps_.size(); }
 
 // ---------------------------------------------------------------------------
 
@@ -10960,7 +11046,6 @@ PROJStringParser::createFromPROJString(const std::string &projString) {
             if (d->ctx_) {
                 ctx->set_search_paths(d->ctx_->search_paths);
                 ctx->file_finder = d->ctx_->file_finder;
-                ctx->file_finder_legacy = d->ctx_->file_finder_legacy;
                 ctx->file_finder_user_data = d->ctx_->file_finder_user_data;
             }
 

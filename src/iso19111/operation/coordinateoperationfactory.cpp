@@ -481,6 +481,7 @@ struct CoordinateOperationFactory::Private {
         bool inCreateOperationsGeogToVertWithAlternativeGeog = false;
         bool inCreateOperationsGeogToVertWithIntermediateVert = false;
         bool skipHorizontalTransformation = false;
+        int nRecLevelCreateOperations = 0;
         std::map<std::pair<io::AuthorityFactory::ObjectType, std::string>,
                  std::list<std::pair<std::string, std::string>>>
             cacheNameToCRS{};
@@ -704,6 +705,7 @@ struct PrecomputedOpCharacteristics {
     bool gridsAvailable_ = false;
     bool gridsKnown_ = false;
     size_t stepCount_ = 0;
+    size_t projStepCount_ = 0;
     bool isApprox_ = false;
     bool hasBallparkVertical_ = false;
     bool isNullTransformation_ = false;
@@ -712,12 +714,13 @@ struct PrecomputedOpCharacteristics {
     PrecomputedOpCharacteristics(double area, double accuracy,
                                  bool isPROJExportable, bool hasGrids,
                                  bool gridsAvailable, bool gridsKnown,
-                                 size_t stepCount, bool isApprox,
-                                 bool hasBallparkVertical,
+                                 size_t stepCount, size_t projStepCount,
+                                 bool isApprox, bool hasBallparkVertical,
                                  bool isNullTransformation)
         : area_(area), accuracy_(accuracy), isPROJExportable_(isPROJExportable),
           hasGrids_(hasGrids), gridsAvailable_(gridsAvailable),
-          gridsKnown_(gridsKnown), stepCount_(stepCount), isApprox_(isApprox),
+          gridsKnown_(gridsKnown), stepCount_(stepCount),
+          projStepCount_(projStepCount), isApprox_(isApprox),
           hasBallparkVertical_(hasBallparkVertical),
           isNullTransformation_(isNullTransformation) {}
 };
@@ -860,6 +863,18 @@ struct SortFunction {
             return false;
         }
 
+        // Compare number of steps in PROJ pipeline, and prefer the ones
+        // with less operations.
+        if (iterA->second.projStepCount_ != 0 &&
+            iterB->second.projStepCount_ != 0) {
+            if (iterA->second.projStepCount_ < iterB->second.projStepCount_) {
+                return true;
+            }
+            if (iterB->second.projStepCount_ < iterA->second.projStepCount_) {
+                return false;
+            }
+        }
+
         const auto &a_name = a->nameStr();
         const auto &b_name = b->nameStr();
 
@@ -999,6 +1014,7 @@ struct FilterResults {
                   bool forceStrictContainmentTest)
         : sourceList(sourceListIn), context(contextIn), extent1(extent1In),
           extent2(extent2In), areaOfInterest(context->getAreaOfInterest()),
+          areaOfInterestUserSpecified(areaOfInterest != nullptr),
           desiredAccuracy(context->getDesiredAccuracy()),
           sourceAndTargetCRSExtentUse(
               context->getSourceAndTargetCRSExtentUse()) {
@@ -1032,6 +1048,7 @@ struct FilterResults {
     const metadata::ExtentPtr &extent1;
     const metadata::ExtentPtr &extent2;
     metadata::ExtentPtr areaOfInterest;
+    const bool areaOfInterestUserSpecified;
     const double desiredAccuracy = context->getDesiredAccuracy();
     const CoordinateOperationContext::SourceTargetCRSExtentUse
         sourceAndTargetCRSExtentUse;
@@ -1085,6 +1102,23 @@ struct FilterResults {
         bool hasNonBallparkWithoutExtent = false;
         bool hasNonBallparkOpWithExtent = false;
         const bool allowBallpark = context->getAllowBallparkTransformations();
+
+        bool foundExtentWithExpectedDescription = false;
+        if (areaOfInterestUserSpecified && areaOfInterest &&
+            areaOfInterest->description().has_value()) {
+            for (const auto &op : sourceList) {
+                bool emptyIntersection = false;
+                auto extent = getExtent(op, true, emptyIntersection);
+                if (extent && extent->description().has_value()) {
+                    if (*(areaOfInterest->description()) ==
+                        *(extent->description())) {
+                        foundExtentWithExpectedDescription = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         for (const auto &op : sourceList) {
             if (desiredAccuracy != 0) {
                 const double accuracy = getAccuracy(op);
@@ -1102,6 +1136,12 @@ struct FilterResults {
                     if (!op->hasBallparkTransformation()) {
                         hasNonBallparkWithoutExtent = true;
                     }
+                    continue;
+                }
+                if (foundExtentWithExpectedDescription &&
+                    (!extent->description().has_value() ||
+                     *(areaOfInterest->description()) !=
+                         *(extent->description()))) {
                     continue;
                 }
                 if (!op->hasBallparkTransformation()) {
@@ -1259,11 +1299,20 @@ struct FilterResults {
 
             bool isPROJExportable = false;
             auto formatter = io::PROJStringFormatter::create();
+            size_t projStepCount = 0;
             try {
-                op->exportToPROJString(formatter.get());
+                const auto str = op->exportToPROJString(formatter.get());
                 // Grids might be missing, but at least this is something
                 // PROJ could potentially process
                 isPROJExportable = true;
+
+                // We exclude pipelines with +proj=xyzgridshift as they
+                // generate more steps, but are more precise.
+                if (str.find("+proj=xyzgridshift") == std::string::npos) {
+                    auto formatter2 = io::PROJStringFormatter::create();
+                    formatter2->ingestPROJString(str);
+                    projStepCount = formatter2->getStepCount();
+                }
             } catch (const std::exception &) {
             }
 
@@ -1282,7 +1331,7 @@ struct FilterResults {
 #endif
             map[op.get()] = PrecomputedOpCharacteristics(
                 area, getAccuracy(op), isPROJExportable, hasGrids,
-                gridsAvailable, gridsKnown, stepCount,
+                gridsAvailable, gridsKnown, stepCount, projStepCount,
                 op->hasBallparkTransformation(),
                 op->nameStr().find(BALLPARK_VERTICAL_TRANSFORMATION) !=
                     std::string::npos,
@@ -3007,6 +3056,31 @@ CoordinateOperationFactory::Private::createOperations(
     ENTER_BLOCK("createOperations(" + objectAsStr(sourceCRS.get()) + " --> " +
                 objectAsStr(targetCRS.get()) + ")");
 #endif
+
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    // 10 is arbitrary and hopefully large enough for all transformations PROJ
+    // can handle.
+    // At time of writing 7 is the maximum known to be required by a few tests
+    // like
+    // operation.compoundCRS_to_compoundCRS_with_bound_crs_in_horiz_and_vert_WKT1_same_geoidgrids_context
+    // We don't enable that check for fuzzing, to be able to detect
+    // the root cause of recursions.
+    if (context.nRecLevelCreateOperations == 10) {
+        throw InvalidOperation("Too deep recursion in createOperations()");
+    }
+#endif
+
+    struct RecLevelIncrementer {
+        Private::Context &context_;
+
+        explicit inline RecLevelIncrementer(Private::Context &contextIn)
+            : context_(contextIn) {
+            ++context_.nRecLevelCreateOperations;
+        }
+
+        inline ~RecLevelIncrementer() { --context_.nRecLevelCreateOperations; }
+    };
+    RecLevelIncrementer recLevelIncrementer(context);
 
     std::vector<CoordinateOperationNNPtr> res;
 

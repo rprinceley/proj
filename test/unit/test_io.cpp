@@ -1926,6 +1926,38 @@ TEST(wkt_parse, wkt1_hotine_oblique_mercator_with_rectified_grid_angle) {
 
 // ---------------------------------------------------------------------------
 
+TEST(wkt_parse,
+     wkt1_hotine_oblique_mercator_azimuth_center_with_rectified_grid_angle) {
+    auto wkt = "PROJCS[\"unknown\","
+               "GEOGCS[\"unknown\","
+               "    DATUM[\"WGS_1984\","
+               "        SPHEROID[\"WGS 84\",6378137,298.257223563]],"
+               "    PRIMEM[\"Greenwich\",0],"
+               "    UNIT[\"degree\",0.0174532925199433]],"
+               "PROJECTION[\"Hotine_Oblique_Mercator_Azimuth_Center\"],"
+               "PARAMETER[\"latitude_of_center\",0],"
+               "PARAMETER[\"longitude_of_center\",0],"
+               "PARAMETER[\"azimuth\",30],"
+               "PARAMETER[\"rectified_grid_angle\",0],"
+               "PARAMETER[\"scale_factor\",1],"
+               "PARAMETER[\"false_easting\",0],"
+               "PARAMETER[\"false_northing\",0],"
+               "UNIT[\"metre\",1]]";
+
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    // Check that we have not overriden rectified_grid_angle
+    auto got_wkt = crs->exportToWKT(
+        WKTFormatter::create(WKTFormatter::Convention::WKT1_GDAL).get());
+    EXPECT_TRUE(got_wkt.find("PARAMETER[\"rectified_grid_angle\",0]") !=
+                std::string::npos)
+        << got_wkt;
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(proj_export, wkt2_hotine_oblique_mercator_without_rectified_grid_angle) {
     auto wkt = "PROJCRS[\"NAD_1983_Michigan_GeoRef_Meters\",\n"
                "    BASEGEOGCRS[\"NAD83(1986)\",\n"
@@ -8545,6 +8577,158 @@ TEST(io, projstringformatter_merge_consecutive_helmert_3_param_noop) {
     fmt->addParam("y", -20);
     fmt->addParam("z", -30);
     EXPECT_EQ(fmt->toString(), "+proj=noop");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(io, projstringformatter_merge_inverted_helmert_with_opposite_conventions) {
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 2);
+        fmt->addParam("rz", 3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        fmt->addStep("helmert");
+        fmt->setCurrentStepInverted(true);
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", -1);
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "coordinate_frame");
+        EXPECT_EQ(fmt->toString(), "+proj=noop");
+    }
+
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->setCurrentStepInverted(true);
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 2);
+        fmt->addParam("rz", 3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "coordinate_frame");
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", -1);
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        EXPECT_EQ(fmt->toString(), "+proj=noop");
+    }
+
+    // Cannot be optimized
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 2);
+        fmt->addParam("rz", 3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        fmt->addStep("helmert");
+        // fmt->setCurrentStepInverted(true); <== CAUSE
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", -1);
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "coordinate_frame");
+        EXPECT_TRUE(fmt->toString() != "+proj=noop");
+    }
+
+    // Cannot be optimized
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 2);
+        fmt->addParam("rz", 3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        fmt->addStep("helmert");
+        fmt->setCurrentStepInverted(true);
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", -1);
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector"); // <== CAUSE
+        EXPECT_TRUE(fmt->toString() != "+proj=noop");
+    }
+
+    // Cannot be optimized
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 2);
+        fmt->addParam("rz", 3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        fmt->addStep("helmert");
+        fmt->setCurrentStepInverted(true);
+        fmt->addParam("x", -10); // <== CAUSE
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", -1);
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "coordinate_frame");
+        EXPECT_TRUE(fmt->toString() != "+proj=noop");
+    }
+
+    // Cannot be optimized
+    {
+        auto fmt = PROJStringFormatter::create();
+        fmt->addStep("helmert");
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1);
+        fmt->addParam("ry", 3);
+        fmt->addParam("rz", 2);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "position_vector");
+        fmt->addStep("helmert");
+        fmt->setCurrentStepInverted(true);
+        fmt->addParam("x", 10);
+        fmt->addParam("y", 20);
+        fmt->addParam("z", 30);
+        fmt->addParam("rx", 1); // <== CAUSE
+        fmt->addParam("ry", -2);
+        fmt->addParam("rz", -3);
+        fmt->addParam("s", 4);
+        fmt->addParam("convention", "coordinate_frame");
+        EXPECT_TRUE(fmt->toString() != "+proj=noop");
+    }
 }
 
 // ---------------------------------------------------------------------------

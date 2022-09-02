@@ -4474,9 +4474,16 @@ ProjectedCRS::alterParametersLinearUnit(const common::UnitOfMeasure &unit,
 //! @cond Doxygen_Suppress
 void ProjectedCRS::addUnitConvertAndAxisSwap(io::PROJStringFormatter *formatter,
                                              bool axisSpecFound) const {
-    const auto &axisList = d->coordinateSystem()->axisList();
-    const auto &unit = axisList[0]->unit();
-    const auto *zUnit = axisList.size() == 3 ? &(axisList[2]->unit()) : nullptr;
+    ProjectedCRS::addUnitConvertAndAxisSwap(d->coordinateSystem()->axisList(),
+                                            formatter, axisSpecFound);
+}
+
+void ProjectedCRS::addUnitConvertAndAxisSwap(
+    const std::vector<cs::CoordinateSystemAxisNNPtr> &axisListIn,
+    io::PROJStringFormatter *formatter, bool axisSpecFound) {
+    const auto &unit = axisListIn[0]->unit();
+    const auto *zUnit =
+        axisListIn.size() == 3 ? &(axisListIn[2]->unit()) : nullptr;
     if (!unit._isEquivalentTo(common::UnitOfMeasure::METRE,
                               util::IComparable::Criterion::EQUIVALENT) ||
         (zUnit &&
@@ -4518,8 +4525,8 @@ void ProjectedCRS::addUnitConvertAndAxisSwap(io::PROJStringFormatter *formatter,
 
     if (!axisSpecFound &&
         (!formatter->getCRSExport() || formatter->getLegacyCRSToCRSContext())) {
-        const auto &dir0 = axisList[0]->direction();
-        const auto &dir1 = axisList[1]->direction();
+        const auto &dir0 = axisListIn[0]->direction();
+        const auto &dir1 = axisListIn[1]->direction();
         if (!(&dir0 == &cs::AxisDirection::EAST &&
               &dir1 == &cs::AxisDirection::NORTH) &&
             // For polar projections, that have south+south direction,
@@ -4528,7 +4535,7 @@ void ProjectedCRS::addUnitConvertAndAxisSwap(io::PROJStringFormatter *formatter,
 
             const char *order[2] = {nullptr, nullptr};
             for (int i = 0; i < 2; i++) {
-                const auto &dir = axisList[i]->direction();
+                const auto &dir = axisListIn[i]->direction();
                 if (&dir == &cs::AxisDirection::WEST)
                     order[i] = "-1";
                 else if (&dir == &cs::AxisDirection::EAST)
@@ -4546,8 +4553,8 @@ void ProjectedCRS::addUnitConvertAndAxisSwap(io::PROJStringFormatter *formatter,
                 formatter->addParam("order", orderStr);
             }
         } else {
-            const auto &name0 = axisList[0]->nameStr();
-            const auto &name1 = axisList[1]->nameStr();
+            const auto &name0 = axisListIn[0]->nameStr();
+            const auto &name1 = axisListIn[1]->nameStr();
             const bool northingEasting = ci_starts_with(name0, "northing") &&
                                          ci_starts_with(name1, "easting");
             // case of EPSG:32661 ["WGS 84 / UPS North (N,E)]"
@@ -5038,6 +5045,7 @@ CompoundCRSNNPtr CompoundCRS::create(const util::PropertyMap &properties,
     }
     auto comp0Geog = dynamic_cast<const GeographicCRS *>(comp0);
     auto comp0Proj = dynamic_cast<const ProjectedCRS *>(comp0);
+    auto comp0DerPr = dynamic_cast<const DerivedProjectedCRS *>(comp0);
     auto comp0Eng = dynamic_cast<const EngineeringCRS *>(comp0);
 
     auto comp1 = components[1].get();
@@ -5050,20 +5058,22 @@ CompoundCRSNNPtr CompoundCRS::create(const util::PropertyMap &properties,
     // Loose validation based on
     // http://docs.opengeospatial.org/as/18-005r4/18-005r4.html#34
     bool ok = false;
+    const bool comp1IsVertOrEng1 =
+        comp1Vert ||
+        (comp1Eng && comp1Eng->coordinateSystem()->axisList().size() == 1);
     if ((comp0Geog && comp0Geog->coordinateSystem()->axisList().size() == 2 &&
-         (comp1Vert ||
-          (comp1Eng &&
-           comp1Eng->coordinateSystem()->axisList().size() == 1))) ||
+         comp1IsVertOrEng1) ||
         (comp0Proj && comp0Proj->coordinateSystem()->axisList().size() == 2 &&
-         (comp1Vert ||
-          (comp1Eng &&
-           comp1Eng->coordinateSystem()->axisList().size() == 1))) ||
+         comp1IsVertOrEng1) ||
+        (comp0DerPr && comp0DerPr->coordinateSystem()->axisList().size() == 2 &&
+         comp1IsVertOrEng1) ||
         (comp0Eng && comp0Eng->coordinateSystem()->axisList().size() <= 2 &&
          comp1Vert)) {
         // Spatial compound coordinate reference system
         ok = true;
     } else {
-        bool isComp0Spatial = comp0Geog || comp0Proj || comp0Eng ||
+        bool isComp0Spatial = comp0Geog || comp0Proj || comp0DerPr ||
+                              comp0Eng ||
                               dynamic_cast<const GeodeticCRS *>(comp0) ||
                               dynamic_cast<const VerticalCRS *>(comp0);
         if (isComp0Spatial && dynamic_cast<const TemporalCRS *>(comp1)) {
@@ -6545,6 +6555,16 @@ bool DerivedProjectedCRS::_isEquivalentTo(
     return otherDerivedCRS != nullptr &&
            DerivedCRS::_isEquivalentTo(other, criterion, dbContext);
 }
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
+void DerivedProjectedCRS::addUnitConvertAndAxisSwap(
+    io::PROJStringFormatter *formatter) const {
+    ProjectedCRS::addUnitConvertAndAxisSwap(coordinateSystem()->axisList(),
+                                            formatter, false);
+}
+//! @endcond
 
 // ---------------------------------------------------------------------------
 
