@@ -96,6 +96,7 @@ class PROJ_GCC_DLL CRS : public common::ObjectUsage,
 
     // Non-standard
 
+    PROJ_DLL bool isDynamic(bool considerWGS84AsDynamic = false) const;
     PROJ_DLL GeodeticCRSPtr extractGeodeticCRS() const;
     PROJ_DLL GeographicCRSPtr extractGeographicCRS() const;
     PROJ_DLL VerticalCRSPtr extractVerticalCRS() const;
@@ -1272,6 +1273,10 @@ class PROJ_GCC_DLL DerivedProjectedCRS final : public DerivedCRS {
            const ProjectedCRSNNPtr &baseCRSIn,
            const operation::ConversionNNPtr &derivingConversionIn,
            const cs::CoordinateSystemNNPtr &csIn);
+
+    PROJ_DLL DerivedProjectedCRSNNPtr
+    demoteTo2D(const std::string &newName,
+               const io::DatabaseContextPtr &dbContext) const;
 
     //! @cond Doxygen_Suppress
     PROJ_INTERNAL void _exportToWKT(io::WKTFormatter *formatter)

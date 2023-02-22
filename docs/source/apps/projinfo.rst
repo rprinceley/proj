@@ -46,6 +46,7 @@ Synopsis
       "urn:ogc:def:coordinateOperation:EPSG::1671"),
     - an Object name. e.g "WGS 84", "WGS 84 / UTM zone 31N". In that case as
       uniqueness is not guaranteed, heuristics are applied to determine the appropriate best match.
+    - a CRS name and a coordinate epoch, separated with '@'. For example "ITRF2014@2025.0". (*added in 9.2*)
     - a OGC URN combining references for compound coordinate reference systems
       (e.g "urn:ogc:def:crs,crs:EPSG::2393,crs:EPSG::5717" or custom abbreviated
       syntax "EPSG:2393+5717"),
@@ -72,7 +73,7 @@ or PROJJSON string).
 
 It can also be used to query coordinate operations available between two CRS.
 
-The program is named with some reference to the GDAL :program:`gdalsrsinfo` that offers
+The program is named with some reference to the GDAL `gdalsrsinfo <https://gdal.org/programs/gdalsrsinfo.html>`__ utility that offers
 partly similar services.
 
 
@@ -175,7 +176,7 @@ The following control parameters can appear in any order:
     operations are returned, but the actual availability of the grids is used
     to determine the sorting order. That is, if a coordinate operation involves
     using a grid that is not available in the PROJ resource directories
-    (determined by the :envvar:`PROJ_DATA` environment variable, it will be listed in
+    (determined by the :envvar:`PROJ_DATA` environment variable), it will be listed in
     the bottom of the results.
     The ``none`` strategy completely disables the checks of presence of grids and
     this returns the results as if all the grids where available.
@@ -295,6 +296,9 @@ The following control parameters can appear in any order:
     list-crs-filter is a comma separated combination of: allow_deprecated,geodetic,geocentric,
     geographic,geographic_2d,geographic_3d,vertical,projected,compound.
     Affected by options :option:`--authority`, :option:`--area`, :option:`--bbox` and :option:`--spatial-test`
+
+    A visual alternative is the webpage
+    `CRS Explorer <https://crs-explorer.proj.org/?all=true>`_ .
 
 .. option:: --3d
 

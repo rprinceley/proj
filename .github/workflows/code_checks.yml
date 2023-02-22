@@ -1,6 +1,12 @@
 name: Code Checks
 
-on: [push, pull_request]
+on:
+  push:
+      paths-ignore:
+          - 'docs/**'
+  pull_request:
+      paths-ignore:
+          - 'docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -31,10 +37,11 @@ jobs:
 
       - name: Install Requirements
         run: |
-            sudo apt install python3-pip wget
-            sudo pip3 install jsonschema
+            sudo apt install python3-pip
+            sudo pip3 install cffconvert
 
-      - name: Check json files
+      - name: Validate citation file
         run: |
-            wget https://raw.githubusercontent.com/rouault/zenodo_json_schema/master/zenodo-json-schema.json
-            jsonschema -i .zenodo.json zenodo-json-schema.json
+            cffconvert --validate
+            cffconvert -f bibtex
+            cffconvert -f apalike

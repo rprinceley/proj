@@ -1,8 +1,10 @@
 name: Conda
 
+
 on:
   push:
-    branches: '*'
+      paths-ignore:
+          - 'docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}

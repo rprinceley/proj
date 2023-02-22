@@ -4,10 +4,12 @@
 Quick start
 ================================================================================
 
-This is a short introduction to the PROJ API. In the following section we
-create a simple program that transforms a geodetic coordinate to UTM and back
-again. The program is explained a few lines at a time. The complete program can
-be seen at the end of the section.
+This is a short introduction to the PROJ API. In the following section
+we create two simple programs that illustrate how to transform points
+between two different coordinate systems, and how to convert between
+projected and geodetic (geographic) coordinates for a single
+coordinate system. Explanations for individual code sniplets and the
+full programs are provided.
 
 See the following sections for more in-depth descriptions of different parts of
 the PROJ API or consult the :doc:`API reference <reference/index>` for specifics.
@@ -46,7 +48,11 @@ Next we create the :c:type:`PJ` transformation object ``P`` with the function
   :dedent: 4
 
 Here we have set up a transformation from geographic coordinates to UTM zone
-32N.
+32N. In general, this is a transformation between two different coordinate reference systems
+(one of which is here in geographic coordinates).  The related function 
+:c:func:`proj_create` can be used to set up transformations that are not available through 
+the PROJ database, for instance for converting geodetic coordinates to a custom definition
+of a map projection.
 
 :c:func:`proj_create_crs_to_crs` takes as its arguments:
 
@@ -197,4 +203,12 @@ A complete compilable version of the example code can be seen below:
   :language: c
   :linenos:
   :lines: 39-
+  
+The following example illustrates how to convert between a CRS and
+geodetic coordinates for that CRS.
+
+.. literalinclude:: ../../../examples/crs_to_geodetic.c
+  :language: c
+  :linenos:
+  :lines: 9-
 

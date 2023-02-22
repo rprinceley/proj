@@ -42,12 +42,12 @@
 #include "proj/internal/internal.hpp"
 #include "proj/internal/io_internal.hpp"
 #include "proj/internal/lru_cache.hpp"
-#include "proj/internal/mutex.hpp"
 #include "proj/internal/tracing.hpp"
 
 #include "operation/coordinateoperation_internal.hpp"
 #include "operation/parammappings.hpp"
 
+#include "filemanager.hpp"
 #include "sqlite3_utils.hpp"
 
 #include <algorithm>
@@ -60,6 +60,7 @@
 #include <locale>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream> // std::ostringstream
 #include <stdexcept>
 #include <string>
@@ -78,8 +79,8 @@
 // parallel. This is slightly faster
 #define ENABLE_CUSTOM_LOCKLESS_VFS
 
-#if defined(_WIN32) && defined(MUTEX_pthread)
-#undef MUTEX_pthread
+#if defined(_WIN32) && defined(PROJ_HAS_PTHREADS)
+#undef PROJ_HAS_PTHREADS
 #endif
 
 /* SQLite3 might use seak()+read() or pread[64]() to read data */
@@ -87,7 +88,7 @@
 /* children of a parent process, while the former doesn't. */
 /* So we use pthread_atfork() to set a flag in forked children, to ask them */
 /* to close and reopen their database handle. */
-#if defined(MUTEX_pthread) && !defined(SQLITE_USE_PREAD)
+#if defined(PROJ_HAS_PTHREADS) && !defined(SQLITE_USE_PREAD)
 #include <pthread.h>
 #define REOPEN_SQLITE_DB_AFTER_FORK
 #endif
@@ -576,7 +577,7 @@ class SQLiteHandleCache {
     bool firstTime_ = true;
 #endif
 
-    NS_PROJ::mutex sMutex_{};
+    std::mutex sMutex_{};
 
     // Map dbname to SQLiteHandle
     lru11::Cache<std::string, std::shared_ptr<SQLiteHandle>> cache_{};
@@ -605,7 +606,7 @@ SQLiteHandleCache &SQLiteHandleCache::get() {
 // ---------------------------------------------------------------------------
 
 void SQLiteHandleCache::clear() {
-    NS_PROJ::lock_guard<NS_PROJ::mutex> lock(sMutex_);
+    std::lock_guard<std::mutex> lock(sMutex_);
     cache_.clear();
 }
 
@@ -613,7 +614,7 @@ void SQLiteHandleCache::clear() {
 
 std::shared_ptr<SQLiteHandle>
 SQLiteHandleCache::getHandle(const std::string &path, PJ_CONTEXT *ctx) {
-    NS_PROJ::lock_guard<NS_PROJ::mutex> lock(sMutex_);
+    std::lock_guard<std::mutex> lock(sMutex_);
 
 #ifdef REOPEN_SQLITE_DB_AFTER_FORK
     if (firstTime_) {
@@ -636,7 +637,7 @@ SQLiteHandleCache::getHandle(const std::string &path, PJ_CONTEXT *ctx) {
 // ---------------------------------------------------------------------------
 
 void SQLiteHandleCache::invalidateHandles() {
-    NS_PROJ::lock_guard<NS_PROJ::mutex> lock(sMutex_);
+    std::lock_guard<std::mutex> lock(sMutex_);
     const auto lambda =
         [](const lru11::KeyValuePair<std::string, std::shared_ptr<SQLiteHandle>>
                &kvp) { kvp.value->invalidate(); };
@@ -1803,11 +1804,11 @@ void DatabaseContext::Private::identify(const DatabaseContextNNPtr &dbContext,
                     return;
                 }
                 if (authName == metadata::Identifier::EPSG && code == "6422") {
-                    // preferred coordinate system for geographic lat, lon
+                    // preferred coordinate system for geographic lat, long
                     return;
                 }
                 if (authName == metadata::Identifier::EPSG && code == "6423") {
-                    // preferred coordinate system for geographic lat, lon, h
+                    // preferred coordinate system for geographic lat, long, h
                     return;
                 }
             }
@@ -1930,7 +1931,10 @@ void DatabaseContext::Private::identifyOrInsertUsages(
                 scopeCode = row[1];
             } else {
                 scopeAuthName = authName;
-                scopeCode = "SCOPE_" + tableName + "_" + code;
+                scopeCode = "SCOPE_";
+                scopeCode += tableName;
+                scopeCode += '_';
+                scopeCode += code;
                 const auto sqlToInsert = formatStatement(
                     "INSERT INTO scope VALUES('%q','%q','%q',0);",
                     scopeAuthName.c_str(), scopeCode.c_str(), scope->c_str());
@@ -1971,7 +1975,10 @@ void DatabaseContext::Private::identifyOrInsertUsages(
                         extentCode = row[1];
                     } else {
                         extentAuthName = authName;
-                        extentCode = "EXTENT_" + tableName + "_" + code;
+                        extentCode = "EXTENT_";
+                        extentCode += tableName;
+                        extentCode += '_';
+                        extentCode += code;
                         std::string description(*(extent->description()));
                         if (description.empty()) {
                             description = "unknown";
@@ -3242,8 +3249,16 @@ bool DatabaseContext::lookForGridInfo(
     std::string &fullFilename, std::string &packageName, std::string &url,
     bool &directDownload, bool &openLicense, bool &gridAvailable) const {
     Private::GridInfoCache info;
-    const std::string key(projFilename +
-                          (considerKnownGridsAsAvailable ? "true" : "false"));
+
+    auto ctxt = d->pjCtxt();
+    if (ctxt == nullptr) {
+        ctxt = pj_get_default_ctx();
+        d->setPjCtxt(ctxt);
+    }
+
+    std::string key(projFilename);
+    key += proj_context_is_network_enabled(ctxt) ? "true" : "false";
+    key += considerKnownGridsAsAvailable ? "true" : "false";
     if (d->getGridInfoFromCache(key, info)) {
         fullFilename = info.fullFilename;
         packageName = info.packageName;
@@ -3261,14 +3276,11 @@ bool DatabaseContext::lookForGridInfo(
     directDownload = false;
 
     fullFilename.resize(2048);
-    if (d->pjCtxt() == nullptr) {
-        d->setPjCtxt(pj_get_default_ctx());
-    }
-    int errno_before = proj_context_errno(d->pjCtxt());
-    gridAvailable =
-        pj_find_file(d->pjCtxt(), projFilename.c_str(), &fullFilename[0],
-                     fullFilename.size() - 1) != 0;
-    proj_context_errno_set(d->pjCtxt(), errno_before);
+    int errno_before = proj_context_errno(ctxt);
+    gridAvailable = NS_PROJ::FileManager::open_resource_file(
+                        ctxt, projFilename.c_str(), &fullFilename[0],
+                        fullFilename.size() - 1) != nullptr;
+    proj_context_errno_set(ctxt, errno_before);
     fullFilename.resize(strlen(fullFilename.c_str()));
 
     auto res =
@@ -3301,12 +3313,12 @@ bool DatabaseContext::lookForGridInfo(
             old_proj_grid_name == projFilename) {
             std::string fullFilenameNewName;
             fullFilenameNewName.resize(2048);
-            errno_before = proj_context_errno(d->pjCtxt());
+            errno_before = proj_context_errno(ctxt);
             bool gridAvailableWithNewName =
-                pj_find_file(d->pjCtxt(), proj_grid_name.c_str(),
+                pj_find_file(ctxt, proj_grid_name.c_str(),
                              &fullFilenameNewName[0],
                              fullFilenameNewName.size() - 1) != 0;
-            proj_context_errno_set(d->pjCtxt(), errno_before);
+            proj_context_errno_set(ctxt, errno_before);
             fullFilenameNewName.resize(strlen(fullFilenameNewName.c_str()));
             if (gridAvailableWithNewName) {
                 gridAvailable = true;
@@ -3319,7 +3331,6 @@ bool DatabaseContext::lookForGridInfo(
             gridAvailable = true;
         }
 
-        info.fullFilename = fullFilename;
         info.packageName = packageName;
         std::string endpoint(proj_context_get_url_endpoint(d->pjCtxt()));
         if (!endpoint.empty() && starts_with(url, "https://cdn.proj.org/")) {
@@ -3328,10 +3339,18 @@ bool DatabaseContext::lookForGridInfo(
             }
             url = endpoint + url.substr(strlen("https://cdn.proj.org/"));
         }
-        info.url = url;
         info.directDownload = directDownload;
         info.openLicense = openLicense;
+    } else {
+        if (starts_with(fullFilename, "http://") ||
+            starts_with(fullFilename, "https://")) {
+            url = fullFilename;
+            fullFilename.clear();
+        }
     }
+
+    info.fullFilename = fullFilename;
+    info.url = url;
     info.gridAvailable = gridAvailable;
     info.found = ret;
     d->cache(key, info);
@@ -3857,26 +3876,40 @@ util::PropertyMap AuthorityFactory::Private::createPropertiesSearchUsages(
     const std::string &table_name, const std::string &code,
     const std::string &name, bool deprecated) {
 
-    const std::string sql(
-        "SELECT extent.description, extent.south_lat, "
-        "extent.north_lat, extent.west_lon, extent.east_lon, "
-        "scope.scope, "
-        "(CASE WHEN scope.scope LIKE '%large scale%' THEN 0 ELSE 1 END) "
-        "AS score "
-        "FROM usage "
-        "JOIN extent ON usage.extent_auth_name = extent.auth_name AND "
-        "usage.extent_code = extent.code "
-        "JOIN scope ON usage.scope_auth_name = scope.auth_name AND "
-        "usage.scope_code = scope.code "
-        "WHERE object_table_name = ? AND object_auth_name = ? AND "
-        "object_code = ? AND "
-        // We voluntary exclude extent and scope with a specific code
-        "NOT (usage.extent_auth_name = 'PROJ' AND "
-        "usage.extent_code = 'EXTENT_UNKNOWN') AND "
-        "NOT (usage.scope_auth_name = 'PROJ' AND "
-        "usage.scope_code = 'SCOPE_UNKNOWN') "
-        "ORDER BY score, usage.auth_name, usage.code");
-    auto res = run(sql, {table_name, authority(), code});
+    SQLResultSet res;
+    if (table_name == "geodetic_crs" && code == "4326" &&
+        authority() == "EPSG") {
+        // EPSG v10.077 has changed the extent from 1262 to 2830, whose
+        // description is super verbose.
+        // Cf https://epsg.org/closed-change-request/browse/id/2022.086
+        // To avoid churn in our WKT2 output, hot patch to the usage of
+        // 10.076 and earlier
+        res = run("SELECT extent.description, extent.south_lat, "
+                  "extent.north_lat, extent.west_lon, extent.east_lon, "
+                  "scope.scope, 0 AS score FROM extent, scope WHERE "
+                  "extent.code = 1262 and scope.code = 1183");
+    } else {
+        const std::string sql(
+            "SELECT extent.description, extent.south_lat, "
+            "extent.north_lat, extent.west_lon, extent.east_lon, "
+            "scope.scope, "
+            "(CASE WHEN scope.scope LIKE '%large scale%' THEN 0 ELSE 1 END) "
+            "AS score "
+            "FROM usage "
+            "JOIN extent ON usage.extent_auth_name = extent.auth_name AND "
+            "usage.extent_code = extent.code "
+            "JOIN scope ON usage.scope_auth_name = scope.auth_name AND "
+            "usage.scope_code = scope.code "
+            "WHERE object_table_name = ? AND object_auth_name = ? AND "
+            "object_code = ? AND "
+            // We voluntary exclude extent and scope with a specific code
+            "NOT (usage.extent_auth_name = 'PROJ' AND "
+            "usage.extent_code = 'EXTENT_UNKNOWN') AND "
+            "NOT (usage.scope_auth_name = 'PROJ' AND "
+            "usage.scope_code = 'SCOPE_UNKNOWN') "
+            "ORDER BY score, usage.auth_name, usage.code");
+        res = run(sql, {table_name, authority(), code});
+    }
     std::vector<ObjectDomainNNPtr> usages;
     for (const auto &row : res) {
         try {
@@ -3938,8 +3971,38 @@ util::PropertyMap AuthorityFactory::Private::createPropertiesSearchUsages(
 bool AuthorityFactory::Private::rejectOpDueToMissingGrid(
     const operation::CoordinateOperationNNPtr &op,
     bool considerKnownGridsAsAvailable) {
+
+    struct DisableNetwork {
+        const DatabaseContextNNPtr &m_dbContext;
+        bool m_old_network_enabled;
+
+        explicit DisableNetwork(const DatabaseContextNNPtr &l_context)
+            : m_dbContext(l_context) {
+            auto ctxt = m_dbContext->d->pjCtxt();
+            if (ctxt == nullptr) {
+                ctxt = pj_get_default_ctx();
+                m_dbContext->d->setPjCtxt(ctxt);
+            }
+            m_old_network_enabled =
+                proj_context_is_network_enabled(ctxt) != FALSE;
+            if (m_old_network_enabled)
+                proj_context_set_enable_network(ctxt, false);
+        }
+
+        ~DisableNetwork() {
+            if (m_old_network_enabled) {
+                auto ctxt = m_dbContext->d->pjCtxt();
+                proj_context_set_enable_network(ctxt, true);
+            }
+        }
+    };
+
+    auto &l_context = context();
+    // Temporarily disable networking as we are only interested in known grids
+    DisableNetwork disabler(l_context);
+
     for (const auto &gridDesc :
-         op->gridsNeeded(context(), considerKnownGridsAsAvailable)) {
+         op->gridsNeeded(l_context, considerKnownGridsAsAvailable)) {
         if (!gridDesc.available) {
             return true;
         }
@@ -7488,7 +7551,8 @@ AuthorityFactory::createBetweenGeodeticCRSWithDatumBasedIntermediates(
             trfm.south = c_locale_stod(row[8]);
             trfm.east = c_locale_stod(row[9]);
             trfm.north = c_locale_stod(row[10]);
-            const std::string key = datum_auth_name + ':' + datum_code;
+            const std::string key =
+                std::string(datum_auth_name).append(":").append(datum_code);
             if (trfm.situation == "src_is_tgt" ||
                 trfm.situation == "src_is_src")
                 mapIntermDatumOfSource[key].emplace_back(std::move(trfm));

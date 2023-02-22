@@ -76,6 +76,15 @@ make install
 $TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_shared_install_from_dist shared
 $TRAVIS_BUILD_DIR/test/postinstall/test_autotools.sh /tmp/proj_shared_install_from_dist shared
 
+# Test install and uninstall targets with DESTDIR
+make install DESTDIR=/tmp/destdir
+make uninstall DESTDIR=/tmp/destdir
+if [ ! -z "$(ls -A /tmp/destdir/tmp/proj_shared_install_from_dist)" ]; then
+    echo "Directory /tmp/destdir/tmp/proj_shared_install_from_dist should be empty, but its content is:"
+    find /tmp/destdir/tmp/proj_shared_install_from_dist
+    exit 1
+fi
+
 echo "Build static ${CMAKE_BUILD_TYPE} configuration from generated tarball"
 cd ..
 mkdir static_build
@@ -148,6 +157,11 @@ test_projjson EPSG:32631
 test_projjson EPSG:4326+3855
 test_projjson "+proj=longlat +ellps=GRS80 +nadgrids=@foo +type=crs"
 test_projjson -s EPSG:3111 -t GDA2020
+# Dynamic geographic CRS "WGS 84 (G1762)"
+test_projjson EPSG:9057
+# Dynamic vertical CRS "RH2000 height"
+test_projjson EPSG:5613
+test_projjson "ITRF2014@2025.0"
 
 validate_json $TRAVIS_BUILD_DIR/schemas/v0.5/examples/point_motion_operation.json
 
@@ -164,7 +178,8 @@ set +e
 /tmp/proj_static_install_from_dist_renamed/subdir/bin/projsync --source-id ? --dry-run --system-directory 2>/dev/null 1>static.out
 set -e
 if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-    # on macOS /tmp is a symblink to /private/tmp only for the shared build
+    # on macOS 11 /tmp is resolved by PROJ as a symlink to /private/tmp only for the shared build.
+    # on macOS 12 for both static and shared builds
     INST=/private/tmp
 else
     INST=/tmp
@@ -172,7 +187,7 @@ fi
 cat shared.out
 grep "Downloading from https://cdn.proj.org into $INST/proj_shared_install_from_dist_renamed/subdir/share/proj" shared.out
 cat static.out
-grep "Downloading from https://cdn.proj.org into /tmp/proj_static_install_from_dist_renamed/subdir/share/proj" static.out
+grep "Downloading from https://cdn.proj.org into \($INST\|/tmp\)/proj_static_install_from_dist_renamed/subdir/share/proj" static.out
 rm shared.out static.out
 
 sed -i'.bak' -e '1c\

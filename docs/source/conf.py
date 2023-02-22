@@ -38,6 +38,7 @@ extensions = [
     'sphinxcontrib.spelling',
     'breathe',
     'redirects',
+    'program_with_link',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -77,8 +78,8 @@ copyright = u'1983-{0}'.format(now.year)
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-version = '9.1.0'
-data_version = '1.11'
+version = '9.2.0'
+data_version = '1.13'
 
 # use same |release| as |version|
 release = version
@@ -129,6 +130,10 @@ highlight_language = 'none'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+# Prevents double hyphen (--) to be replaced by Unicode long dash character
+# Cf https://stackoverflow.com/questions/15258831/how-to-handle-two-dashes-in-rest
+smartquotes = False
 
 # Replacement macros for use in code-blocks etc. With inspiration from
 # https://github.com/sphinx-doc/sphinx/issues/4054#issuecomment-329097229
@@ -279,6 +284,8 @@ preamble = r"""
 \ifdefined\DeclareUnicodeCharacter
   \DeclareUnicodeCharacter{2032}{$'$}% prime
 \fi
+
+\usepackage[notbib]{tocbibind}
 """
 
 latex_elements = {
@@ -290,7 +297,8 @@ latex_elements = {
 
 # Additional stuff for the LaTeX preamble.
 'preamble': preamble,
-'inputenc':'\\usepackage[utf8]{inputenc}'
+'inputenc': r'\usepackage[utf8]{inputenc}',
+'makeindex': r'\usepackage[columns=1]{idxlayout}\makeindex',
 
 # Latex figure (float) alignment
 #'figure_align': 'htbp',

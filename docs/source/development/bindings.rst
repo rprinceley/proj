@@ -11,6 +11,12 @@ Python
 `pyproj <https://pypi.python.org/pypi/pyproj>`_:
 Python interface (wrapper for PROJ)
 
+Java
+====
+
+`PROJ-JNI <https://github.com/OSGeo/PROJ-JNI>`_:
+Java Native Interface for PROJ
+
 Ruby
 =======
 
@@ -25,8 +31,8 @@ Rust bindings for the latest stable version of PROJ
 
 Go (Golang)
 ===========
-`go-proj <https://github.com/everystreet/go-proj>`_:
-Go bindings and idiomatic wrapper for PROJ
+`go-proj <https://github.com/twpayne/go-proj>`_:
+Go bindings for PROJ.
 
 Julia
 =====

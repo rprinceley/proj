@@ -13,7 +13,8 @@ Synopsis
 
     | **cs2cs** [**-eEfIlrstvwW** [args]]
     |           [[--area <name_or_code>] | [--bbox <west_long,south_lat,east_long,north_lat>]]
-    |           [--authority <name>] [--no-ballpark] [--accuracy <accuracy>] [--3d]
+    |           [--authority <name>] [--3d]
+    |           [--accuracy <accuracy>] [--only-best[=yes|=no]] [--no-ballpark]
     |           ([*+opt[=arg]* ...] [+to *+opt[=arg]* ...] | {source_crs} {target_crs})
     |           file ...
 
@@ -26,6 +27,7 @@ Synopsis
       "urn:ogc:def:coordinateOperation:EPSG::1671"),
     - an Object name. e.g "WGS 84", "WGS 84 / UTM zone 31N". In that case as
       uniqueness is not guaranteed, heuristics are applied to determine the appropriate best match.
+    - a CRS name and a coordinate epoch, separated with '@'. For example "ITRF2014@2025.0". (*added in 9.2*)
     - a OGC URN combining references for compound coordinate reference systems
       (e.g "urn:ogc:def:crs,crs:EPSG::2393,crs:EPSG::5717" or custom abbreviated
       syntax "EPSG:2393+5717"),
@@ -70,7 +72,7 @@ The following control parameters can appear in any order:
 
     .. versionadded:: 5.2.0
 
-    Specify the number of decimals in the output.
+    Specify the number of decimals to round to in the output.
 
 .. option:: -e <string>
 
@@ -137,7 +139,7 @@ The following control parameters can appear in any order:
 
     Where *n* is the number of significant fractional digits to employ for seconds
     output. When ``-W`` is employed the fields will be constant width
-    with leading zeroes.
+    with leading zeroes. Valid range: -W0 through -W8.
 
 .. option:: -v
 
@@ -165,6 +167,23 @@ The following control parameters can appear in any order:
     `west_long` and `east_long` should be in the [-180,180] range, and
     `south_lat` and `north_lat` in the [-90,90]. `west_long` is generally lower than
     `east_long`, except in the case where the area of interest crosses the antimeridian.
+
+.. option:: --only-best[=yes|=no]
+
+    .. versionadded:: 9.2.0
+
+    Force `cs2cs` to only use the best transformation known by PROJ.
+    `cs2cs` will return an error if a grid needed for the best transformation is missing.
+    
+    Best transformation should be understood as the most accurate transformation
+    available among all relevant for the point to transform, and if all known
+    grids required to perform such transformation were accessible (either locally
+    or through network).
+    
+    Note that the default value for this option can be also set with the
+    :envvar:`PROJ_ONLY_BEST_DEFAULT` environment variable, or with the
+    ``only_best_default`` setting of :ref:`proj-ini` (:option:`--only-best`
+    when specified overrides such default value).
 
 .. option:: --no-ballpark
 
@@ -284,7 +303,41 @@ The x-y output data will appear as three lines of:
 
 ::
 
-    1402293.44  5076292.68 0.00
+    1402285.93  5076292.58 0.00
+
+
+To get those exact values, you have need to have all current grids installed
+(in that instance the NADCON5 :file:`us_noaa_nadcon5_nad27_nad83_1986_conus.tif` grid)
+locally or use networking capabilities mentioned above.
+
+To make sure you will get the optimal result, you may add :option:`--only-best`.
+Assuming the above mentioned grid is *not* available,
+
+::
+
+    echo -111.5 45.25919444444 | cs2cs --only-best +proj=latlong +datum=NAD83 +to +proj=utm +zone=10 +datum=NAD27
+
+would return:
+
+::
+
+    Attempt to use coordinate operation axis order change (2D) + Inverse of NAD27 to NAD83 (7) + axis order change (2D) + UTM zone 10N failed. Grid us_noaa_nadcon5_nad27_nad83_1986_conus.tif is not available. Consult https://proj.org/resource_files.html for guidance.
+    *   * inf
+
+Otherwise, if you don't have the grid available and you don't specify :option:`--only-best`:
+
+::
+
+    echo -111.5 45.25919444444 | cs2cs --only-best +proj=latlong +datum=NAD83 +to +proj=utm +zone=10 +datum=NAD27
+
+would return:
+
+::
+
+    1402224.57  5076275.42 0.00
+
+which is the result when the NAD27 and NAD83 datums are dealt as identical,
+which is an approximation at a level of several tens of metres.
 
 
 Using EPSG CRS codes
@@ -312,13 +365,19 @@ UTM Zone 31N/WGS 84 with WGS84 ellipsoidal height
 
 ::
 
-    echo 45 2 0 | cs2cs "WGS 84 + EGM96 height" "WGS 84 / UTM zone 31N"
+    echo 45 2 0 | cs2cs "WGS 84 + EGM96 height" "WGS 84 / UTM zone 31N" --3d
 
 outputs
 
 ::
 
     421184.70   4983436.77 50.69
+
+
+.. note::
+
+    To get those exact values, you have need to have the EGM96 grid installed
+    locally or use networking capabilities mentioned above.
 
 
 .. only:: man

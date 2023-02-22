@@ -4,6 +4,12 @@
 proj
 ================================================================================
 
+.. _invproj:
+
+================================================================================
+invproj
+================================================================================
+
 .. only:: html
 
     Cartographic projection filter.
@@ -41,7 +47,7 @@ The following control parameters can appear in any order
 
 .. versionadded:: 5.2.0
 
-    Specify the number of decimals in the output.
+    Specify the number of decimals to round to in the output.
 
 .. option:: -i
 
