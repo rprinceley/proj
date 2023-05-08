@@ -1046,6 +1046,31 @@ TEST(operation, geogCRS_to_geogCRS_longitude_rotation_context) {
 
 // ---------------------------------------------------------------------------
 
+TEST(operation, geogCRS_to_geogCRS_context_lonlat_vs_latlon_crs) {
+    auto authFactory =
+        AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    ctxt->setGridAvailabilityUse(
+        CoordinateOperationContext::GridAvailabilityUse::
+            IGNORE_GRID_AVAILABILITY);
+    ctxt->setSpatialCriterion(
+        CoordinateOperationContext::SpatialCriterion::PARTIAL_INTERSECTION);
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        authFactory->createCoordinateReferenceSystem("4749"),  // RGNC91-93
+        authFactory->createCoordinateReferenceSystem("10310"), // RGNC15
+        ctxt);
+    ASSERT_EQ(list.size(), 3U);
+    // Check that we get direct transformation, and not through WGS 84
+    // The difficulty here is that the transformation is registered between
+    // "RGNC91-93 (lon-lat)" et "RGNC15 (lon-lat)"
+    EXPECT_EQ(list[0]->nameStr(), "axis order change (2D) + RGNC91-93 to "
+                                  "RGNC15 (2) + axis order change (2D)");
+    EXPECT_EQ(list[1]->nameStr(), "axis order change (2D) + RGNC91-93 to "
+                                  "RGNC15 (1) + axis order change (2D)");
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(operation, geogCRS_to_geogCRS_context_concatenated_operation) {
     auto authFactory =
         AuthorityFactory::create(DatabaseContext::create(), "EPSG");
@@ -1059,7 +1084,7 @@ TEST(operation, geogCRS_to_geogCRS_context_concatenated_operation) {
         authFactory->createCoordinateReferenceSystem("4807"), // NTF(Paris)
         authFactory->createCoordinateReferenceSystem("4171"), // RGF93
         ctxt);
-    ASSERT_EQ(list.size(), 4U);
+    ASSERT_EQ(list.size(), 2U);
 
     EXPECT_EQ(list[0]->nameStr(), "NTF (Paris) to RGF93 v1 (1)");
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
@@ -1088,6 +1113,24 @@ TEST(operation, geogCRS_to_geogCRS_context_concatenated_operation) {
                 nullptr);
     auto grids = list[0]->gridsNeeded(DatabaseContext::create(), false);
     EXPECT_EQ(grids.size(), 1U);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation,
+     geogCRS_to_geogCRS_context_concatenated_operation_Egypt1907_to_WGS84) {
+    auto authFactory =
+        AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        authFactory->createCoordinateReferenceSystem("4229"), // Egypt 1907
+        authFactory->createCoordinateReferenceSystem("4326"), // WGS84
+        ctxt);
+    ASSERT_EQ(list.size(), 3U);
+    // Concatenated operation
+    EXPECT_EQ(list[1]->nameStr(), "Egypt 1907 to WGS 84 (2)");
+    ASSERT_EQ(list[1]->coordinateOperationAccuracies().size(), 1U);
+    EXPECT_EQ(list[1]->coordinateOperationAccuracies()[0]->value(), "6.0");
 }
 
 // ---------------------------------------------------------------------------
@@ -5933,7 +5976,7 @@ TEST(operation, vertCRS_to_vertCRS_context) {
         authFactory->createCoordinateReferenceSystem("7968"),
         // NAVD88 height (1)
         authFactory->createCoordinateReferenceSystem("5703"), ctxt);
-    ASSERT_EQ(list.size(), 3U);
+    ASSERT_EQ(list.size(), 4U);
     EXPECT_EQ(list[0]->nameStr(), "NGVD29 height (m) to NAVD88 height (3)");
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=vgridshift +grids=us_noaa_vertcone.tif +multiplier=1");
@@ -5950,7 +5993,7 @@ TEST(operation, vertCRS_to_vertCRS_New_Zealand_context) {
         authFactory->createCoordinateReferenceSystem("7839"),
         // Auckland 1946 height
         authFactory->createCoordinateReferenceSystem("5759"), ctxt);
-    ASSERT_EQ(list.size(), 1U);
+    ASSERT_EQ(list.size(), 2U);
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=vgridshift +grids=nz_linz_auckht1946-nzvd2016.tif "
               "+multiplier=1");

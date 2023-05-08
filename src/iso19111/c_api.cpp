@@ -51,6 +51,7 @@
 #include "proj/metadata.hpp"
 #include "proj/util.hpp"
 
+#include "proj/internal/datum_internal.hpp"
 #include "proj/internal/internal.hpp"
 #include "proj/internal/io_internal.hpp"
 
@@ -4337,7 +4338,8 @@ PJ *proj_create_engineering_crs(PJ_CONTEXT *ctx, const char *crs_name) {
         return pj_obj_create(
             ctx, EngineeringCRS::create(
                      createPropertyMapName(crs_name),
-                     EngineeringDatum::create(PropertyMap()),
+                     EngineeringDatum::create(
+                         createPropertyMapName(UNKNOWN_ENGINEERING_DATUM)),
                      CartesianCS::createEastingNorthing(UnitOfMeasure::METRE)));
     } catch (const std::exception &e) {
         proj_log_error(ctx, __FUNCTION__, e.what());
@@ -8354,10 +8356,9 @@ PJ_OPERATION_LIST::getPreparedOperations(PJ_CONTEXT *ctx) {
  * by increasing accuracy. Operations with unknown accuracy are sorted last,
  * whatever their area.
  *
- * When one of the source or target CRS has a vertical component but not the
- * other one, the one that has no vertical component is automatically promoted
- * to a 3D version, where its vertical axis is the ellipsoidal height in metres,
- * using the ellipsoid of the base geodetic CRS.
+ * Starting with PROJ 9.1, vertical transformations are only done if both
+ * source CRS and target CRS are 3D CRS or Compound CRS with a vertical
+ * component. You may need to use proj_crs_promote_to_3D().
  *
  * @param ctx PROJ context, or NULL for default context
  * @param source_crs source CRS. Must not be NULL.
@@ -9068,7 +9069,7 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
                             std::swap(maxxDst, maxyDst);
                         }
                     }
-                    ctx->forceOver = alt.pj->over;
+                    ctx->forceOver = alt.pj->over != 0;
                     auto pjNormalized =
                         pj_obj_create(ctx, co->normalizeForVisualization());
                     pjNormalized->over = alt.pj->over;
@@ -9107,7 +9108,7 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
         return nullptr;
     }
     try {
-        ctx->forceOver = obj->over;
+        ctx->forceOver = obj->over != 0;
         auto pjNormalized = pj_obj_create(ctx, co->normalizeForVisualization());
         pjNormalized->over = obj->over;
         ctx->forceOver = false;
