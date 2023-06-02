@@ -10365,7 +10365,7 @@ PROJStringParser::Private::buildDatum(Step &step, const std::string &title) {
                 return GeodeticReferenceFrame::create(
                     grfMap.set(IdentifiedObject::NAME_KEY,
                                title.empty()
-                                   ? "Unknown based on WGS84 ellipsoid" +
+                                   ? "Unknown based on WGS 84 ellipsoid" +
                                          datumNameSuffix
                                    : title),
                     Ellipsoid::WGS84, optionalEmptyString, pm);
@@ -10373,7 +10373,7 @@ PROJStringParser::Private::buildDatum(Step &step, const std::string &title) {
                 return GeodeticReferenceFrame::create(
                     grfMap.set(IdentifiedObject::NAME_KEY,
                                title.empty()
-                                   ? "Unknown based on GRS80 ellipsoid" +
+                                   ? "Unknown based on GRS 1980 ellipsoid" +
                                          datumNameSuffix
                                    : title),
                     Ellipsoid::GRS1980, optionalEmptyString, pm);
@@ -10441,10 +10441,20 @@ PROJStringParser::Private::buildDatum(Step &step, const std::string &title) {
     const auto createGRF = [&grfMap, &title, &optionalEmptyString,
                             &datumNameSuffix,
                             &pm](const EllipsoidNNPtr &ellipsoid) {
+        std::string datumName(title);
+        if (title.empty()) {
+            if (ellipsoid->nameStr() != "unknown") {
+                datumName = "Unknown based on ";
+                datumName += ellipsoid->nameStr();
+                datumName += " ellipsoid";
+            } else {
+                datumName = "unknown";
+            }
+            datumName += datumNameSuffix;
+        }
         return GeodeticReferenceFrame::create(
-            grfMap.set(IdentifiedObject::NAME_KEY,
-                       title.empty() ? "unknown" + datumNameSuffix : title),
-            ellipsoid, optionalEmptyString, fixupPrimeMeridan(ellipsoid, pm));
+            grfMap.set(IdentifiedObject::NAME_KEY, datumName), ellipsoid,
+            optionalEmptyString, fixupPrimeMeridan(ellipsoid, pm));
     };
 
     if (a > 0 && (b > 0 || !bStr.empty())) {
@@ -11079,13 +11089,18 @@ PROJStringParser::Private::buildProjectedCRS(int iStep,
         const auto &lat_1 = getParamValue(step, "lat_1");
         const auto &lat_2 = getParamValue(step, "lat_2");
         const auto &k = getParamValueK(step);
-        if (lat_2.empty() && !lat_0.empty() && !lat_1.empty() &&
-            (lat_0 == lat_1 ||
-             // For some reason with gcc 5.3.1-14ubuntu2 32bit, the following
-             // comparison returns false even if lat_0 == lat_1. Smells like
-             // a compiler bug
-             getAngularValue(lat_0) == getAngularValue(lat_1))) {
-            mapping = getMapping(EPSG_CODE_METHOD_LAMBERT_CONIC_CONFORMAL_1SP);
+        if (lat_2.empty() && !lat_0.empty() && !lat_1.empty()) {
+            if (lat_0 == lat_1 ||
+                // For some reason with gcc 5.3.1-14ubuntu2 32bit, the following
+                // comparison returns false even if lat_0 == lat_1. Smells like
+                // a compiler bug
+                getAngularValue(lat_0) == getAngularValue(lat_1)) {
+                mapping =
+                    getMapping(EPSG_CODE_METHOD_LAMBERT_CONIC_CONFORMAL_1SP);
+            } else {
+                mapping = getMapping(
+                    EPSG_CODE_METHOD_LAMBERT_CONIC_CONFORMAL_1SP_VARIANT_B);
+            }
         } else if (!k.empty() && getNumericValue(k) != 1.0) {
             mapping = getMapping(
                 EPSG_CODE_METHOD_LAMBERT_CONIC_CONFORMAL_2SP_MICHIGAN);
