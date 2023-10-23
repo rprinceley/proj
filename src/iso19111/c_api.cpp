@@ -191,7 +191,7 @@ getDBcontextNoException(PJ_CONTEXT *ctx, const char *function) {
 }
 // ---------------------------------------------------------------------------
 
-static PJ *pj_obj_create(PJ_CONTEXT *ctx, const BaseObjectNNPtr &objIn) {
+PJ *pj_obj_create(PJ_CONTEXT *ctx, const BaseObjectNNPtr &objIn) {
     auto coordop = dynamic_cast<const CoordinateOperation *>(objIn.get());
     if (coordop) {
         auto dbContext = getDBcontextNoException(ctx, __FUNCTION__);
@@ -1672,11 +1672,6 @@ const char *proj_as_wkt(PJ_CONTEXT *ctx, const PJ *obj, PJ_WKT_TYPE type,
  * The returned string is valid while the input obj parameter is valid,
  * and until a next call to proj_as_proj_string() with the same input
  * object.
- * 
- * \warning If a CRS object was not created from a PROJ string, 
- *          exporting to a PROJ string will in most cases
- *          cause a loss of information. This can potentially lead to
- *          erroneous transformations.
  *
  * \warning If a CRS object was not created from a PROJ string,
  *          exporting to a PROJ string will in most cases
@@ -9115,7 +9110,8 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
                         alt.idxInOriginalList, minxSrc, minySrc, maxxSrc,
                         maxySrc, minxDst, minyDst, maxxDst, maxyDst,
                         pjNormalized, co->nameStr(), alt.accuracy,
-                        alt.isOffshore, alt.pjSrcGeocentricToLonLat,
+                        alt.pseudoArea, alt.isOffshore,
+                        alt.pjSrcGeocentricToLonLat,
                         alt.pjDstGeocentricToLonLat);
                 }
             }

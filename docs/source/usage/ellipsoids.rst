@@ -65,23 +65,29 @@ the ellipsoid into a sphere with features defined by the ellipsoid.
 Ellipsoid spherification parameters
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-.. option:: +R_A=<value>
+.. option:: +R_A
 
    A sphere with the same surface area as the ellipsoid.
 
-.. option:: +R_V=<value>
+.. option:: +R_V
 
    A sphere with the same volume as the ellipsoid.
 
-.. option:: +R_a=<value>
+.. option:: +R_C
+
+   .. versionadded:: 9.3.0
+
+   A sphere whose radius is the radius of the conformal sphere at :math:`\phi_0`.
+
+.. option:: +R_a
 
    A sphere with :math:`R = (a + b)/2` (arithmetic mean).
 
-.. option:: +R_g=<value>
+.. option:: +R_g
 
    A sphere with :math:`R = \sqrt{ab}` (geometric mean).
 
-.. option:: +R_h=<value>
+.. option:: +R_h
 
    A sphere with :math:`R = 2ab/(a+b)` (harmonic mean).
 
@@ -103,8 +109,8 @@ parameters given are ignored.
 Built-in ellipsoid definitions
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-The ``ellps=xxx`` parameter provides both size and shape for a number of
-built-in ellipsoid definitions.
+The ``+ellps=xxx`` parameter provides both size and shape for a number of
+built-in ellipsoid definitions. Default is GRS80 if not given.
 
     ============   =================================    ============================
     ellps          Parameters                           Datum name
@@ -121,7 +127,7 @@ built-in ellipsoid definitions.
     sphere         a=6370997.0      b=6370997.0         Normal Sphere (r=6370997)
     ============   =================================    ============================
 
-If size and shape are given as ``ellps=xxx``, later shape and size parameters
+If size and shape are given as ``+ellps=xxx``, later shape and size parameters
 are are taken into account as modifiers for the built-in ellipsoid definition.
 
 While this may seem strange, it is in accordance with historical PROJ

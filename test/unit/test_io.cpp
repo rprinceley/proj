@@ -833,6 +833,19 @@ TEST(wkt_parse, wkt1_non_conformant_inf_inverse_flattening) {
 
 // ---------------------------------------------------------------------------
 
+TEST(wkt_parse, wkt1_esri_GCS_unknown_D_unknown) {
+    auto obj = WKTParser().setStrict(false).createFromWKT(
+        "GEOGCS[\"GCS_unknown\",DATUM[\"D_unknown\","
+        "SPHEROID[\"unknown\",6370997,0]],"
+        "PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.017453292519943295]]");
+    auto crs = nn_dynamic_pointer_cast<GeographicCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+    EXPECT_EQ(crs->nameStr(), "unknown");
+    EXPECT_EQ(crs->datum()->nameStr(), "unknown");
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(wkt_parse, wkt2_GEODCRS_EPSG_4326) {
     auto obj = WKTParser().createFromWKT("GEODCRS" + contentWKT2_EPSG_4326);
     auto crs = nn_dynamic_pointer_cast<GeographicCRS>(obj);
@@ -2373,6 +2386,60 @@ TEST(wkt_parse, wkt2_2019_projected_with_base_geocentric) {
     auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
     ASSERT_TRUE(crs != nullptr);
     EXPECT_TRUE(crs->baseCRS()->isGeocentric());
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(wkt_parse, wkt2_2019_eqdc_non_epsg) {
+    // Example from WKT2:2019
+    auto wkt = "PROJCRS[\"unknown\",\n"
+               "    BASEGEOGCRS[\"unknown\",\n"
+               "        DATUM[\"World Geodetic System 1984\",\n"
+               "            ELLIPSOID[\"WGS 84\",6378137,298.257223563,\n"
+               "                LENGTHUNIT[\"metre\",1]],\n"
+               "            ID[\"EPSG\",6326]],\n"
+               "        PRIMEM[\"Greenwich\",0,\n"
+               "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+               "            ID[\"EPSG\",8901]]],\n"
+               "    CONVERSION[\"unknown\",\n"
+               "        METHOD[\"Equidistant Conic\"],\n"
+               "        PARAMETER[\"Latitude of natural origin\",1,\n"
+               "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+               "            ID[\"EPSG\",8801]],\n"
+               "        PARAMETER[\"Longitude of natural origin\",2,\n"
+               "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+               "            ID[\"EPSG\",8802]],\n"
+               "        PARAMETER[\"Latitude of 1st standard parallel\",3,\n"
+               "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+               "            ID[\"EPSG\",8823]],\n"
+               "        PARAMETER[\"Latitude of 2nd standard parallel\",4,\n"
+               "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+               "            ID[\"EPSG\",8824]],\n"
+               "        PARAMETER[\"False easting\",5,\n"
+               "            LENGTHUNIT[\"metre\",1],\n"
+               "            ID[\"EPSG\",8806]],\n"
+               "        PARAMETER[\"False northing\",6,\n"
+               "            LENGTHUNIT[\"metre\",1],\n"
+               "            ID[\"EPSG\",8807]]],\n"
+               "    CS[Cartesian,2],\n"
+               "        AXIS[\"(E)\",east,\n"
+               "            ORDER[1],\n"
+               "            LENGTHUNIT[\"metre\",1,\n"
+               "                ID[\"EPSG\",9001]]],\n"
+               "        AXIS[\"(N)\",north,\n"
+               "            ORDER[2],\n"
+               "            LENGTHUNIT[\"metre\",1,\n"
+               "                ID[\"EPSG\",9001]]]]";
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    EXPECT_EQ(
+        crs->exportToPROJString(
+            PROJStringFormatter::create(PROJStringFormatter::Convention::PROJ_4)
+                .get()),
+        "+proj=eqdc +lat_0=1 +lon_0=2 +lat_1=3 +lat_2=4 +x_0=5 +y_0=6 "
+        "+datum=WGS84 +units=m +no_defs +type=crs");
 }
 
 // ---------------------------------------------------------------------------
@@ -5668,6 +5735,26 @@ TEST(wkt_parse, LOCAL_CS_long_two_axis) {
 
 // ---------------------------------------------------------------------------
 
+TEST(wkt_parse, LOCAL_CS_long_three_axis) {
+    auto wkt = "LOCAL_CS[\"Engineering CRS\",\n"
+               "    LOCAL_DATUM[\"Engineering datum\",12345],\n"
+               "    UNIT[\"meter\",1],\n"
+               "    AXIS[\"Easting\",EAST],\n"
+               "    AXIS[\"Northing\",NORTH],\n"
+               "    AXIS[\"Elevation\",UP]]";
+
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<EngineeringCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    EXPECT_EQ(crs->nameStr(), "Engineering CRS");
+    EXPECT_EQ(crs->datum()->nameStr(), "Engineering datum");
+    auto cs = crs->coordinateSystem();
+    ASSERT_EQ(cs->axisList().size(), 3U);
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(wkt_parse, PDATUM) {
     auto wkt = "PDATUM[\"Parametric datum\",\n"
                "    ANCHOR[\"my anchor\"]]";
@@ -6422,12 +6509,12 @@ static const struct {
       {"Latitude_Of_Origin", 6}},
      "Equidistant Conic",
      {
-         {"Latitude of natural origin", 6},
-         {"Longitude of natural origin", 3},
+         {"Latitude of false origin", 6},
+         {"Longitude of false origin", 3},
          {"Latitude of 1st standard parallel", 4},
          {"Latitude of 2nd standard parallel", 5},
-         {"False easting", 1},
-         {"False northing", 2},
+         {"Easting at false origin", 1},
+         {"Northing at false origin", 2},
      }},
 
     {"Cassini",
@@ -10614,6 +10701,23 @@ TEST(io, projparse_cea_ellipsoidal_with_k_0) {
         wkt.find("PARAMETER[\"Latitude of 1st standard parallel\",8.1365") !=
         std::string::npos)
         << wkt;
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(io, projparse_merc_spherical_on_ellipsoid) {
+    std::string input("+proj=merc +R_C +lat_0=1 +lon_0=2 +x_0=3 +y_0=4 "
+                      "+ellps=WGS84 +units=m +no_defs +type=crs");
+    auto obj = PROJStringParser().createFromPROJString(input);
+    auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+    EXPECT_EQ(crs->derivingConversion()->method()->getEPSGCode(),
+              EPSG_CODE_METHOD_MERCATOR_SPHERICAL);
+    EXPECT_EQ(
+        crs->exportToPROJString(
+            PROJStringFormatter::create(PROJStringFormatter::Convention::PROJ_4)
+                .get()),
+        input);
 }
 
 // ---------------------------------------------------------------------------

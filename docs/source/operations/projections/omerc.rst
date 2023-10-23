@@ -71,17 +71,23 @@ In the second case, the azimuth is given indirectly by specifying two points on
 the central line, using the options
 :option:`+lat_1`, :option:`+lon_1`, :option:`+lat_2`, and :option:`+lon_2`.
 
-Example: Verify that the Mercator projection is a limiting form of the Oblique
-Mercator
+Example: Verify that the Mercator, and Transverse Mercator (on a sphere),
+projections are limiting forms of the Oblique Mercator
 
 ::
 
     $ echo 12 55 | proj +proj=merc +ellps=GRS80
-    1335833.89   7326837.71
+    1335833.89	7326837.71
 
-    $ echo 12 55 | proj +proj=omerc +lonc=0 +alpha=90 +ellps=GRS80
-    1335833.89   7326837.71
+    $ echo 12 55 | proj +proj=omerc +alpha=90 +ellps=GRS80
+    1335833.89	7326837.71
 
+    $ echo 12 55 | proj +proj=omerc +alpha=0 +R=6400000
+    766869.97 6209742.96
+
+    $ echo 12 55 | proj +proj=tmerc +R=6400000
+    766869.97 6209742.96
+    
 Example: Second case - indirectly given azimuth
 
 ::
@@ -94,7 +100,7 @@ Example: An approximation of the Danish "System 34" from :cite:`Rittri2012`
 
 ::
 
-    $ echo 10.536498003 56.229892362 | proj +proj=omerc +axis=wnu +lonc=9.46 +lat_0=56.13333333 +x_0=-266906.229 +y_0=189617.957 +k=0.9999537 +alpha=-0.76324 +gamma=0 +ellps=GRS80
+    $ echo 10.536498003 56.229892362 | cs2cs +proj=longlat +ellps=GRS80 +to +proj=omerc +axis=wnu +lonc=9.46 +lat_0=56.13333333 +x_0=-266906.229 +y_0=189617.957 +k=0.9999537 +alpha=-0.76324 +gamma=0 +ellps=GRS80
     200000.13   199999.89
 
 The input coordinate represents the System 34 datum point "Agri Bavnehoj", with coordinates
@@ -121,6 +127,11 @@ Central point and azimuth method
     Azimuth of centerline clockwise from north of the rectified
     bearing of centre line. If :option:`+alpha` is not given, then
     :option:`+gamma` is used to determine :option:`+alpha`.
+
+    If specifying only :option:`+gamma` without :option:`+alpha`, the maximum
+    value of the absolute value of :option:`+gamma` is a function of the
+    absolute value of :option:`+lat_0`, equal to :math:`90° - |\phi_0|` on a
+    sphere and slightly above on a non-spherical ellipsoid.
 
 .. option:: +lonc=<value>
 

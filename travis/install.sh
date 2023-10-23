@@ -56,7 +56,10 @@ cd shared_build
 cmake \
   -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -D USE_CCACHE=${USE_CCACHE} \
+  ${PROJ_CMAKE_BUILD_OPTIONS:-} \
+  -D PROJ_DB_CACHE_DIR=$HOME/.ccache \
   -D BUILD_SHARED_LIBS=ON \
+  -D BUILD_EXAMPLES=ON \
   -D CMAKE_INSTALL_PREFIX=/tmp/proj_shared_install_from_dist \
   ..
 make
@@ -90,10 +93,13 @@ cd ..
 mkdir static_build
 cd static_build
 # Also test setting CMAKE_INSTALL_INCLUDEDIR/CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_BINDIR to absolute directories
+# and INSTALL_LEGACY_CMAKE_FILES=OFF (both are independent from static build particularities)
 cmake \
   -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -D USE_CCACHE=${USE_CCACHE} \
+  -D PROJ_DB_CACHE_DIR=$HOME/.ccache \
   -D BUILD_SHARED_LIBS=OFF \
+  -D INSTALL_LEGACY_CMAKE_FILES=OFF \
   -D CMAKE_INSTALL_PREFIX=/tmp/proj_static_install_from_dist \
   -D CMAKE_INSTALL_INCLUDEDIR=/tmp/proj_static_install_from_dist/include \
   -D CMAKE_INSTALL_LIBDIR=/tmp/proj_static_install_from_dist/lib \
@@ -104,7 +110,7 @@ make
 ctest --output-on-failure
 make install
 # find /tmp/proj_static_install_from_dist
-$TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_static_install_from_dist static
+$TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_static_install_from_dist static PROJ_CONFIG
 $TRAVIS_BUILD_DIR/test/postinstall/test_autotools.sh /tmp/proj_static_install_from_dist static
 
 # Re-run by unsetting CMAKE_INSTALL_INCLUDEDIR/CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_BINDIR
@@ -206,7 +212,7 @@ else
 fi
 
 $TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_shared_install_from_dist_renamed/subdir shared
-PROJ_DATA=/tmp/proj_static_install_from_dist_renamed/subdir/share/proj $TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_static_install_from_dist_renamed/subdir static
+PROJ_DATA=/tmp/proj_static_install_from_dist_renamed/subdir/share/proj $TRAVIS_BUILD_DIR/test/postinstall/test_cmake.sh /tmp/proj_static_install_from_dist_renamed/subdir static PROJ_CONFIG
 
 if [ "$BUILD_NAME" != "linux_gcc8" -a "$BUILD_NAME" != "linux_gcc_32bit" ]; then
     echo "Build PROJ as a subproject"
@@ -227,7 +233,7 @@ if [ "$BUILD_NAME" != "linux_gcc8" -a "$BUILD_NAME" != "linux_gcc_32bit" ]; then
 
     mkdir build_cmake
     cd build_cmake
-    cmake -D USE_CCACHE=${USE_CCACHE} ..
+    cmake -D USE_CCACHE=${USE_CCACHE} -D PROJ_DB_CACHE_DIR=$HOME/.ccache ..
     make
 
     # return to root
@@ -244,6 +250,7 @@ if [ "$BUILD_NAME" != "linux_gcc8" -a "$BUILD_NAME" != "linux_gcc_32bit" ]; then
             cmake \
               -D CMAKE_BUILD_TYPE=Debug \
               -D USE_CCACHE=${USE_CCACHE} \
+              -D PROJ_DB_CACHE_DIR=$HOME/.ccache \
               -D CMAKE_C_FLAGS="--coverage" \
               -D CMAKE_CXX_FLAGS="--coverage" \
               . ;
@@ -251,6 +258,7 @@ if [ "$BUILD_NAME" != "linux_gcc8" -a "$BUILD_NAME" != "linux_gcc_32bit" ]; then
             LDFLAGS="$LDFLAGS -lgcov" cmake \
               -D CMAKE_BUILD_TYPE=Debug \
               -D USE_CCACHE=${USE_CCACHE} \
+              -D PROJ_DB_CACHE_DIR=$HOME/.ccache \
               -D CMAKE_C_FLAGS="$CFLAGS --coverage" \
               -D CMAKE_CXX_FLAGS="$CXXFLAGS --coverage" \
               . ;
@@ -259,6 +267,7 @@ if [ "$BUILD_NAME" != "linux_gcc8" -a "$BUILD_NAME" != "linux_gcc_32bit" ]; then
         cmake \
           -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
           -D USE_CCACHE=${USE_CCACHE} \
+          -D PROJ_DB_CACHE_DIR=$HOME/.ccache \
           . ;
     fi
     make

@@ -1732,6 +1732,8 @@ PropertyMap &WKTParser::Private::buildProperties(const WKTNodeNNPtr &node,
                 esriStyle_ = true;
                 if (name == "GCS_WGS_1984") {
                     name = "WGS 84";
+                } else if (name == "GCS_unknown") {
+                    name = "unknown";
                 } else {
                     tableNameForAlias = "geodetic_crs";
                 }
@@ -2376,6 +2378,8 @@ GeodeticReferenceFrameNNPtr WKTParser::Private::buildGeodeticReferenceFrame(
             name = "European Terrestrial Reference System 1989";
             authNameFromAlias = Identifier::EPSG;
             codeFromAlias = "6258";
+        } else if (name == "D_unknown") {
+            name = "unknown";
         } else {
             tableNameForAlias = "geodetic_datum";
         }
@@ -2895,7 +2899,7 @@ WKTParser::Private::buildCS(const WKTNodeNNPtr &node, /* maybe null */
                 return CartesianCS::createEastingNorthing(unit);
             } else if (axisCount == 1) {
                 csTypeCStr = "vertical";
-            } else if (axisCount == 2) {
+            } else if (axisCount == 2 || axisCount == 3) {
                 csTypeCStr = "Cartesian";
             } else {
                 throw ParsingException(
@@ -3656,7 +3660,7 @@ WKTParser::Private::buildConcatenatedOperation(const WKTNodeNNPtr &node) {
     }
 
     ConcatenatedOperation::fixStepsDirection(
-        NN_NO_CHECK(sourceCRS), NN_NO_CHECK(targetCRS), operations);
+        NN_NO_CHECK(sourceCRS), NN_NO_CHECK(targetCRS), operations, dbContext_);
 
     std::vector<PositionalAccuracyNNPtr> accuracies;
     auto &accuracyNode = nodeP->lookForChild(WKTConstants::OPERATIONACCURACY);
@@ -5981,7 +5985,7 @@ IdentifierNNPtr JSONParser::buildId(const json &j, bool removeInverseOf) {
                 static_cast<int>(dblVersion) == dblVersion) {
                 version = internal::toString(static_cast<int>(dblVersion));
             } else {
-                version = internal::toString(dblVersion);
+                version = internal::toString(dblVersion, /*precision=*/15);
             }
         } else {
             throw ParsingException("Unexpected type for value of \"version\"");
@@ -6595,7 +6599,8 @@ JSONParser::buildConcatenatedOperation(const json &j) {
         operations.emplace_back(NN_NO_CHECK(op));
     }
 
-    ConcatenatedOperation::fixStepsDirection(sourceCRS, targetCRS, operations);
+    ConcatenatedOperation::fixStepsDirection(sourceCRS, targetCRS, operations,
+                                             dbContext_);
 
     std::vector<PositionalAccuracyNNPtr> accuracies;
     if (j.contains("accuracy")) {
@@ -8029,7 +8034,12 @@ WKTParser::attachDatabaseContext(const DatabaseContextPtr &dbContext) {
 /** \brief Guess the "dialect" of the WKT string.
  */
 WKTParser::WKTGuessedDialect
-WKTParser::guessDialect(const std::string &wkt) noexcept {
+WKTParser::guessDialect(const std::string &inputWkt) noexcept {
+    std::string wkt = inputWkt;
+    std::size_t idxFirstCharNotSpace = wkt.find_first_not_of(" \t\r\n");
+    if (idxFirstCharNotSpace > 0 && idxFirstCharNotSpace != std::string::npos) {
+        wkt = wkt.substr(idxFirstCharNotSpace);
+    }
     if (ci_starts_with(wkt, WKTConstants::VERTCS)) {
         return WKTGuessedDialect::WKT1_ESRI;
     }
@@ -10793,16 +10803,11 @@ SphericalCSNNPtr PROJStringParser::Private::buildSphericalCS(
 
 static double getNumericValue(const std::string &paramValue,
                               bool *pHasError = nullptr) {
-    try {
-        double value = c_locale_stod(paramValue);
-        if (pHasError)
-            *pHasError = false;
-        return value;
-    } catch (const std::invalid_argument &) {
-        if (pHasError)
-            *pHasError = true;
-        return 0.0;
-    }
+    bool success;
+    double value = c_locale_stod(paramValue, success);
+    if (pHasError)
+        *pHasError = !success;
+    return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -11195,7 +11200,26 @@ PROJStringParser::Private::buildProjectedCRS(int iStep,
                 }
             }
         } else if (hasParamValue(step, "lat_ts")) {
+            if (hasParamValue(step, "R_C") &&
+                !geodCRS->ellipsoid()->isSphere() &&
+                getAngularValue(getParamValue(step, "lat_ts")) != 0) {
+                throw ParsingException("lat_ts != 0 not supported for "
+                                       "spherical Mercator on an ellipsoid");
+            }
             mapping = getMapping(EPSG_CODE_METHOD_MERCATOR_VARIANT_B);
+        } else if (hasParamValue(step, "R_C")) {
+            const auto &k = getParamValueK(step);
+            if (!k.empty() && getNumericValue(k) != 1.0) {
+                if (geodCRS->ellipsoid()->isSphere()) {
+                    mapping = getMapping(EPSG_CODE_METHOD_MERCATOR_VARIANT_A);
+                } else {
+                    throw ParsingException(
+                        "k_0 != 1 not supported for spherical Mercator on an "
+                        "ellipsoid");
+                }
+            } else {
+                mapping = getMapping(EPSG_CODE_METHOD_MERCATOR_SPHERICAL);
+            }
         } else {
             mapping = getMapping(EPSG_CODE_METHOD_MERCATOR_VARIANT_A);
         }

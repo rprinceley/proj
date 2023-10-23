@@ -917,31 +917,32 @@ ConversionNNPtr Conversion::createCassiniSoldner(
  * <a href="../../../operations/projections/eqdc.html">
  * Equidistant Conic</a> projection method.
  *
- * There is no equivalent in EPSG.
+ * This method is defined as
+ * <a href="https://epsg.org/coord-operation-method_1119/index.html">
+ * EPSG:1119</a>.
  *
- * @note Although not found in EPSG, the order of arguments is conformant with
- * the "spirit" of EPSG and different than OGRSpatialReference::setEC() of GDAL
- *&lt;= 2.3 * @param properties See \ref general_properties of the conversion.
- *If the name
+ * @param properties See \ref general_properties of the conversion. If the name
  * is not provided, it is automatically set.
- *
- * @param centerLat See \ref center_latitude
- * @param centerLong See \ref center_longitude
+ * @param latitudeFalseOrigin See \ref latitude_false_origin
+ * @param longitudeFalseOrigin See \ref longitude_false_origin
  * @param latitudeFirstParallel See \ref latitude_first_std_parallel
  * @param latitudeSecondParallel See \ref latitude_second_std_parallel
- * @param falseEasting See \ref false_easting
- * @param falseNorthing See \ref false_northing
+ * @param eastingFalseOrigin See \ref easting_false_origin
+ * @param northingFalseOrigin See \ref northing_false_origin
  * @return a new Conversion.
  */
-ConversionNNPtr Conversion::createEquidistantConic(
-    const util::PropertyMap &properties, const common::Angle &centerLat,
-    const common::Angle &centerLong, const common::Angle &latitudeFirstParallel,
-    const common::Angle &latitudeSecondParallel,
-    const common::Length &falseEasting, const common::Length &falseNorthing) {
-    return create(properties, PROJ_WKT2_NAME_METHOD_EQUIDISTANT_CONIC,
-                  createParams(centerLat, centerLong, latitudeFirstParallel,
-                               latitudeSecondParallel, falseEasting,
-                               falseNorthing));
+ConversionNNPtr
+Conversion::createEquidistantConic(const util::PropertyMap &properties,
+                                   const common::Angle &latitudeFalseOrigin,
+                                   const common::Angle &longitudeFalseOrigin,
+                                   const common::Angle &latitudeFirstParallel,
+                                   const common::Angle &latitudeSecondParallel,
+                                   const common::Length &eastingFalseOrigin,
+                                   const common::Length &northingFalseOrigin) {
+    return create(properties, EPSG_CODE_METHOD_EQUIDISTANT_CONIC,
+                  createParams(latitudeFalseOrigin, longitudeFalseOrigin,
+                               latitudeFirstParallel, latitudeSecondParallel,
+                               eastingFalseOrigin, northingFalseOrigin));
 }
 
 // ---------------------------------------------------------------------------
@@ -1746,6 +1747,38 @@ ConversionNNPtr Conversion::createPopularVisualisationPseudoMercator(
     const common::Length &falseNorthing) {
     return create(
         properties, EPSG_CODE_METHOD_POPULAR_VISUALISATION_PSEUDO_MERCATOR,
+        createParams(centerLat, centerLong, falseEasting, falseNorthing));
+}
+
+// ---------------------------------------------------------------------------
+
+/** \brief Instantiate a conversion based on the
+ * <a href="../../../operations/projections/merc.html">
+ * Mercator</a> projection method, using its spherical formulation
+ *
+ * When used with an ellipsoid, the radius used is the radius of the conformal
+ * sphere at centerLat.
+ *
+ * This method is defined as
+ * <a
+ * href="https://epsg.org/coord-operation-method_1026/Mercator-Spherical.html">
+ * EPSG:1026</a>.
+ *
+ * @param properties See \ref general_properties of the conversion. If the name
+ * is not provided, it is automatically set.
+ * @param centerLat See \ref center_latitude . Usually 0
+ * @param centerLong See \ref center_longitude . Usually 0
+ * @param falseEasting See \ref false_easting . Usually 0
+ * @param falseNorthing See \ref false_northing . Usually 0
+ * @return a new Conversion.
+ * @since 9.3
+ */
+ConversionNNPtr Conversion::createMercatorSpherical(
+    const util::PropertyMap &properties, const common::Angle &centerLat,
+    const common::Angle &centerLong, const common::Length &falseEasting,
+    const common::Length &falseNorthing) {
+    return create(
+        properties, EPSG_CODE_METHOD_MERCATOR_SPHERICAL,
         createParams(centerLat, centerLong, falseEasting, falseNorthing));
 }
 
@@ -4295,11 +4328,6 @@ void Conversion::_exportToPROJString(
             const auto &components = compound->componentReferenceSystems();
             if (!components.empty()) {
                 horiz = components.front().get();
-                const auto boundCRS =
-                    dynamic_cast<const crs::BoundCRS *>(horiz);
-                if (boundCRS) {
-                    horiz = boundCRS->baseCRS().get();
-                }
             }
         }
 

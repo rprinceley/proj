@@ -342,6 +342,7 @@ struct PJCoordOperation {
     PJ *pj = nullptr;
     std::string name{};
     double accuracy = -1.0;
+    double pseudoArea = 0.0;
     bool isOffshore = false;
     bool isPriorityOp = false;
     bool srcIsLonLatDegree = false;
@@ -363,7 +364,7 @@ struct PJCoordOperation {
                      double minySrcIn, double maxxSrcIn, double maxySrcIn,
                      double minxDstIn, double minyDstIn, double maxxDstIn,
                      double maxyDstIn, PJ *pjIn, const std::string &nameIn,
-                     double accuracyIn, bool isOffshoreIn,
+                     double accuracyIn, double pseudoAreaIn, bool isOffshoreIn,
                      const PJ *pjSrcGeocentricToLonLatIn,
                      const PJ *pjDstGeocentricToLonLatIn);
 
@@ -376,7 +377,8 @@ struct PJCoordOperation {
           minyDst(other.minyDst), maxxDst(other.maxxDst),
           maxyDst(other.maxyDst), pj(proj_clone(ctx, other.pj)),
           name(std::move(other.name)), accuracy(other.accuracy),
-          isOffshore(other.isOffshore), isPriorityOp(other.isPriorityOp),
+          pseudoArea(other.pseudoArea), isOffshore(other.isOffshore),
+          isPriorityOp(other.isPriorityOp),
           srcIsLonLatDegree(other.srcIsLonLatDegree),
           srcIsLatLonDegree(other.srcIsLatLonDegree),
           dstIsLonLatDegree(other.dstIsLonLatDegree),
@@ -396,8 +398,8 @@ struct PJCoordOperation {
           maxySrc(other.maxySrc), minxDst(other.minxDst),
           minyDst(other.minyDst), maxxDst(other.maxxDst),
           maxyDst(other.maxyDst), name(std::move(other.name)),
-          accuracy(other.accuracy), isOffshore(other.isOffshore),
-          isPriorityOp(other.isPriorityOp),
+          accuracy(other.accuracy), pseudoArea(other.pseudoArea),
+          isOffshore(other.isOffshore), isPriorityOp(other.isPriorityOp),
           srcIsLonLatDegree(other.srcIsLonLatDegree),
           srcIsLatLonDegree(other.srcIsLatLonDegree),
           dstIsLonLatDegree(other.dstIsLonLatDegree),
@@ -966,6 +968,8 @@ void pj_clear_sqlite_cache();
 
 PJ_LP pj_generic_inverse_2d(PJ_XY xy, PJ *P, PJ_LP lpInitial,
                             double deltaXYTolerance);
+
+PJ *pj_obj_create(PJ_CONTEXT *ctx, const NS_PROJ::util::BaseObjectNNPtr &objIn);
 
 /*****************************************************************************/
 /*                                                                           */

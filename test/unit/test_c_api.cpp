@@ -1659,6 +1659,7 @@ TEST_F(CApi, proj_coordoperation_get_grid_used) {
 
 // ---------------------------------------------------------------------------
 
+#ifdef TIFF_ENABLED
 TEST_F(CApi, proj_coordoperation_get_grid_used_fullname_caching) {
     // Test bugfix for
     // https://github.com/OSGeo/PROJ/issues/3444#issuecomment-1309499342
@@ -1686,6 +1687,7 @@ TEST_F(CApi, proj_coordoperation_get_grid_used_fullname_caching) {
             << std::string(fullName);
     }
 }
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -2227,7 +2229,7 @@ TEST_F(CApi, proj_context_guess_wkt_dialect) {
 
     EXPECT_EQ(proj_context_guess_wkt_dialect(
                   nullptr,
-                  "GEOGCRS[\"WGS 84\",\n"
+                  " \n\t\rGEOGCRS[\"WGS 84\",\n"
                   "    DATUM[\"World Geodetic System 1984\",\n"
                   "        ELLIPSOID[\"WGS 84\",6378137,298.257223563]],\n"
                   "    CS[ellipsoidal,2],\n"

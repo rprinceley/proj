@@ -322,22 +322,14 @@ int pj_get_suggested_operation(PJ_CONTEXT *,
             // onshore and offshore Tunisia area of uses, but is slightly
             // onshore. So in a general way, prefer a onshore area to a
             // offshore one.
-            if (iBest < 0 || (alt.accuracy >= 0 &&
-                              (alt.accuracy < bestAccuracy ||
-                               // If two operations have the same accuracy, use
-                               // the one that is contained within a larger one
-                               (alt.accuracy == bestAccuracy &&
-                                alt.minxSrc >= opList[iBest].minxSrc &&
-                                alt.minySrc >= opList[iBest].minySrc &&
-                                alt.maxxSrc <= opList[iBest].maxxSrc &&
-                                alt.maxySrc <= opList[iBest].maxySrc &&
-                                // check that this is not equality
-                                !(alt.minxSrc == opList[iBest].minxSrc &&
-                                  alt.minySrc == opList[iBest].minySrc &&
-                                  alt.maxxSrc == opList[iBest].maxxSrc &&
-                                  alt.maxySrc == opList[iBest].maxySrc) &&
-                                !opList[iBest].isPriorityOp)) &&
-                              !alt.isOffshore)) {
+            if (iBest < 0 ||
+                (((alt.accuracy >= 0 && alt.accuracy < bestAccuracy) ||
+                  // If two operations have the same accuracy, use
+                  // the one that has the smallest area
+                  (alt.accuracy == bestAccuracy &&
+                   alt.pseudoArea < opList[iBest].pseudoArea &&
+                   !opList[iBest].isPriorityOp)) &&
+                 !alt.isOffshore)) {
 
                 if (skipNonInstantiable && !alt.isInstantiable()) {
                     continue;
@@ -920,10 +912,8 @@ static int cs2cs_emulation_setup(PJ *P) {
     /* We ignore helmert if we have grid shift */
     p = P->hgridshift ? nullptr : pj_param_exists(P->params, "towgs84");
     while (p) {
-        char *def;
-        char *s = p->param;
-        double *d = P->datum_params;
-        size_t n = strlen(s);
+        const char *const s = p->param;
+        const double *const d = P->datum_params;
 
         /* We ignore null helmert shifts (common in auto-translated resource
          * files, e.g. epsg) */
@@ -938,19 +928,17 @@ static int cs2cs_emulation_setup(PJ *P) {
             break;
         }
 
+        const size_t n = strlen(s);
         if (n <= 8) /* 8==strlen ("towgs84=") */
             return 0;
 
-        size_t def_size = 100 + n;
-        def = static_cast<char *>(malloc(def_size));
-        if (nullptr == def)
-            return 0;
-        snprintf(def, def_size,
-                 "break_cs2cs_recursion     proj=helmert exact %s "
-                 "convention=position_vector",
-                 s);
-        Q = pj_create_internal(P->ctx, def);
-        free(def);
+        const size_t def_max_size = 100 + n;
+        std::string def;
+        def.reserve(def_max_size);
+        def += "break_cs2cs_recursion     proj=helmert exact ";
+        def += s;
+        def += " convention=position_vector";
+        Q = pj_create_internal(P->ctx, def.c_str());
         if (nullptr == Q)
             return 0;
         pj_inherit_ellipsoid_def(P, Q);
@@ -1526,7 +1514,8 @@ int proj_trans_bounds(PJ_CONTEXT *context, PJ *P, PJ_DIRECTION direction,
     bool degree_input = proj_degree_input(P, direction) != 0;
     if (degree_output && densify_pts < 2) {
         proj_log_error(
-            P, _("densify_pts must be at least 2 if the output is geographic."));
+            P,
+            _("densify_pts must be at least 2 if the output is geographic."));
         proj_errno_set(P, PROJ_ERR_INVALID_OP_ILLEGAL_ARG_VALUE);
         return false;
     }
@@ -1716,6 +1705,16 @@ static PJ *add_coord_op_to_list(
     double maxxDst;
     double maxyDst;
 
+    double w = west_lon / 180 * M_PI;
+    double s = south_lat / 180 * M_PI;
+    double e = east_lon / 180 * M_PI;
+    double n = north_lat / 180 * M_PI;
+    if (w > e) {
+        e += 2 * M_PI;
+    }
+    // Integrate cos(lat) between south_lat and north_lat
+    const double pseudoArea = (e - w) * (std::sin(n) - std::sin(s));
+
     if (pjSrcGeocentricToLonLat) {
         minxSrc = west_lon;
         minySrc = south_lat;
@@ -1743,8 +1742,8 @@ static PJ *add_coord_op_to_list(
         const double accuracy = proj_coordoperation_get_accuracy(op->ctx, op);
         altCoordOps.emplace_back(
             idxInOriginalList, minxSrc, minySrc, maxxSrc, maxySrc, minxDst,
-            minyDst, maxxDst, maxyDst, op, name, accuracy, isOffshore,
-            pjSrcGeocentricToLonLat, pjDstGeocentricToLonLat);
+            minyDst, maxxDst, maxyDst, op, name, accuracy, pseudoArea,
+            isOffshore, pjSrcGeocentricToLonLat, pjDstGeocentricToLonLat);
         op = nullptr;
     }
     return op;
@@ -2893,6 +2892,9 @@ PJ_FACTORS proj_factors(PJ *P, PJ_COORD lp) {
         // using the same datum as the one of the projected CRS, and with
         // input coordinates being in longitude, latitude order in radian,
         // to be consistent with the expectations of the lp input parameter.
+        // We also need to create a modified projected CRS with a normalized
+        // easting/northing axis order in metre, so the resulting operation is
+        // just a single step pipeline with no axisswap or unitconvert steps.
 
         auto ctx = P->ctx;
         auto geodetic_crs = proj_get_source_crs(ctx, P);
@@ -2901,16 +2903,27 @@ PJ_FACTORS proj_factors(PJ *P, PJ_COORD lp) {
         auto datum_ensemble = proj_crs_get_datum_ensemble(ctx, geodetic_crs);
         auto cs = proj_create_ellipsoidal_2D_cs(
             ctx, PJ_ELLPS2D_LONGITUDE_LATITUDE, "Radian", 1.0);
-        auto temp = proj_create_geographic_crs_from_datum(
+        auto geogCRSNormalized = proj_create_geographic_crs_from_datum(
             ctx, "unnamed crs", datum ? datum : datum_ensemble, cs);
         proj_destroy(datum);
         proj_destroy(datum_ensemble);
         proj_destroy(cs);
+        auto conversion = proj_crs_get_coordoperation(ctx, P);
+        auto projCS = proj_create_cartesian_2D_cs(
+            ctx, PJ_CART2D_EASTING_NORTHING, "metre", 1.0);
+        auto projCRSNormalized = proj_create_projected_crs(
+            ctx, nullptr, geodetic_crs, conversion, projCS);
+        assert(projCRSNormalized);
         proj_destroy(geodetic_crs);
-        auto newOp =
-            proj_create_crs_to_crs_from_pj(ctx, temp, P, nullptr, nullptr);
-        proj_destroy(temp);
+        proj_destroy(conversion);
+        proj_destroy(projCS);
+        auto newOp = proj_create_crs_to_crs_from_pj(
+            ctx, geogCRSNormalized, projCRSNormalized, nullptr, nullptr);
+        proj_destroy(geogCRSNormalized);
+        proj_destroy(projCRSNormalized);
         assert(newOp);
+        // For debugging:
+        // printf("%s\n", proj_as_proj_string(ctx, newOp, PJ_PROJ_5, nullptr));
         auto ret = proj_factors(newOp, lp);
         proj_destroy(newOp);
         return ret;
@@ -2976,13 +2989,13 @@ PJCoordOperation::PJCoordOperation(
     int idxInOriginalListIn, double minxSrcIn, double minySrcIn,
     double maxxSrcIn, double maxySrcIn, double minxDstIn, double minyDstIn,
     double maxxDstIn, double maxyDstIn, PJ *pjIn, const std::string &nameIn,
-    double accuracyIn, bool isOffshoreIn, const PJ *pjSrcGeocentricToLonLatIn,
-    const PJ *pjDstGeocentricToLonLatIn)
+    double accuracyIn, double pseudoAreaIn, bool isOffshoreIn,
+    const PJ *pjSrcGeocentricToLonLatIn, const PJ *pjDstGeocentricToLonLatIn)
     : idxInOriginalList(idxInOriginalListIn), minxSrc(minxSrcIn),
       minySrc(minySrcIn), maxxSrc(maxxSrcIn), maxySrc(maxySrcIn),
       minxDst(minxDstIn), minyDst(minyDstIn), maxxDst(maxxDstIn),
       maxyDst(maxyDstIn), pj(pjIn), name(nameIn), accuracy(accuracyIn),
-      isOffshore(isOffshoreIn),
+      pseudoArea(pseudoAreaIn), isOffshore(isOffshoreIn),
       isPriorityOp(isSpecialCaseForNAD83_to_NAD83HARN(name) ||
                    isSpecialCaseForGDA94_to_WGS84(name) ||
                    isSpecialCaseForWGS84_to_GDA2020(name)),
