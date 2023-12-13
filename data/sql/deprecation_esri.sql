@@ -981,3 +981,12 @@ INSERT INTO "deprecation" VALUES('geodetic_crs', 'ESRI', '104896', 'EPSG', '8998
 INSERT INTO "deprecation" VALUES('geodetic_crs', 'ESRI', '104990', 'EPSG', '3819', 'ESRI');
 INSERT INTO "deprecation" VALUES('geodetic_crs', 'ESRI', '104991', 'EPSG', '3889', 'ESRI');
 INSERT INTO "deprecation" VALUES('geodetic_crs', 'ESRI', '104992', 'EPSG', '3906', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105701', 'EPSG', '5799', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105702', 'EPSG', '5613', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105703', 'EPSG', '6360', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105704', 'EPSG', '9666', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105790', 'EPSG', '3855', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105791', 'EPSG', '3886', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105792', 'EPSG', '4440', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105793', 'EPSG', '3900', 'ESRI');
+INSERT INTO "deprecation" VALUES('vertical_crs', 'ESRI', '105794', 'EPSG', '4458', 'ESRI');
