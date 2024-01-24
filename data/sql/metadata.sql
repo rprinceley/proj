@@ -19,3 +19,8 @@ INSERT INTO "metadata" VALUES('PROJ.VERSION', '${PROJ_VERSION}');
 -- Version of the PROJ-data package with which this database is the most
 -- compatible.
 INSERT INTO "metadata" VALUES('PROJ_DATA.VERSION', '1.16');
+
+-- A custom flag to indicate that this database is part of the Esri build
+-- of PROJ. Used as a simple check to avoid data path mix up with different
+-- versions of PROJ.
+INSERT INTO "metadata" VALUES('PROJ.BUILD', 'ESRI');
