@@ -9,8 +9,8 @@
 INSERT INTO "metadata" VALUES('DATABASE.LAYOUT.VERSION.MAJOR', 1);
 INSERT INTO "metadata" VALUES('DATABASE.LAYOUT.VERSION.MINOR', 3);
 
-INSERT INTO "metadata" VALUES('EPSG.VERSION', 'v11.004');
-INSERT INTO "metadata" VALUES('EPSG.DATE', '2024-02-24');
+INSERT INTO "metadata" VALUES('EPSG.VERSION', 'v11.006');
+INSERT INTO "metadata" VALUES('EPSG.DATE', '2024-03-13');
 
 -- The value of ${PROJ_VERSION} is substituted at build time by the actual
 -- value.
@@ -18,7 +18,7 @@ INSERT INTO "metadata" VALUES('PROJ.VERSION', '${PROJ_VERSION}');
 
 -- Version of the PROJ-data package with which this database is the most
 -- compatible.
-INSERT INTO "metadata" VALUES('PROJ_DATA.VERSION', '1.17');
+INSERT INTO "metadata" VALUES('PROJ_DATA.VERSION', '1.18');
 
 -- A custom flag to indicate that this database is part of the Esri build
 -- of PROJ. Used as a simple check to avoid data path mix up with different
