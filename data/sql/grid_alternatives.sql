@@ -123,6 +123,9 @@ VALUES
 -- de_lgvl_saarland - LVGL Saarland
 ('SeTa2016.gsb','de_lgvl_saarland_SeTa2016.tif','SeTa2016.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/de_lgvl_saarland_SeTa2016.tif',1,1,NULL),
 
+-- de_tlbg_thueringen - TLBG Thüringen
+('de_tlbg_thuringen_NTv2gridTH.gsb','de_tlbg_thueringen_NTv2gridTH.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/de_tlbg_thueringen_NTv2gridTH.tif',1,1,NULL),
+
 -- dk_sdfe - Danish Agency for Data Supply and Efficiency
 -- Denmark mainland
 ('dnn.gtx','dk_sdfe_dnn.tif','dnn.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/dk_sdfe_dnn.tif',1,1,NULL),
@@ -223,6 +226,10 @@ VALUES
 ('NOT-YET-IN-GRID-TRANSFORMATION-fr_ign_ggpf08-Rurutu.tif','fr_ign_ggpf08-Rurutu.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fr_ign_ggpf08-Rurutu.tif',1,1,NULL),
 ('NOT-YET-IN-GRID-TRANSFORMATION-fr_ign_ggpf08-Tikehau.tif','fr_ign_ggpf08-Tikehau.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fr_ign_ggpf08-Tikehau.tif',1,1,NULL),
 ('NOT-YET-IN-GRID-TRANSFORMATION-fr_ign_ggpf08-Tubuai.tif','fr_ign_ggpf08-Tubuai.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fr_ign_ggpf08-Tubuai.tif',1,1,NULL),
+
+-- hu_bme - Budapest University of Technology and Economics
+('hu_bme_geoid2014.tif','hu_bme_geoid2014.tif', 'geoid_eht2014.gtx', 'GTiff', 'geoid_like', 0, NULL, 'https://cdn.proj.org/hu_bme_geoid2014.tif', 1, 1, NULL),
+('hu_bme_hd72corr.gsb', 'hu_bme_hd72corr.tif', 'etrs2eov_notowgs.gsb', 'GTiff', 'hgridshift', 0, NULL, 'https://cdn.proj.org/hu_bme_hd72corr.tif', 1, 1, NULL),
 
 -- is_lmi - National Land Survey of Iceland
 ('Icegeoid_ISN2004.gri','is_lmi_Icegeoid_ISN2004.tif','Icegeoid_ISN2004.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/is_lmi_Icegeoid_ISN2004.tif',1,1,NULL),

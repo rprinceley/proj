@@ -41,19 +41,44 @@ from pathlib import Path
 from typing import Optional, List, Dict
 
 parser = argparse.ArgumentParser()
-parser.add_argument('esri_csv_dir', help='Path to ESRI CSV dir, typically the path '
-                                         'to the "csv" directory of a "git clone '
-                                         'https://github.com/Esri/projection-engine-db-doc',
+parser.add_argument('esri_dir', help='Path to ESRI projection-engine-db-doc dir,'
+                                     'typically the path to a "git clone '
+                                     'https://github.com/Esri/projection-engine-db-doc"',
                     type=Path)
 parser.add_argument('proj_db', help='Path to current proj.db file', type=Path)
 parser.add_argument('version', help='ArcMap version string, e.g. "ArcMap 10.8.1"')
 parser.add_argument('date', help='ArcMap version date as a yyyy-MM-dd string, e.g. "2020-05-24"')
 args = parser.parse_args()
 
-path_to_csv = args.esri_csv_dir
+path_to_csv = args.esri_dir / "csv"
+path_to_objedit = args.esri_dir / "objedit"
 proj_db = args.proj_db
 version = args.version
 date = args.date
+
+
+########################
+
+def import_syn(filename):
+
+    lst = []
+    with open(filename, "rt", encoding="UTF-8") as f:
+        lines = f.readlines()
+        for idx in range(len(lines)):
+            line = lines[idx][0:-1]
+            if line.startswith('"') and line.endswith('", \\'):
+                old_name = line[1:-4]
+                idx += 1
+                line = lines[idx][0:-1]
+                assert line.startswith('   "')
+                assert line.endswith('", \\')
+                new_name = line[4:-4]
+                idx += 1
+                line = lines[idx][0:-1]
+                assert line in ('   TRUE, \\', '   FALSE, \\')
+                if line == '   TRUE, \\':
+                    lst.append((new_name, old_name))
+    return lst
 
 conn = sqlite3.connect(proj_db)
 cursor = conn.cursor()
@@ -73,21 +98,17 @@ INSERT INTO grid_alternatives(original_grid_name,
                               package_name,
                               url, direct_download, open_license, directory)
 VALUES
-('prvi','us_noaa_prvi.tif','prvi','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/us_noaa_prvi.tif', 1, 1, NULL),
 ('portugal/DLX_ETRS89_geo','pt_dgt_DLx_ETRS89_geo.tif','DLX_ETRS89_geo.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/pt_dgt_DLx_ETRS89_geo.tif',1,1,NULL),
 ('portugal/D73_ETRS89_geo','pt_dgt_D73_ETRS89_geo.tif','D73_ETRS89_geo.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/pt_dgt_D73_ETRS89_geo.tif',1,1,NULL),
 ('netherlands/rdtrans2008','','rdtrans2008.gsb','NTv2','hgridshift',0,NULL,'https://salsa.debian.org/debian-gis-team/proj-rdnap/raw/upstream/2008/rdtrans2008.gsb',1,0,NULL),
 ('uk/OSTN15_NTv2','uk_os_OSTN15_NTv2_OSGBtoETRS.tif','OSTN15_NTv2_OSGBtoETRS.gsb','GTiff','hgridshift',1  -- reverse direction
     ,NULL,'https://cdn.proj.org/uk_os_OSTN15_NTv2_OSGBtoETRS.tif',1,1,NULL),
 ('canada/GS7783','ca_nrc_GS7783.tif','GS7783.GSB','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/ca_nrc_GS7783.tif',1,1,NULL),
-('c1hpgn', 'us_noaa_c1hpgn.tif', 'c1hpgn.gsb', 'GTiff', 'hgridshift', 0, NULL, 'https://cdn.proj.org/us_noaa_c1hpgn.tif', 1, 1, NULL),
-('c2hpgn', 'us_noaa_c2hpgn.tif', 'c2hpgn.gsb', 'GTiff', 'hgridshift', 0, NULL, 'https://cdn.proj.org/us_noaa_c2hpgn.tif', 1, 1, NULL),
 ('spain/100800401','es_cat_icgc_100800401.tif','100800401.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_cat_icgc_100800401.tif',1,1,NULL),
 ('australia/QLD_0900','au_icsm_National_84_02_07_01.tif','National_84_02_07_01.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/au_icsm_National_84_02_07_01.tif',1,1,NULL), -- From https://www.dnrme.qld.gov.au/__data/assets/pdf_file/0006/105765/gday-21-user-guide.pdf: "Note that the Queensland grid QLD_0900.gsb produces identical results to the National AGD84 grid for the equivalent coverage."
 ('spain/PENR2009','es_ign_SPED2ETV2.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_ign_SPED2ETV2.tif',1,1,NULL),
 ('spain/BALR2009','es_ign_SPED2ETV2.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_ign_SPED2ETV2.tif',1,1,NULL),
-('spain/peninsula','es_ign_SPED2ETV2.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_ign_SPED2ETV2.tif',1,1,NULL),
-('spain/baleares','es_ign_SPED2ETV2.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_ign_SPED2ETV2.tif',1,1,NULL);
+('spain/peninsula','es_ign_SPED2ETV2.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/es_ign_SPED2ETV2.tif',1,1,NULL);
 -- 'france/RGNC1991_IGN72GrandeTerre' : we have a 3D geocentric corresponding one: no need for mapping
 -- 'france/RGNC1991_NEA74Noumea' : we have a 3D geocentric corresponding one: no need for mapping
 """
@@ -394,7 +415,6 @@ def import_prime_meridian():
                     code, esri_name, value, deprecated)
                 all_sql.append(sql)
 
-
 ########################
 
 map_datum_esri_name_to_auth_code = {}
@@ -422,6 +442,7 @@ def get_old_esri_name(s):
     return s
 
 def import_datum():
+
     with open(path_to_csv / 'pe_list_datum.csv', 'rt') as csvfile:
         reader = csv.reader(csvfile)
         header = next(reader)
@@ -752,6 +773,24 @@ def import_geogcs():
             sql = """INSERT INTO "deprecation" VALUES('geodetic_crs','ESRI','%s','%s','%s','ESRI');""" % (
                 code, map_code_to_authority[replacement_code], replacement_code)
             all_sql.append(sql)
+
+    aliases = import_syn(path_to_objedit / "datum_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_datum_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('geodetic_datum','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
+
+    aliases = import_syn(path_to_objedit / "geogcs_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_geogcs_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('geodetic_crs','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
 
 ########################
 
@@ -1560,6 +1599,15 @@ def import_projcs():
                         code, latestWkid)
                     all_sql.append(sql)
 
+    aliases = import_syn(path_to_objedit / "projcs_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_projcs_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('projected_crs','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
+
 
 ########################
 
@@ -1830,7 +1878,7 @@ def import_vertcs():
                         sql = """INSERT INTO "usage" VALUES('ESRI', '%s_USAGE','vertical_datum','ESRI','%s','%s','%s','%s','%s');""" % (datum_code, datum_code, extent_auth_name, extent_code, 'EPSG', '1024')
                         all_sql.append(sql)
 
-                #map_vertcs_esri_name_to_auth_code[esri_name] = ['ESRI', code]
+                map_vertcs_esri_name_to_auth_code[esri_name] = ['ESRI', code]
 
                 parsed_wkt2 = parse_wkt_array(wkt2)
 
@@ -1882,6 +1930,24 @@ def import_vertcs():
             sql = """INSERT INTO "deprecation" VALUES('vertical_crs','ESRI','%s','%s','%s','ESRI');""" % (
                 code, map_code_to_authority[replacement_code], replacement_code)
             all_sql.append(sql)
+
+    aliases = import_syn(path_to_objedit / "vdatum_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_vdatum_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('vertical_datum','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
+
+    aliases = import_syn(path_to_objedit / "vertcs_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_vertcs_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('vertical_crs','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
 
 
 ########################
@@ -1972,6 +2038,14 @@ def import_hvcoordsys():
             else:
                 assert False, row  # no ESRI specific entries at that time !
 
+    aliases = import_syn(path_to_objedit / "hvcoordsys_syn.txt")
+    for (new_name, old_name) in aliases:
+
+        (auth, code) = map_compoundcrs_esri_name_to_auth_code[new_name]
+
+        sql = """INSERT INTO alias_name VALUES('compound_crs','%s','%s','%s','ESRI_OLD');""" % (
+            auth, code, escape_literal(old_name))
+        all_sql.append(sql)
 
 ########################
 
