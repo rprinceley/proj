@@ -143,7 +143,7 @@ message(STATUS "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 9 MINOR 5 PATCH 0)
+proj_version(MAJOR 9 MINOR 5 PATCH 1)
 set(PROJ_SOVERSION 25)
 set(PROJ_BUILD_VERSION "${PROJ_SOVERSION}.${PROJ_VERSION}")
 
@@ -289,14 +289,6 @@ find_package(Threads)
 if(Threads_FOUND AND CMAKE_USE_PTHREADS_INIT)
   set(CMAKE_REQUIRED_LIBRARIES
     "${CMAKE_REQUIRED_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT}")
-endif()
-
-include(CheckCSourceCompiles)
-if(MSVC)
-  set(CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} /WX /W4")
-else()
-  set(CMAKE_REQUIRED_LIBRARIES m)
-  set(CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} -Werror -Wall")
 endif()
 
 # Set a default build type for single-configuration cmake generators if
