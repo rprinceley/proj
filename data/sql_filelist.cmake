@@ -7,7 +7,7 @@ set(SQL_FILES_CONSISTENCY_CHECKS_TRIGGERS
 )
 
 # When setting PROJ_DB_EXTRA_VALIDATION=OFF, we defer the insertion of check triggers
-# until the very end to save build time. We also entirerly skip running
+# until the very end to save build time. We also entirely skip running
 # final_consistency_checks.sql.
 # Typical build time with PROJ_DB_EXTRA_VALIDATION=ON: 60 seconds
 # Typical build time with PROJ_DB_EXTRA_VALIDATION=OFF: 3.7 seconds
@@ -33,11 +33,13 @@ list(APPEND SQL_FILES
   "${SQL_DIR}/geodetic_datum_ensemble_member.sql"
   "${SQL_DIR}/vertical_datum.sql"
   "${SQL_DIR}/vertical_datum_ensemble_member.sql"
+  "${SQL_DIR}/engineering_datum.sql"
   "${SQL_DIR}/conversion.sql"
   "${SQL_DIR}/geodetic_crs.sql"
   "${SQL_DIR}/projected_crs.sql"
   "${SQL_DIR}/vertical_crs.sql"
   "${SQL_DIR}/compound_crs.sql"
+  "${SQL_DIR}/engineering_crs.sql"
   "${SQL_DIR}/helmert_transformation.sql"
   "${SQL_DIR}/grid_transformation.sql"
   "${SQL_DIR}/grid_transformation_custom.sql"
@@ -60,6 +62,7 @@ list(APPEND SQL_FILES
   "${SQL_DIR}/grid_alternatives.sql"
   "${SQL_DIR}/grid_alternatives_generated_noaa.sql"
   "${SQL_DIR}/nadcon5_concatenated_operations.sql"
+  "${SQL_DIR}/wgs84_realizations_concatenated_operations.sql"
   "${SQL_DIR}/customizations.sql"
   "${SQL_DIR}/nkg_post_customizations.sql"
   "${SQL_DIR}/commit.sql"

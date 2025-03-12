@@ -329,6 +329,26 @@ TEST(factory, AuthorityFactory_createDynamicVerticalDatum) {
 
 // ---------------------------------------------------------------------------
 
+TEST(factory, AuthorityFactory_createEngineeringDatum) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    EXPECT_THROW(factory->createEngineeringDatum("-1"),
+                 NoSuchAuthorityCodeException);
+    auto datum = factory->createEngineeringDatum("1134");
+    ASSERT_EQ(datum->identifiers().size(), 1U);
+    EXPECT_EQ(datum->identifiers()[0]->code(), "1134");
+    EXPECT_EQ(*(datum->identifiers()[0]->codeSpace()), "EPSG");
+    EXPECT_EQ(*(datum->name()->description()), "Christmas Island Datum 1985");
+    auto domain = datum->domains()[0];
+    auto extent = domain->domainOfValidity();
+    ASSERT_TRUE(extent != nullptr);
+    EXPECT_TRUE(extent->isEquivalentTo(factory->createExtent("4169").get()));
+    EXPECT_TRUE(datum->publicationDate().has_value());
+    EXPECT_EQ(datum->publicationDate()->toString(), "1985-01-01");
+    EXPECT_TRUE(!datum->anchorEpoch().has_value());
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(factory, AuthorityFactory_createDatum) {
     auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
     EXPECT_THROW(factory->createDatum("-1"), NoSuchAuthorityCodeException);
@@ -653,6 +673,29 @@ TEST(factory, AuthorityFactory_createVerticalCRS_with_datum_ensemble) {
     ASSERT_TRUE(crs->datumEnsemble() != nullptr);
     EXPECT_TRUE(crs->datumEnsemble()->isEquivalentTo(
         factory->createDatumEnsemble("1288").get()));
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(factory, AuthorityFactory_createEngineeringCRS) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    EXPECT_THROW(factory->createEngineeringCRS("-1"),
+                 NoSuchAuthorityCodeException);
+
+    auto crs = factory->createEngineeringCRS("6715");
+    ASSERT_EQ(crs->identifiers().size(), 1U);
+    EXPECT_EQ(crs->identifiers()[0]->code(), "6715");
+    EXPECT_EQ(*(crs->identifiers()[0]->codeSpace()), "EPSG");
+    EXPECT_EQ(*(crs->name()->description()), "Christmas Island Grid 1985");
+    EXPECT_TRUE(
+        crs->datum()->isEquivalentTo(factory->createDatum("1134").get()));
+    EXPECT_TRUE(crs->coordinateSystem()->isEquivalentTo(
+        factory->createCoordinateSystem("4400").get()));
+
+    auto domain = crs->domains()[0];
+    auto extent = domain->domainOfValidity();
+    ASSERT_TRUE(extent != nullptr);
+    EXPECT_TRUE(extent->isEquivalentTo(factory->createExtent("4169").get()));
 }
 
 // ---------------------------------------------------------------------------
@@ -1022,6 +1065,25 @@ TEST(factory,
               "+proj=helmert +x=0 +y=0 +z=0 +rx=0 +ry=0 +rz=0 +s=0 +dx=0 +dy=0 "
               "+dz=0 +drx=0.00011 +dry=0.00057 +drz=-0.00071 +ds=0 "
               "+t_epoch=1989 +convention=position_vector");
+}
+// ---------------------------------------------------------------------------
+
+TEST(factory,
+     AuthorityFactory_createCoordinateOperation_CF_full_matrix_geog3D) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto op = factory->createCoordinateOperation("10675", false);
+    EXPECT_EQ(op->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m "
+              "+step +proj=cart +ellps=GRS80 "
+              "+step +inv +proj=helmert +exact +x=1138.7432 +y=-2064.4761 "
+              "+z=110.7016 "
+              "+rx=-214.615206 +ry=479.360036 +rz=-164.703951 +s=-402.32073 "
+              "+convention=coordinate_frame "
+              "+step +inv +proj=cart +ellps=intl "
+              "+step +proj=unitconvert +xy_in=rad +z_in=m +xy_out=deg +z_out=m "
+              "+step +proj=axisswap +order=2,1");
 }
 
 // ---------------------------------------------------------------------------
@@ -1429,8 +1491,8 @@ TEST(factory,
         "                    ORDER[3],\n"
         "                    LENGTHUNIT[\"metre\",1]],\n"
         "            ID[\"EPSG\",8254]]],\n"
-        "    METHOD[\"Point motion by grid (NTv2_Vel)\",\n"
-        "        ID[\"EPSG\",1070]],\n"
+        "    METHOD[\"Point motion by grid (NEU domain) (NTv2_Vel)\",\n"
+        "        ID[\"EPSG\",1141]],\n"
         "    PARAMETERFILE[\"Point motion velocity grid "
         "file\",\"NAD83v70VG.gvb\"],\n"
         "    OPERATIONACCURACY[0.01],\n"
@@ -1444,8 +1506,12 @@ TEST(factory,
         "        BBOX[41.67,-141.01,83.17,-52.54]],\n"
         "    ID[\"EPSG\",9483],\n"
         "    REMARK[\"File initially published with name cvg70.cvb, later "
-        "renamed to NAD83v70VG.gvb with no change of content. Replaces v6 "
-        "velocity grid.\"]]";
+        "renamed to NAD83v70VG.gvb with no change of content. Replaces Canada "
+        "velocity grid v6 (code 8676). Replaced by Canada velocity grid v8 "
+        "(code 10707). Although the interpolation CRS is given as "
+        "NAD83(CSRS)v7 (also known as NAD83(CSRS) 2010), any version of "
+        "NAD83(CSRS) may be used for grid interpolation without significant "
+        "error.\"]]";
 
     EXPECT_EQ(
         pmo->exportToWKT(
@@ -1503,11 +1569,19 @@ TEST(factory, AuthorityFactory_getAuthorityCodes) {
                     nullptr);
         EXPECT_LT(setDynamicVerticalDatum.size(), setVerticalDatum.size());
 
+        auto setEngineeringDatum = factory->getAuthorityCodes(
+            AuthorityFactory::ObjectType::ENGINEERING_DATUM);
+        ASSERT_TRUE(!setEngineeringDatum.empty());
+        factory->createEngineeringDatum(*(setEngineeringDatum.begin()));
+
         std::set<std::string> setMerged;
         for (const auto &v : setGeodeticDatum) {
             setMerged.insert(v);
         }
         for (const auto &v : setVerticalDatum) {
+            setMerged.insert(v);
+        }
+        for (const auto &v : setEngineeringDatum) {
             setMerged.insert(v);
         }
         EXPECT_EQ(setDatum, setMerged);
@@ -1569,6 +1643,11 @@ TEST(factory, AuthorityFactory_getAuthorityCodes) {
         ASSERT_TRUE(!setCompoundCRS.empty());
         factory->createCompoundCRS(*(setCompoundCRS.begin()));
 
+        auto setEngineeringCRS = factory->getAuthorityCodes(
+            AuthorityFactory::ObjectType::ENGINEERING_CRS);
+        ASSERT_TRUE(!setEngineeringCRS.empty());
+        factory->createEngineeringCRS(*(setEngineeringCRS.begin()));
+
         std::set<std::string> setMerged;
         for (const auto &v : setGeodeticCRS) {
             setMerged.insert(v);
@@ -1580,6 +1659,9 @@ TEST(factory, AuthorityFactory_getAuthorityCodes) {
             setMerged.insert(v);
         }
         for (const auto &v : setCompoundCRS) {
+            setMerged.insert(v);
+        }
+        for (const auto &v : setEngineeringCRS) {
             setMerged.insert(v);
         }
         EXPECT_EQ(setCRS, setMerged);
@@ -1979,12 +2061,12 @@ class FactoryWithTmpDatabase : public ::testing::Test {
 
         ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                             "VALUES('EPSG','DUMMY_CONCATENATED',1,"
-                            "'EPSG','DUMMY_OTHER_TRANSFORMATION');"))
+                            "'EPSG','DUMMY_OTHER_TRANSFORMATION',NULL);"))
             << last_error();
 
         ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                             "VALUES('EPSG','DUMMY_CONCATENATED',2,"
-                            "'EPSG','DUMMY_OTHER_TRANSFORMATION');"))
+                            "'EPSG','DUMMY_OTHER_TRANSFORMATION',NULL);"))
             << last_error();
     }
 
@@ -2414,12 +2496,12 @@ TEST_F(FactoryWithTmpDatabase,
         << last_error();
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','DUMMY_CONCATENATED_2',1,"
-                        "'EPSG','OTHER_GEOG_CRS_TO_4326');"))
+                        "'EPSG','OTHER_GEOG_CRS_TO_4326',NULL);"))
         << last_error();
 
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','DUMMY_CONCATENATED_2',2,"
-                        "'EPSG','4326_TO_OTHER_GEOG_CRS');"))
+                        "'EPSG','4326_TO_OTHER_GEOG_CRS',NULL);"))
         << last_error();
 
     auto factoryEPSG = AuthorityFactory::create(DatabaseContext::create(m_ctxt),
@@ -3549,43 +3631,43 @@ TEST_F(FactoryWithTmpDatabase,
     // Forward map projection
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',1,"
-                        "'EPSG','16031');"))
+                        "'EPSG','16031',NULL);"))
         << last_error();
 
     // Noop projected
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',2,"
-                        "'EPSG','NOOP_TRANSFORMATION_32631');"))
+                        "'EPSG','NOOP_TRANSFORMATION_32631',NULL);"))
         << last_error();
 
     // Inverse map projection
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',3,"
-                        "'EPSG','16031');"))
+                        "'EPSG','16031',NULL);"))
         << last_error();
 
     // Noop geographic
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',4,"
-                        "'EPSG','NOOP_TRANSFORMATION_4326');"))
+                        "'EPSG','NOOP_TRANSFORMATION_4326',NULL);"))
         << last_error();
 
     // Forward map projection
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',5,"
-                        "'EPSG','16031');"))
+                        "'EPSG','16031',NULL);"))
         << last_error();
 
     // Noop projected
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',6,"
-                        "'EPSG','NOOP_TRANSFORMATION_32631');"))
+                        "'EPSG','NOOP_TRANSFORMATION_32631',NULL);"))
         << last_error();
 
     // Inverse map projection
     ASSERT_TRUE(execute("INSERT INTO concatenated_operation_step "
                         "VALUES('EPSG','TEST_CONCATENATED',7,"
-                        "'EPSG','16031');"))
+                        "'EPSG','16031',NULL);"))
         << last_error();
 
     auto dbContext = DatabaseContext::create(m_ctxt);
@@ -3665,6 +3747,13 @@ TEST(factory, createObjectsFromName) {
     EXPECT_EQ(factoryEPSG->createObjectsFromName("EGM2008 geoid", {}, false, 2)
                   .size(),
               1U);
+    // Engineering datum
+    EXPECT_EQ(
+        factoryEPSG
+            ->createObjectsFromName("Christmas Island Datum 1985", {}, false, 2)
+            .size(),
+        1U);
+
     // Geodetic CRS
     EXPECT_EQ(factoryEPSG
                   ->createObjectsFromName(
@@ -3689,6 +3778,12 @@ TEST(factory, createObjectsFromName) {
                       {}, false, 2)
                   .size(),
               1U);
+    // Engineering CRS
+    EXPECT_EQ(
+        factoryEPSG
+            ->createObjectsFromName("Christmas Island Grid 1985", {}, false, 2)
+            .size(),
+        1U);
     // Conversion
     EXPECT_EQ(
         factoryEPSG->createObjectsFromName("Belgian Lambert 2008", {}, false, 2)
@@ -3783,6 +3878,7 @@ TEST(factory, createObjectsFromName) {
         AuthorityFactory::ObjectType::DYNAMIC_GEODETIC_REFERENCE_FRAME,
         AuthorityFactory::ObjectType::VERTICAL_REFERENCE_FRAME,
         AuthorityFactory::ObjectType::DYNAMIC_VERTICAL_REFERENCE_FRAME,
+        AuthorityFactory::ObjectType::ENGINEERING_DATUM,
         AuthorityFactory::ObjectType::CRS,
         AuthorityFactory::ObjectType::GEODETIC_CRS,
         AuthorityFactory::ObjectType::GEOCENTRIC_CRS,
@@ -3792,6 +3888,7 @@ TEST(factory, createObjectsFromName) {
         AuthorityFactory::ObjectType::PROJECTED_CRS,
         AuthorityFactory::ObjectType::VERTICAL_CRS,
         AuthorityFactory::ObjectType::COMPOUND_CRS,
+        AuthorityFactory::ObjectType::ENGINEERING_CRS,
         AuthorityFactory::ObjectType::COORDINATE_OPERATION,
         AuthorityFactory::ObjectType::CONVERSION,
         AuthorityFactory::ObjectType::TRANSFORMATION,
@@ -4068,7 +4165,7 @@ TEST(factory, objectInsertion) {
 
     {
         auto ctxt = DatabaseContext::create();
-        // Tolerated withtout explicit stop
+        // Tolerated without explicit stop
         ctxt->startInsertStatementsSession();
     }
 

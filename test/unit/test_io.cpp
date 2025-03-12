@@ -13716,12 +13716,37 @@ TEST(io, createFromUserInput) {
         auto obj = createFromUserInput("NGF IGN69 height", dbContext);
         auto crs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
         EXPECT_TRUE(crs != nullptr);
-        EXPECT_EQ(crs->nameStr(), "NGF-IGN69 height");
+        EXPECT_EQ(crs->nameStr(), "NGF-IGN69 height"); // EPSG:5720
+    }
+
+    {
+        // Approximate match of a vertical CRS
+        auto obj = createFromUserInput("NGF IGN1969", dbContext);
+        auto crs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
+        EXPECT_TRUE(crs != nullptr);
+        EXPECT_EQ(crs->nameStr(), "NGF-IGN 1969"); // IGNF69:IGN69
+    }
+
+    {
+        // Approximate match of a vertical CRS
+        auto obj = createFromUserInput("NGF IGN69", dbContext);
+        auto crs = nn_dynamic_pointer_cast<VerticalCRS>(obj);
+        EXPECT_TRUE(crs != nullptr);
+        // Questionnable if we shouldn't match EPSG:5720 instead
+        EXPECT_EQ(crs->nameStr(), "NGF-IGN 1969"); // IGNF69:IGN69
     }
 
     {
         // Exact match on each piece of the compound CRS
         auto obj = createFromUserInput("WGS 84 + EGM96 height", dbContext);
+        auto crs = nn_dynamic_pointer_cast<CompoundCRS>(obj);
+        ASSERT_TRUE(crs != nullptr);
+        EXPECT_EQ(crs->nameStr(), "WGS 84 + EGM96 height");
+    }
+
+    {
+        // Approximate match
+        auto obj = createFromUserInput("WGS 84 + EGM96", dbContext);
         auto crs = nn_dynamic_pointer_cast<CompoundCRS>(obj);
         ASSERT_TRUE(crs != nullptr);
         EXPECT_EQ(crs->nameStr(), "WGS 84 + EGM96 height");
@@ -13810,6 +13835,18 @@ TEST(io, createFromUserInput) {
         ASSERT_TRUE(coordinateMetadata != nullptr);
         EXPECT_EQ(coordinateMetadata->coordinateEpochAsDecimalYear(), 2025.1);
     }
+
+    {
+        // Approximate match involving using "north" instead of N and lacking
+        // "zone"
+        auto obj = createFromUserInput("WGS 84 UTM 31 north", dbContext);
+        auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+        ASSERT_TRUE(crs != nullptr);
+        EXPECT_EQ(crs->nameStr(), "WGS 84 / UTM zone 31N");
+    }
+
+    // Should not match WGS84 or IGM85
+    EXPECT_THROW(createFromUserInput("WGS 85", dbContext), ParsingException);
 }
 
 // ---------------------------------------------------------------------------
@@ -15096,8 +15133,14 @@ TEST(json_import, projected_crs) {
     auto obj = createFromUserInput(json, nullptr);
     auto pcrs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
     ASSERT_TRUE(pcrs != nullptr);
-    EXPECT_EQ(pcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
-              json);
+    std::string got_json =
+        pcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo")));
+    const char *typeGeogCRS = "    \"type\": \"GeographicCRS\",\n";
+    const auto posTypeGeogCRS = got_json.find(typeGeogCRS);
+    EXPECT_TRUE(posTypeGeogCRS != std::string::npos) << got_json;
+    got_json = got_json.substr(0, posTypeGeogCRS) +
+               got_json.substr(posTypeGeogCRS + strlen(typeGeogCRS));
+    EXPECT_STREQ(got_json.c_str(), json);
 }
 
 // ---------------------------------------------------------------------------
@@ -15326,8 +15369,14 @@ TEST(json_import, projected_crs_with_geocentric_base) {
     auto pcrs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
     ASSERT_TRUE(pcrs != nullptr);
     EXPECT_TRUE(pcrs->baseCRS()->isGeocentric());
-    EXPECT_EQ(pcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo"))),
-              json);
+    std::string got_json =
+        pcrs->exportToJSON(&(JSONFormatter::create()->setSchema("foo")));
+    const char *typeGeodCRS = "    \"type\": \"GeodeticCRS\",\n";
+    const auto posTypeGeodCRS = got_json.find(typeGeodCRS);
+    EXPECT_TRUE(posTypeGeodCRS != std::string::npos) << got_json;
+    got_json = got_json.substr(0, posTypeGeodCRS) +
+               got_json.substr(posTypeGeodCRS + strlen(typeGeodCRS));
+    EXPECT_STREQ(got_json.c_str(), json);
 }
 
 // ---------------------------------------------------------------------------
@@ -16116,6 +16165,7 @@ TEST(json_import, concatenated_operation) {
         "    \"type\": \"ProjectedCRS\",\n"
         "    \"name\": \"GDA94 / Vicgrid\",\n"
         "    \"base_crs\": {\n"
+        "      \"type\": \"GeographicCRS\",\n"
         "      \"name\": \"GDA94\",\n"
         "      \"datum\": {\n"
         "        \"type\": \"GeodeticReferenceFrame\",\n"
@@ -17334,6 +17384,7 @@ TEST(json_import, derived_projected_crs) {
                 "    \"type\": \"ProjectedCRS\",\n"
                 "    \"name\": \"WGS 84 / UTM zone 31N\",\n"
                 "    \"base_crs\": {\n"
+                "      \"type\": \"GeographicCRS\",\n"
                 "      \"name\": \"WGS 84\",\n"
                 "      \"datum\": {\n"
                 "        \"type\": \"GeodeticReferenceFrame\",\n"

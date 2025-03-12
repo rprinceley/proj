@@ -276,8 +276,7 @@ createConversion(const util::PropertyMap &properties,
                      metadata::Identifier::EPSG)
                 .set(metadata::Identifier::CODE_KEY, param->epsg_code);
         }
-        auto parameter = OperationParameter::create(paramProperties);
-        parameters.push_back(parameter);
+        parameters.push_back(OperationParameter::create(paramProperties));
     }
 
     auto methodProperties = util::PropertyMap().set(
@@ -2624,7 +2623,7 @@ Conversion::createGeographicGeocentric(const crs::CRSNNPtr &sourceCRS,
 /** \brief Instantiate a conversion between a GeographicCRS and a spherical
  * planetocentric GeodeticCRS
  *
- * This method peforms conversion between geodetic latitude and geocentric
+ * This method performs conversion between geodetic latitude and geocentric
  * latitude
  *
  * @return a new Conversion.
@@ -2713,9 +2712,11 @@ CoordinateOperationNNPtr Conversion::inverse() const {
         if (convFactor == 0) {
             throw InvalidOperation("Invalid conversion factor");
         }
+        // coverity[divide_by_zero]
+        const double invConvFactor = 1.0 / convFactor;
         auto conv = createChangeVerticalUnit(
             createPropertiesForInverse(this, false, false),
-            common::Scale(1.0 / convFactor));
+            common::Scale(invConvFactor));
         conv->setCRSs(this, true);
         return conv;
     }
@@ -2880,6 +2881,7 @@ ConversionPtr Conversion::convertToOtherMethod(int targetEPSGCode) const {
             EPSG_CODE_PARAMETER_SCALE_FACTOR_AT_NATURAL_ORIGIN);
         if (!(k0 > 0 && k0 <= 1.0 + 1e-10))
             return nullptr;
+        // coverity[divide_by_zero]
         const double dfStdP1Lat =
             (k0 >= 1.0)
                 ? 0.0
@@ -4103,10 +4105,12 @@ void Conversion::_exportToPROJString(
         // Look for ESRI method and parameter names (to be opposed
         // to the OGC WKT2 names we use elsewhere, because there's no mapping
         // of those parameters to OGC WKT2)
-        // We also reject non-default values for a number of parameters,
-        // because they are not implemented on PROJ side. The subset we
-        // support can handle ESRI:54098 WGS_1984_Adams_Square_II, but not
+        // We at least support ESRI:54098 WGS_1984_Adams_Square_II and
         // ESRI:54099 WGS_1984_Spilhaus_Ocean_Map_in_Square
+        // More generally, we think our implementation of +proj=spilhaus
+        // matches ESRI Adams_Square_II with just a sqrt(2) factor difference
+        // for the scale factor, with a ~20 cm difference (difference in
+        // ell_int_5() computation?)
         const double falseEasting = parameterValueNumeric(
             "False_Easting", common::UnitOfMeasure::METRE);
         const double falseNorthing = parameterValueNumeric(
@@ -4124,14 +4128,13 @@ void Conversion::_exportToPROJString(
             "Latitude_Of_Center", common::UnitOfMeasure::DEGREE);
         const double XYPlaneRotation = parameterValueNumeric(
             "XY_Plane_Rotation", common::UnitOfMeasure::DEGREE);
-        if (scaleFactor != 1.0 || azimuth != 0.0 || latitudeOfCenter != 0.0 ||
-            XYPlaneRotation != 0.0) {
-            throw io::FormattingException("Unsupported value for one or "
-                                          "several parameters of "
-                                          "Adams_Square_II");
-        }
-        formatter->addStep("adams_ws2");
+
+        formatter->addStep("spilhaus");
+        formatter->addParam("lat_0", latitudeOfCenter);
         formatter->addParam("lon_0", longitudeOfCenter);
+        formatter->addParam("azi", azimuth);
+        formatter->addParam("k_0", M_SQRT2 * scaleFactor);
+        formatter->addParam("rot", XYPlaneRotation);
         formatter->addParam("x_0", falseEasting);
         formatter->addParam("y_0", falseNorthing);
         bConversionDone = true;
@@ -4607,7 +4610,7 @@ ConversionNNPtr Conversion::createGeographic2DWithHeightOffsets(
         VectorOfParameters{
             createOpParamNameEPSGCode(EPSG_CODE_PARAMETER_LATITUDE_OFFSET),
             createOpParamNameEPSGCode(EPSG_CODE_PARAMETER_LONGITUDE_OFFSET),
-            createOpParamNameEPSGCode(EPSG_CODE_PARAMETER_GEOID_UNDULATION)},
+            createOpParamNameEPSGCode(EPSG_CODE_PARAMETER_GEOID_HEIGHT)},
         VectorOfValues{offsetLat, offsetLong, offsetHeight});
 }
 

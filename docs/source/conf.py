@@ -23,13 +23,13 @@ title = "PROJ coordinate transformation software library"
 author = "PROJ contributors"
 
 # The major project version, used as the replacement for |version|
-version = "9.5"
+version = "9.6"
 
 # The full project version, used as the replacement for |release|
-release = "9.5.0"
+release = "9.6.0-dev"
 
 # PROJ-data version
-data_version = "1.19"
+data_version = "1.20"
 
 today_date = date.today()
 # today_date = date(Y, M, D)  # or use a specific date
@@ -276,3 +276,10 @@ html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
 # Tell Jinja2 templates the build is running on Read the Docs
 if os.environ.get("READTHEDOCS", "") == "True":
     html_context["READTHEDOCS"] = True
+
+# -- Spelling --------------------------------------------------
+
+# Avoid running git
+spelling_ignore_contributor_names = False
+
+spelling_word_list_filename = ["spelling_wordlist.txt"]

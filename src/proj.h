@@ -174,8 +174,8 @@ extern "C" {
 
 /* The version numbers should be updated with every release! **/
 #define PROJ_VERSION_MAJOR 9
-#define PROJ_VERSION_MINOR 5
-#define PROJ_VERSION_PATCH 1
+#define PROJ_VERSION_MINOR 6
+#define PROJ_VERSION_PATCH 0
 
 /* Note: the following 3 defines have been introduced in PROJ 8.0.1 */
 /* Macro to compute a PROJ version number from its components */
@@ -640,6 +640,16 @@ int PROJ_DLL proj_trans_bounds(PJ_CONTEXT *context, PJ *P,
                                double xmax, double ymax, double *out_xmin,
                                double *out_ymin, double *out_xmax,
                                double *out_ymax, int densify_pts);
+
+int PROJ_DLL proj_trans_bounds_3D(PJ_CONTEXT *context, PJ *P,
+                                  PJ_DIRECTION direction, const double xmin,
+                                  const double ymin, const double zmin,
+                                  const double xmax, const double ymax,
+                                  const double zmax, double *out_xmin,
+                                  double *out_ymin, double *out_zmin,
+                                  double *out_xmax, double *out_ymax,
+                                  double *out_zmax, const int densify_pts);
+
 /*! @cond Doxygen_Suppress */
 
 /* Initializers */

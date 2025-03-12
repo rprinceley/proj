@@ -556,6 +556,7 @@ PJ *proj_clone(PJ_CONTEXT *ctx, const PJ *obj) {
             if (newPj) {
                 newPj->descr = "Set of coordinate operations";
                 newPj->ctx = ctx;
+                newPj->copyStateFrom(*obj);
                 const int old_debug_level = ctx->debug_level;
                 ctx->debug_level = PJ_LOG_NONE;
                 for (const auto &altOp : obj->alternativeCoordinateOperations) {
@@ -569,7 +570,11 @@ PJ *proj_clone(PJ_CONTEXT *ctx, const PJ *obj) {
         return nullptr;
     }
     try {
-        return pj_obj_create(ctx, NN_NO_CHECK(obj->iso_obj));
+        PJ *newPj = pj_obj_create(ctx, NN_NO_CHECK(obj->iso_obj));
+        if (newPj) {
+            newPj->copyStateFrom(*obj);
+        }
+        return newPj;
     } catch (const std::exception &e) {
         proj_log_error(ctx, __FUNCTION__, e.what());
     }
@@ -1063,7 +1068,7 @@ convertPJObjectTypeToObjectType(PJ_TYPE type, bool &valid) {
         break;
 
     case PJ_TYPE_ENGINEERING_DATUM:
-        valid = false;
+        cppType = AuthorityFactory::ObjectType::ENGINEERING_DATUM;
         break;
 
     case PJ_TYPE_PARAMETRIC_DATUM:
@@ -1111,7 +1116,7 @@ convertPJObjectTypeToObjectType(PJ_TYPE type, bool &valid) {
         break;
 
     case PJ_TYPE_ENGINEERING_CRS:
-        valid = false;
+        cppType = AuthorityFactory::ObjectType::ENGINEERING_CRS;
         break;
 
     case PJ_TYPE_TEMPORAL_CRS:
@@ -2751,7 +2756,7 @@ PJ_OBJ_LIST *proj_identify(PJ_CONTEXT *ctx, const PJ *obj,
                     ++i;
                 }
             }
-            auto ret = internal::make_unique<PJ_OBJ_LIST>(std::move(objects));
+            auto ret = std::make_unique<PJ_OBJ_LIST>(std::move(objects));
             if (out_confidence) {
                 *out_confidence = confidenceTemp;
                 confidenceTemp = nullptr;
@@ -2980,11 +2985,11 @@ proj_get_crs_info_list_from_database(PJ_CONTEXT *ctx, const char *auth_name,
     int i = 0;
     try {
         auto dbContext = getDBcontext(ctx);
-        const std::string authName = auth_name ? auth_name : "";
+        std::string authName = auth_name ? auth_name : "";
         auto actualAuthNames =
             dbContext->getVersionedAuthoritiesFromName(authName);
         if (actualAuthNames.empty())
-            actualAuthNames.push_back(authName);
+            actualAuthNames.push_back(std::move(authName));
         std::list<AuthorityFactory::CRSInfo> concatList;
         for (const auto &actualAuthName : actualAuthNames) {
             auto factory = AuthorityFactory::create(dbContext, actualAuthName);
@@ -9190,7 +9195,7 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
             pjNew->descr = "Set of coordinate operations";
             pjNew->left = obj->left;
             pjNew->right = obj->right;
-            pjNew->over = obj->over;
+            pjNew->copyStateFrom(*obj);
 
             for (const auto &alt : obj->alternativeCoordinateOperations) {
                 auto co = dynamic_cast<const CoordinateOperation *>(
@@ -9226,8 +9231,10 @@ PJ *proj_normalize_for_visualization(PJ_CONTEXT *ctx, const PJ *obj) {
                     ctx->forceOver = alt.pj->over != 0;
                     auto pjNormalized =
                         pj_obj_create(ctx, co->normalizeForVisualization());
-                    pjNormalized->over = alt.pj->over;
                     ctx->forceOver = false;
+
+                    pjNormalized->copyStateFrom(*(alt.pj));
+
                     pjNew->alternativeCoordinateOperations.emplace_back(
                         alt.idxInOriginalList, minxSrc, minySrc, maxxSrc,
                         maxySrc, minxDst, minyDst, maxxDst, maxyDst,
@@ -9669,7 +9676,7 @@ proj_get_geoid_models_from_database(PJ_CONTEXT *ctx, const char *auth_name,
 
 // ---------------------------------------------------------------------------
 
-/** \brief Instanciate a CoordinateMetadata object
+/** \brief Instantiate a CoordinateMetadata object
  *
  * @since 9.4
  */

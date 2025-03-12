@@ -100,6 +100,24 @@ FOR EACH ROW BEGIN
         WHERE (SELECT dimension FROM coordinate_system WHERE coordinate_system.auth_name = NEW.coordinate_system_auth_name AND coordinate_system.code = NEW.coordinate_system_code) != 1;
 END;
 
+CREATE TRIGGER engineering_crs_insert_trigger
+BEFORE INSERT ON engineering_crs
+FOR EACH ROW BEGIN
+
+    SELECT RAISE(ABORT, 'insert on engineering_crs violates constraint: (auth_name, code) must not already exist in crs_view')
+        WHERE EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.auth_name AND crs_view.code = NEW.code);
+
+    SELECT RAISE(ABORT, 'insert on engineering_crs violates constraint: name (of a non-deprecated entry) must not already exist in (a non-deprecated entry of) crs_view')
+        WHERE EXISTS (SELECT 1 FROM crs_view WHERE crs_view.name = NEW.name AND crs_view.deprecated = 0 AND NEW.deprecated = 0
+    );
+
+    SELECT RAISE(ABORT, 'insert on engineering_crs violates constraint: datum must not be deprecated when engineering_crs is not deprecated')
+        WHERE EXISTS(SELECT 1 FROM engineering_crs datum WHERE datum.auth_name = NEW.datum_auth_name AND datum.code = NEW.datum_code AND datum.deprecated != 0) AND NEW.deprecated = 0;
+
+    SELECT RAISE(ABORT, 'insert on engineering_crs violates constraint: coordinate_system.dimension must be 2 or 3')
+        WHERE (SELECT dimension FROM coordinate_system WHERE coordinate_system.auth_name = NEW.coordinate_system_auth_name AND coordinate_system.code = NEW.coordinate_system_code) NOT IN (2, 3);
+END;
+
 CREATE TRIGGER conversion_method_insert_trigger
 BEFORE INSERT ON conversion_method
 BEGIN
@@ -224,8 +242,8 @@ FOR EACH ROW BEGIN
     SELECT RAISE(ABORT, 'insert on compound_crs violates constraint: horiz_crs(auth_name, code) not found')
         WHERE NOT EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.horiz_crs_auth_name AND crs_view.code = NEW.horiz_crs_code);
 
-    SELECT RAISE(ABORT, 'insert on compound_crs violates constraint: horiz_crs must be equal to ''geographic 2D'' or ''projected''')
-        WHERE (SELECT type FROM crs_view WHERE crs_view.auth_name = NEW.horiz_crs_auth_name AND crs_view.code = NEW.horiz_crs_code) NOT IN ('geographic 2D', 'projected');
+    SELECT RAISE(ABORT, 'insert on compound_crs violates constraint: horiz_crs must be equal to ''geographic 2D'', ''projected'' or ''engineering''')
+        WHERE (SELECT type FROM crs_view WHERE crs_view.auth_name = NEW.horiz_crs_auth_name AND crs_view.code = NEW.horiz_crs_code) NOT IN ('geographic 2D', 'projected', 'engineering');
 
     SELECT RAISE(ABORT, 'insert on compound_crs violates constraint: vertical_crs must be equal to ''vertical''')
         WHERE (SELECT type FROM crs_view WHERE crs_view.auth_name = NEW.vertical_crs_auth_name AND crs_view.code = NEW.vertical_crs_code) NOT IN ('vertical');
@@ -304,7 +322,7 @@ FOR EACH ROW BEGIN
                            (m.name LIKE '%geog3D domain%' AND crs.type != 'geographic 3D') OR
                            (m.name LIKE '%geocentric domain%' AND crs.type != 'geocentric')));
 
-    -- check that a time-dependent Helmert transformation has its source or target CRS being dyanmic
+    -- check that a time-dependent Helmert transformation has its source or target CRS being dynamic
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: a time-dependent Helmert transformations should have at least one of its source or target CRS dynamic')
         WHERE NEW.deprecated = 0
               AND EXISTS (SELECT 1 FROM coordinate_operation_method m
@@ -345,6 +363,12 @@ FOR EACH ROW BEGIN
 
     SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: target_crs(auth_name, code) not found')
         WHERE NOT EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.target_crs_auth_name AND crs_view.code = NEW.target_crs_code);
+
+    SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: interpolation_crs(auth_name, code) not found')
+        WHERE NEW.interpolation_crs_code IS NOT NULL AND NOT EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.interpolation_crs_auth_name AND crs_view.code = NEW.interpolation_crs_code);
+
+    SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: interpolation_crs must be a GeodeticCRS on non-TIN shift based files')
+        WHERE NEW.method_name NOT LIKE '%JSON%' AND NEW.interpolation_crs_code IS NOT NULL AND NOT EXISTS (SELECT 1 FROM geodetic_crs WHERE geodetic_crs.auth_name = NEW.interpolation_crs_auth_name AND geodetic_crs.code = NEW.interpolation_crs_code);
 
     SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: source_crs must not be deprecated when grid_transformation is not deprecated')
         WHERE EXISTS(SELECT 1 FROM crs_view crs WHERE crs.auth_name = NEW.source_crs_auth_name AND crs.code = NEW.source_crs_code AND crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI');

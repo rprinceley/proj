@@ -169,6 +169,9 @@ VALUES
 ('eur_nkg_nkgrf17vel.tif','eur_nkg_nkgrf17vel.tif',NULL,'GTiff','velocity_grid',0,NULL,'https://cdn.proj.org/eur_nkg_nkgrf17vel.tif',1,1,NULL),
 
 -- fi_nls - National Land Survey of Finland (MML)
+('fi_nls_fin2000.tif','fi_nls_fin2000.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fi_nls_fin2000.tif',1,1,NULL),
+('fi_nls_fin2005n00.tif','fi_nls_fin2005n00.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fi_nls_fin2005n00.tif',1,1,NULL),
+('fi_nls_fin2023n2000.tif','fi_nls_fin2023n2000.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fi_nls_fin2023n2000.tif',1,1,NULL),
 ('fi_nls_n43_n60.json','fi_nls_n43_n60.json',NULL,'JSON','tinshift',0,NULL,'https://cdn.proj.org/fi_nls_n43_n60.json',1,1,NULL),
 ('fi_nls_n60_n2000.json','fi_nls_n60_n2000.json',NULL,'JSON','tinshift',0,NULL,'https://cdn.proj.org/fi_nls_n60_n2000.json',1,1,NULL),
 ('fi_nls_ykj_etrs35fin.json','fi_nls_ykj_etrs35fin.json',NULL,'JSON','tinshift',0,NULL,'https://cdn.proj.org/fi_nls_ykj_etrs35fin.json',1,1,NULL),
@@ -176,6 +179,7 @@ VALUES
 -- fr_ign - IGN France
 ('rgf93_ntf.gsb','fr_ign_ntf_r93.tif','ntf_r93.gsb','GTiff','hgridshift',1,NULL,'https://cdn.proj.org/fr_ign_ntf_r93.tif',1,1,NULL),
 ('gr3df97a.txt','fr_ign_gr3df97a.tif',NULL,'GTiff','geocentricoffset',0,NULL,'https://cdn.proj.org/fr_ign_gr3df97a.tif',1,1,NULL),
+('RGM04versRGM23.txt','fr_ign_RGM04versRGM23.tif',NULL,'GTiff','geocentricoffset',0,NULL,'https://cdn.proj.org/fr_ign_RGM04versRGM23.tif',1,1,NULL),
 -- Vertical grids
 ('RAC09.mnt','fr_ign_RAC09.tif','RAC09.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fr_ign_RAC09.tif',1,1,NULL),
 ('RAC23.mnt','fr_ign_RAC23.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fr_ign_RAC23.tif',1,1,NULL),
@@ -241,6 +245,9 @@ VALUES
 
 -- jp_gsi - Geospatial Information Authority of Japan
 ('jp_gsi_gsigeo2011.tif','jp_gsi_gsigeo2011.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/jp_gsi_gsigeo2011.tif',1,1,NULL),
+
+-- lv_lgia - Latvian Geospatial Information Agency
+('lv_lgia_lv14.tif','lv_lgia_lv14.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/lv_lgia_lv14.tif',1,1,NULL),
 
 -- mx_inegi - Instituto Nacional de Estadística, Geografía e Informática (INEGI) Mexico
 ('GGM10.txt','mx_inegi_ggm10.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/mx_inegi_ggm10.tif',1,1,NULL),

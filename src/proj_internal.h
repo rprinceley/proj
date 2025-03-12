@@ -76,6 +76,7 @@
 #include "proj/common.hpp"
 #include "proj/coordinateoperation.hpp"
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -675,6 +676,9 @@ struct PJconsts {
         true; /* to remove in PROJ 10? */
     bool skipNonInstantiable = true;
 
+    // Used internally by proj_factors()
+    PJ *cached_op_for_proj_factors = nullptr;
+
     /*************************************************************************************
 
                  E N D   O F    G E N E R A L   P A R A M E T E R   S T R U C T
@@ -684,6 +688,8 @@ struct PJconsts {
     PJconsts();
     PJconsts(const PJconsts &) = delete;
     PJconsts &operator=(const PJconsts &) = delete;
+
+    void copyStateFrom(const PJconsts &);
 };
 
 /* Parameter list (a copy of the +proj=... etc. parameters) */
@@ -778,7 +784,7 @@ struct projFileApiCallbackAndData {
 };
 
 /* proj thread context */
-struct pj_ctx {
+struct PROJ_GCC_DLL pj_ctx {
     std::string lastFullErrorMessage{}; // used by proj_context_errno_string
     int last_errno = 0;
     int debug_level = PJ_LOG_ERROR;
@@ -803,6 +809,9 @@ struct pj_ctx {
                                void *user_data) = nullptr;
     void *file_finder_user_data = nullptr;
 
+    // Cache result of pj_find_file()
+    std::map<std::string, std::string> lookupedFiles{};
+
     bool defer_grid_opening = false; // set transiently by pj_obj_create()
 
     projFileApiCallbackAndData fileApi{};
@@ -814,6 +823,7 @@ struct pj_ctx {
     std::string endpoint{};
     projNetworkCallbacksAndData networking{};
     std::string ca_bundle_path{};
+    bool native_ca = false;
     projGridChunkCache gridChunkCache{};
     TMercAlgo defaultTmercAlgo =
         TMercAlgo::PODER_ENGSAGER; // can be overridden by content of proj.ini
@@ -831,7 +841,7 @@ struct pj_ctx {
 
     pj_ctx &operator=(const pj_ctx &) = delete;
 
-    projCppContext *get_cpp_context();
+    projCppContext PROJ_FOR_TEST *get_cpp_context();
     void set_search_paths(const std::vector<std::string> &search_paths_in);
     void set_ca_bundle_path(const std::string &ca_bundle_path_in);
 
@@ -912,11 +922,15 @@ double pj_sinhpsi2tanphi(PJ_CONTEXT *, const double, const double);
 double *pj_authset(double);
 double pj_authlat(double, double *);
 
+double pj_conformal_lat(double phi, double e);
+double pj_conformal_lat_inverse(double chi, double e, double threshold);
+
 COMPLEX pj_zpoly1(COMPLEX, const COMPLEX *, int);
 COMPLEX pj_zpolyd1(COMPLEX, const COMPLEX *, int, COMPLEX *);
 
 int pj_deriv(PJ_LP, double, const PJ *, struct DERIVS *);
-int pj_factors(PJ_LP, const PJ *, double, struct FACTORS *);
+int pj_factors(PJ_LP, PJ *toplevel, const PJ *internal, double,
+               struct FACTORS *);
 
 void *proj_mdist_ini(double);
 double proj_mdist(double, double, double, const void *);
@@ -975,6 +989,10 @@ PJ_LP pj_generic_inverse_2d(PJ_XY xy, PJ *P, PJ_LP lpInitial,
 
 PJ *pj_obj_create(PJ_CONTEXT *ctx, const NS_PROJ::util::BaseObjectNNPtr &objIn);
 
+PJ_DIRECTION pj_opposite_direction(PJ_DIRECTION dir);
+
+void pj_warn_about_missing_grid(PJ *P);
+
 /*****************************************************************************/
 /*                                                                           */
 /*                              proj_api.h                                   */
@@ -1017,8 +1035,10 @@ bool pj_log_active(PJ_CONTEXT *ctx, int level);
 void pj_log(PJ_CONTEXT *ctx, int level, const char *fmt, ...);
 void pj_stderr_logger(void *, int, const char *);
 
-int pj_find_file(PJ_CONTEXT *ctx, const char *short_filename,
-                 char *out_full_filename, size_t out_full_filename_size);
+// PROJ_DLL for tests
+int PROJ_DLL pj_find_file(PJ_CONTEXT *ctx, const char *short_filename,
+                          char *out_full_filename,
+                          size_t out_full_filename_size);
 
 // To remove when PROJ_LIB definitely goes away
 void PROJ_DLL pj_stderr_proj_lib_deprecation_warning();
