@@ -41,6 +41,7 @@
 #include <stdlib.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <string>
 
@@ -142,8 +143,6 @@ std::string File::read_line(size_t maxLen, bool &maxLenReached,
 }
 
 // ---------------------------------------------------------------------------
-
-#if !USE_ONLY_EMBEDDED_RESOURCE_FILES
 
 #ifdef _WIN32
 
@@ -589,6 +588,12 @@ static std::string Win32Recode(const char *src, unsigned src_code_page,
     return out;
 }
 
+#endif // _defined(_WIN32)
+
+#if !(EMBED_RESOURCE_FILES && USE_ONLY_EMBEDDED_RESOURCE_FILES)
+
+#ifdef _WIN32
+
 // ---------------------------------------------------------------------------
 
 class FileWin32 : public File {
@@ -728,7 +733,8 @@ std::unique_ptr<File> FileWin32::open(PJ_CONTEXT *ctx, const char *filename,
         return nullptr;
     }
 }
-#else
+
+#else // if !defined(_WIN32)
 
 // ---------------------------------------------------------------------------
 
@@ -798,7 +804,7 @@ unsigned long long FileStdio::tell() {
 
 std::unique_ptr<File> FileStdio::open(PJ_CONTEXT *ctx, const char *filename,
                                       FileAccess access) {
-    auto fp = fopen(filename, access == FileAccess::READ_ONLY     ? "rb"
+    auto fp = fopen(filename, access == FileAccess::READ_ONLY ? "rb"
                               : access == FileAccess::READ_UPDATE ? "r+b"
                                                                   : "w+b");
     return std::unique_ptr<File>(fp ? new FileStdio(filename, ctx, fp)
@@ -807,7 +813,7 @@ std::unique_ptr<File> FileStdio::open(PJ_CONTEXT *ctx, const char *filename,
 
 #endif // _WIN32
 
-#endif // !USE_ONLY_EMBEDDED_RESOURCE_FILES
+#endif // !(EMBED_RESOURCE_FILES && USE_ONLY_EMBEDDED_RESOURCE_FILES)
 
 // ---------------------------------------------------------------------------
 
@@ -1862,12 +1868,52 @@ NS_PROJ::FileManager::open_resource_file(PJ_CONTEXT *ctx, const char *name,
         !is_rel_or_absolute_filename(name) && !starts_with(name, "http://") &&
         !starts_with(name, "https://") &&
         proj_context_is_network_enabled(ctx)) {
-        std::string remote_file(proj_context_get_url_endpoint(ctx));
-        if (!remote_file.empty()) {
-            if (remote_file.back() != '/') {
-                remote_file += '/';
+
+        std::string remote_file;
+        auto dbContext = getDBcontext(ctx);
+        if (dbContext) {
+            try {
+                std::string fullFilename, packageName, url;
+                bool directDownload = false;
+                bool openLicense = false;
+                bool gridAvailable = false;
+                proj_context_set_enable_network(ctx,
+                                                false); // prevent recursion
+                const bool found = dbContext->lookForGridInfo(
+                    name, /* considerKnownGridsAsAvailable = */ true,
+                    fullFilename, packageName, url, directDownload, openLicense,
+                    gridAvailable);
+                proj_context_set_enable_network(ctx, true);
+                if (found && !url.empty() && directDownload) {
+                    remote_file = url;
+                    if (starts_with(url, "https://cdn.proj.org/")) {
+                        const std::string endpoint =
+                            proj_context_get_url_endpoint(ctx);
+                        if (!endpoint.empty()) {
+                            remote_file = endpoint;
+                            if (remote_file.back() != '/') {
+                                remote_file += '/';
+                            }
+                            remote_file += name;
+                        }
+                    }
+                }
+            } catch (const std::exception &e) {
+                proj_context_set_enable_network(ctx, true);
+                pj_log(ctx, PJ_LOG_DEBUG, "%s", e.what());
+                return nullptr;
             }
-            remote_file += name;
+        }
+        if (remote_file.empty()) {
+            remote_file = proj_context_get_url_endpoint(ctx);
+            if (!remote_file.empty()) {
+                if (remote_file.back() != '/') {
+                    remote_file += '/';
+                }
+                remote_file += name;
+            }
+        }
+        if (!remote_file.empty()) {
             file =
                 open(ctx, remote_file.c_str(), NS_PROJ::FileAccess::READ_ONLY);
             if (file) {

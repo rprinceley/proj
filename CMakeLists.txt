@@ -143,7 +143,7 @@ message(STATUS "Configuring PROJ:")
 #PROJ version information
 ################################################################################
 include(ProjVersion)
-proj_version(MAJOR 9 MINOR 6 PATCH 0)
+proj_version(MAJOR 9 MINOR 6 PATCH 1)
 set(PROJ_SOVERSION 25)
 set(PROJ_BUILD_VERSION "${PROJ_SOVERSION}.${PROJ_VERSION}")
 
@@ -155,6 +155,13 @@ include(Ccache)
 include(ProjConfig)
 include(ProjMac)
 include(policies)
+
+##############################################
+### SWITCH BETWEEN STATIC OR SHARED LIBRARY###
+##############################################
+
+# default config is shared
+option(BUILD_SHARED_LIBS "Build PROJ library shared." ON)
 
 ################################################################################
 # Check for nlohmann_json
@@ -350,7 +357,8 @@ endif()
 
 function (is_sharp_embed_available res)
     if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.21 AND
-        ((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR (CMAKE_C_COMPILER_ID STREQUAL "Clang")))
+        ((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0) OR
+         (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 19.0)))
         # CMAKE_C_STANDARD=23 only supported since CMake 3.21
         set(TEST_SHARP_EMBED
           "static const unsigned char embedded[] = {\n#embed __FILE__\n};\nint main() { (void)embedded; return 0;}"
@@ -370,6 +378,9 @@ function (is_sharp_embed_available res)
 endfunction()
 
 is_sharp_embed_available(IS_SHARP_EMBED_AVAILABLE_RES)
+if (NOT DEFINED BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "BUILD_SHARED_LIBS should be set")
+endif()
 if (NOT BUILD_SHARED_LIBS)
     set(DEFAULT_EMBED_RESOURCE_FILES ON)
 else()
@@ -423,6 +434,29 @@ add_subdirectory(scripts)
 set(docfiles COPYING NEWS.md AUTHORS.md)
 install(FILES ${docfiles}
         DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
+################################################################################
+# Build debug symbols
+################################################################################
+option(EXPORT_PDB "Export PDB file" OFF)
+
+if (WIN32 AND EXPORT_PDB)
+  target_compile_options(proj PRIVATE /Zi /Zf)
+  target_link_options(proj PRIVATE /DEBUG /OPT:REF /OPT:ICF)
+
+  if(BUILD_SHARED_LIBS)
+    set(pdbFile $<TARGET_PDB_FILE:proj>)
+  else()
+    set(pdbDirFullPath ${CMAKE_BINARY_DIR}/lib)
+    set_target_properties(proj
+        PROPERTIES
+            COMPILE_PDB_OUTPUT_DIRECTORY ${pdbDirFullPath}
+            COMPILE_PDB_NAME proj)
+    set(pdbFile ${pdbDirFullPath}/proj.pdb)
+  endif()
+
+  install(FILES ${pdbFile} DESTINATION lib)
+endif()
 
 ################################################################################
 # pkg-config support

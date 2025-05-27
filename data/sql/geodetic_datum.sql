@@ -108,9 +108,9 @@ INSERT INTO "geodetic_datum" VALUES('EPSG','1115','Israeli Geodetic Datum 2005(2
 INSERT INTO "usage" VALUES('EPSG','13167','geodetic_datum','EPSG','1115','EPSG','1126','EPSG','1027');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1116','NAD83 (National Spatial Reference System 2011)',NULL,'EPSG','7019','EPSG','8901','2012-06-12',NULL,NULL,NULL,2010.0,0);
 INSERT INTO "usage" VALUES('EPSG','13168','geodetic_datum','EPSG','1116','EPSG','1511','EPSG','1027');
-INSERT INTO "geodetic_datum" VALUES('EPSG','1117','NAD83 (National Spatial Reference System PA11)',NULL,'EPSG','7019','EPSG','8901','2012-06-12',NULL,NULL,NULL,NULL,0);
+INSERT INTO "geodetic_datum" VALUES('EPSG','1117','NAD83 (National Spatial Reference System PA11)',NULL,'EPSG','7019','EPSG','8901','2012-06-12',NULL,NULL,NULL,2010.0,0);
 INSERT INTO "usage" VALUES('EPSG','13169','geodetic_datum','EPSG','1117','EPSG','4162','EPSG','1027');
-INSERT INTO "geodetic_datum" VALUES('EPSG','1118','NAD83 (National Spatial Reference System MA11)',NULL,'EPSG','7019','EPSG','8901','2012-06-12',NULL,NULL,NULL,NULL,0);
+INSERT INTO "geodetic_datum" VALUES('EPSG','1118','NAD83 (National Spatial Reference System MA11)',NULL,'EPSG','7019','EPSG','8901','2012-06-12',NULL,NULL,NULL,2010.0,0);
 INSERT INTO "usage" VALUES('EPSG','13170','geodetic_datum','EPSG','1118','EPSG','4167','EPSG','1027');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1120','Mexico ITRF2008',NULL,'EPSG','7019','EPSG','8901','2010-01-01',NULL,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','13172','geodetic_datum','EPSG','1120','EPSG','1160','EPSG','1027');
@@ -408,7 +408,7 @@ INSERT INTO "geodetic_datum" VALUES('EPSG','1353','ETRS89/DREF91 Realization 201
 INSERT INTO "usage" VALUES('EPSG','19242','geodetic_datum','EPSG','1353','EPSG','1103','EPSG','1027');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1355','Sonatrach Reference Frame 2020',NULL,'EPSG','7019','EPSG','8901','2012-11-15',NULL,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','19535','geodetic_datum','EPSG','1355','EPSG','1026','EPSG','1136');
-INSERT INTO "geodetic_datum" VALUES('EPSG','1356','Latvian coordinate system 2020',NULL,'EPSG','7019','EPSG','8901','2023-01-01',NULL,NULL,NULL,NULL,0);
+INSERT INTO "geodetic_datum" VALUES('EPSG','1356','Latvian coordinate system 2020',NULL,'EPSG','7019','EPSG','8901','2023-01-01',NULL,NULL,NULL,2020.28,0);
 INSERT INTO "usage" VALUES('EPSG','19558','geodetic_datum','EPSG','1356','EPSG','1139','EPSG','1026');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1357','Reseau Geodesique de Nouvelle Caledonie 2015',NULL,'EPSG','7019','EPSG','8901','2016-01-01',NULL,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','19600','geodetic_datum','EPSG','1357','EPSG','1174','EPSG','1181');
@@ -454,8 +454,12 @@ INSERT INTO "geodetic_datum" VALUES('EPSG','1399','International Terrestrial Ref
 INSERT INTO "usage" VALUES('EPSG','22373','geodetic_datum','EPSG','1399','EPSG','1262','EPSG','1027');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1400','IGb20',NULL,'EPSG','7019','EPSG','8901','2015-01-01',2015.0,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','22362','geodetic_datum','EPSG','1400','EPSG','1262','EPSG','1027');
+INSERT INTO "geodetic_datum" VALUES('EPSG','1401','Uganda Geodetic Reference Frame',NULL,'EPSG','7019','EPSG','8901','March 2011',NULL,NULL,NULL,NULL,0);
+INSERT INTO "usage" VALUES('EPSG','22456','geodetic_datum','EPSG','1401','EPSG','1241','EPSG','1181');
 INSERT INTO "geodetic_datum" VALUES('EPSG','1402','Liberia Reference Frame 2021',NULL,'EPSG','7019','EPSG','8901','2022-10-31',NULL,NULL,NULL,NULL,0);
 INSERT INTO "usage" VALUES('EPSG','22451','geodetic_datum','EPSG','1402','EPSG','1142','EPSG','1181');
+INSERT INTO "geodetic_datum" VALUES('EPSG','1405','EWR3 Intermediate Reference Frame',NULL,'EPSG','7019','EPSG','8901','2024-01-01',NULL,NULL,NULL,NULL,0);
+INSERT INTO "usage" VALUES('EPSG','22755','geodetic_datum','EPSG','1405','EPSG','4799','EPSG','1141');
 INSERT INTO "geodetic_datum" VALUES('EPSG','6001','Not specified (based on Airy 1830 ellipsoid)',NULL,'EPSG','7001','EPSG','8901',NULL,NULL,NULL,NULL,NULL,1);
 INSERT INTO "usage" VALUES('EPSG','13422','geodetic_datum','EPSG','6001','EPSG','1263','EPSG','1213');
 INSERT INTO "geodetic_datum" VALUES('EPSG','6002','Not specified (based on Airy Modified 1849 ellipsoid)',NULL,'EPSG','7002','EPSG','8901',NULL,NULL,NULL,NULL,NULL,1);
