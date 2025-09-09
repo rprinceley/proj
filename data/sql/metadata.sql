@@ -7,10 +7,10 @@
 -- DATABASE_LAYOUT_VERSION_MINOR constants in src/iso19111/factory.cpp must be
 -- updated as well.
 INSERT INTO "metadata" VALUES('DATABASE.LAYOUT.VERSION.MAJOR', 1);
-INSERT INTO "metadata" VALUES('DATABASE.LAYOUT.VERSION.MINOR', 5);
+INSERT INTO "metadata" VALUES('DATABASE.LAYOUT.VERSION.MINOR', 6);
 
-INSERT INTO "metadata" VALUES('EPSG.VERSION', 'v12.013');
-INSERT INTO "metadata" VALUES('EPSG.DATE', '2025-05-26');
+INSERT INTO "metadata" VALUES('EPSG.VERSION', 'v12.022');
+INSERT INTO "metadata" VALUES('EPSG.DATE', '2025-08-30');
 
 -- The value of ${PROJ_VERSION} is substituted at build time by the actual
 -- value.
@@ -18,7 +18,7 @@ INSERT INTO "metadata" VALUES('PROJ.VERSION', '${PROJ_VERSION}');
 
 -- Version of the PROJ-data package with which this database is the most
 -- compatible.
-INSERT INTO "metadata" VALUES('PROJ_DATA.VERSION', '1.22');
+INSERT INTO "metadata" VALUES('PROJ_DATA.VERSION', '1.23');
 
 -- A custom flag to indicate that this database is part of the Esri build
 -- of PROJ. Used as a simple check to avoid data path mix up with different

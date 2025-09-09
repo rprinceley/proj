@@ -299,28 +299,44 @@ FOR EACH ROW BEGIN
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: pivot_uom.type must be ''length''')
         WHERE (SELECT type FROM unit_of_measure WHERE unit_of_measure.auth_name = NEW.pivot_uom_auth_name AND unit_of_measure.code = NEW.pivot_uom_code) != 'length';
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: source_crs must not be deprecated when helmert_transformation is not deprecated')
-        WHERE EXISTS(SELECT 1 FROM geodetic_crs crs WHERE crs.auth_name = NEW.source_crs_auth_name AND crs.code = NEW.source_crs_code AND crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI');
+        WHERE EXISTS(SELECT 1 FROM crs_view crs WHERE crs.auth_name = NEW.source_crs_auth_name AND crs.code = NEW.source_crs_code AND crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI');
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: target_crs must not be deprecated when helmert_transformation is not deprecated')
-        WHERE EXISTS(SELECT 1 FROM geodetic_crs crs WHERE crs.auth_name = NEW.target_crs_auth_name AND crs.code = NEW.target_crs_code AND crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI');
+        WHERE EXISTS(SELECT 1 FROM crs_view crs WHERE crs.auth_name = NEW.target_crs_auth_name AND crs.code = NEW.target_crs_code AND crs.deprecated != 0) AND NEW.deprecated = 0 AND NOT (NEW.auth_name = 'ESRI');
+
+    SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: target_crs(auth_name, code) not found')
+        WHERE NOT EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.target_crs_auth_name AND crs_view.code = NEW.target_crs_code);
+
+    SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: target_crs must be geodetic or compound')
+        WHERE NOT EXISTS (SELECT 1 FROM crs_view WHERE crs_view.auth_name = NEW.target_crs_auth_name AND crs_view.code = NEW.target_crs_code AND crs_view.type IN ('geographic 2D', 'geographic 3D', 'geocentric', 'compound'));
 
     -- check that source and target of the same nature
-    SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: source CRS and target CRS must have same geodetic_crs.type')
-        WHERE EXISTS (SELECT 1 FROM geodetic_crs crs1, geodetic_crs crs2 WHERE
-                          crs1.auth_name = NEW.source_crs_auth_name AND crs1.code = NEW.source_crs_code
-                          AND crs2.auth_name = NEW.target_crs_auth_name AND crs2.code = NEW.target_crs_code
-                          AND NEW.deprecated = 0 AND crs1.type != crs2.type);
+    SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: source CRS and target CRS must have consistent geodetic_crs.type')
+        WHERE EXISTS (SELECT 1 FROM crs_view crs1, crs_view crs2 WHERE
+          crs1.auth_name = NEW.source_crs_auth_name AND crs1.code = NEW.source_crs_code
+          AND crs2.auth_name = NEW.target_crs_auth_name AND crs2.code = NEW.target_crs_code
+          AND NEW.deprecated = 0 AND (
+             NOT ((crs1.type = crs2.type AND crs1.type IN ('geographic 2D', 'geographic 3D', 'geocentric') AND
+                  NOT(NEW.method_auth_name = 'EPSG' AND NEW.method_code = 1149)) OR
+                  (crs1.type = 'geographic 3D' and crs2.type = 'compound' AND
+                   NEW.method_auth_name = 'EPSG' AND NEW.method_code = 1149))));
 
     -- check that the method used by a Helmert transformation is consistent with the dimensionality of the CRS
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: the domain of the method of helmert_transformation should be consistent with the dimensionality of the CRS')
         WHERE NEW.deprecated = 0 AND
-              EXISTS (SELECT 1 FROM geodetic_crs crs
+             (NOT(NEW.method_auth_name = 'EPSG' AND NEW.method_code = 1149) AND EXISTS (SELECT 1 FROM geodetic_crs crs
                       LEFT JOIN coordinate_operation_method m ON
                           NEW.method_auth_name = m.auth_name AND NEW.method_code = m.code
                       WHERE
                           crs.auth_name = NEW.source_crs_auth_name AND crs.code = NEW.source_crs_code AND
                           ((m.name LIKE '%geog2D domain%' AND crs.type != 'geographic 2D') OR
                            (m.name LIKE '%geog3D domain%' AND crs.type != 'geographic 3D') OR
-                           (m.name LIKE '%geocentric domain%' AND crs.type != 'geocentric')));
+                           (m.name LIKE '%geocentric domain%' AND crs.type != 'geocentric')))
+          OR (NEW.method_auth_name = 'EPSG' AND NEW.method_code = 1149 AND EXISTS (SELECT 1 FROM compound_crs crs
+                      LEFT JOIN coordinate_operation_method m ON
+                          NEW.method_auth_name = m.auth_name AND NEW.method_code = m.code
+                      WHERE
+                          crs.auth_name = NEW.target_crs_auth_name AND crs.code = NEW.target_crs_code AND
+                          m.name NOT LIKE '%geog3D domain%')));
 
     -- check that a time-dependent Helmert transformation has its source or target CRS being dynamic
     SELECT RAISE(ABORT, 'insert on helmert_transformation violates constraint: a time-dependent Helmert transformations should have at least one of its source or target CRS dynamic')
@@ -449,6 +465,12 @@ FOR EACH ROW BEGIN
                           NEW.target_crs_auth_name = crs.auth_name AND
                           NEW.target_crs_code = crs.code);
 
+    -- check that grids with 'Geocentric translations using NEU velocity grid (gtg)' method are properly registered
+    SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: source_crs(auth_name, code) must be Geocentric')
+        WHERE NEW.method_name IN ('Geocentric translations using NEU velocity grid (gtg)') AND NOT EXISTS (SELECT 1 FROM geodetic_crs gcrs WHERE gcrs.auth_name = NEW.source_crs_auth_name AND gcrs.code = NEW.source_crs_code AND type = 'geocentric');
+
+    SELECT RAISE(ABORT, 'insert on grid_transformation violates constraint: target_crs(auth_name, code) must be Geocentric')
+        WHERE NEW.method_name IN ('Geocentric translations using NEU velocity grid (gtg)') AND NOT EXISTS (SELECT 1 FROM geodetic_crs gcrs WHERE gcrs.auth_name = NEW.target_crs_auth_name AND gcrs.code = NEW.target_crs_code AND type = 'geocentric');
 END;
 
 CREATE TRIGGER grid_packages_insert_trigger
@@ -469,8 +491,8 @@ FOR EACH ROW BEGIN
                 SELECT 1 FROM grid_transformation WHERE grid_name = NEW.original_grid_name
                 UNION ALL
                 SELECT 1 FROM other_transformation WHERE
-                    method_auth_name = 'PROJ' AND
-                    method_name LIKE '%' || NEW.original_grid_name || '%');
+                    (method_auth_name = 'PROJ' AND
+                    method_name LIKE '%' || NEW.original_grid_name || '%') OR grid_name = NEW.original_grid_name);
 END;
 
 CREATE TRIGGER other_transformation_insert_trigger
@@ -525,6 +547,14 @@ FOR EACH ROW BEGIN
               NOT EXISTS (SELECT 1 FROM geodetic_crs gcrs WHERE
                           gcrs.auth_name = NEW.target_crs_auth_name AND gcrs.code = NEW.target_crs_code
                           AND gcrs.type = 'geographic 3D');
+
+    -- check that operations with 'Geocen translations by grid (gtg) & Geocen translations NEU velocities (gtg)' and 'Position Vector (geocen) & Geocen translations NEU velocities (gtg)' methods are properly registered
+    SELECT RAISE(ABORT, 'insert on other_transformation violates constraint: source_crs(auth_name, code) must be Geocentric')
+        WHERE NEW.method_name IN ('Geocen translations by grid (gtg) & Geocen translations NEU velocities (gtg)', 'Position Vector (geocen) & Geocen translations NEU velocities (gtg)') AND NOT EXISTS (SELECT 1 FROM geodetic_crs gcrs WHERE gcrs.auth_name = NEW.source_crs_auth_name AND gcrs.code = NEW.source_crs_code AND type = 'geocentric');
+
+    SELECT RAISE(ABORT, 'insert on other_transformation violates constraint: target_crs(auth_name, code) must be Geocentric')
+        WHERE NEW.method_name IN ('Geocen translations by grid (gtg) & Geocen translations NEU velocities (gtg)', 'Position Vector (geocen) & Geocen translations NEU velocities (gtg)') AND NOT EXISTS (SELECT 1 FROM geodetic_crs gcrs WHERE gcrs.auth_name = NEW.target_crs_auth_name AND gcrs.code = NEW.target_crs_code AND type = 'geocentric');
+
 END;
 
 CREATE TRIGGER concatenated_operation_insert_trigger

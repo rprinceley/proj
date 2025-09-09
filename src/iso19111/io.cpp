@@ -1345,7 +1345,8 @@ struct WKTParser::Private {
                                   const WKTNodeNNPtr &parentNode,
                                   const UnitOfMeasure &defaultAngularUnit);
 
-    GeodeticCRSNNPtr buildGeodeticCRS(const WKTNodeNNPtr &node);
+    GeodeticCRSNNPtr buildGeodeticCRS(const WKTNodeNNPtr &node,
+                                      bool forceGeocentricIfNoCs = false);
 
     CRSNNPtr buildDerivedGeodeticCRS(const WKTNodeNNPtr &node);
 
@@ -1895,18 +1896,26 @@ WKTParser::Private::buildObjectDomain(const WKTNodeNNPtr &node) {
             if (!isNull(bboxNode)) {
                 const auto &bboxChildren = bboxNode->GP()->children();
                 if (bboxChildren.size() == 4) {
+                    double south, west, north, east;
                     try {
-                        double south = asDouble(bboxChildren[0]);
-                        double west = asDouble(bboxChildren[1]);
-                        double north = asDouble(bboxChildren[2]);
-                        double east = asDouble(bboxChildren[3]);
-                        auto bbox = GeographicBoundingBox::create(west, south,
-                                                                  east, north);
-                        geogExtent.emplace_back(bbox);
+                        south = asDouble(bboxChildren[0]);
+                        west = asDouble(bboxChildren[1]);
+                        north = asDouble(bboxChildren[2]);
+                        east = asDouble(bboxChildren[3]);
                     } catch (const std::exception &) {
                         throw ParsingException(concat("not 4 double values in ",
                                                       bboxNode->GP()->value(),
                                                       " node"));
+                    }
+                    try {
+                        auto bbox = GeographicBoundingBox::create(west, south,
+                                                                  east, north);
+                        geogExtent.emplace_back(bbox);
+                    } catch (const std::exception &e) {
+                        throw ParsingException(concat("Invalid ",
+                                                      bboxNode->GP()->value(),
+                                                      " node: ") +
+                                               e.what());
                     }
                 } else {
                     ThrowNotRequiredNumberOfChildren(bboxNode->GP()->value());
@@ -3147,7 +3156,8 @@ void WKTParser::Private::addExtensionProj4ToProp(const WKTNode::Private *nodeP,
 // ---------------------------------------------------------------------------
 
 GeodeticCRSNNPtr
-WKTParser::Private::buildGeodeticCRS(const WKTNodeNNPtr &node) {
+WKTParser::Private::buildGeodeticCRS(const WKTNodeNNPtr &node,
+                                     bool forceGeocentricIfNoCs) {
     const auto *nodeP = node->GP();
     auto &datumNode = nodeP->lookForChild(
         WKTConstants::DATUM, WKTConstants::GEODETICDATUM, WKTConstants::TRF);
@@ -3253,6 +3263,10 @@ WKTParser::Private::buildGeodeticCRS(const WKTNodeNNPtr &node) {
                 }
             }
         }
+    }
+    if (forceGeocentricIfNoCs && isNull(csNode) &&
+        ci_equal(nodeName, WKTConstants::BASEGEODCRS)) {
+        cs = cs::CartesianCS::createGeocentric(UnitOfMeasure::METRE);
     }
 
     auto ellipsoidalCS = nn_dynamic_pointer_cast<EllipsoidalCS>(cs);
@@ -3370,8 +3384,6 @@ CRSNNPtr WKTParser::Private::buildDerivedGeodeticCRS(const WKTNodeNNPtr &node) {
     // given the constraints enforced on calling code path
     assert(!isNull(baseGeodCRSNode));
 
-    auto baseGeodCRS = buildGeodeticCRS(baseGeodCRSNode);
-
     auto &derivingConversionNode =
         nodeP->lookForChild(WKTConstants::DERIVINGCONVERSION);
     if (isNull(derivingConversionNode)) {
@@ -3385,6 +3397,29 @@ CRSNNPtr WKTParser::Private::buildDerivedGeodeticCRS(const WKTNodeNNPtr &node) {
         ThrowMissing(WKTConstants::CS_);
     }
     auto cs = buildCS(csNode, node, UnitOfMeasure::NONE);
+
+    bool forceGeocentricIfNoCs = false;
+    auto cartesianCS = nn_dynamic_pointer_cast<CartesianCS>(cs);
+    if (cartesianCS) {
+        if (cartesianCS->axisList().size() != 3) {
+            throw ParsingException(
+                "Cartesian CS for a GeodeticCRS should have 3 axis");
+        }
+        const int methodCode = derivingConversion->method()->getEPSGCode();
+        if ((methodCode == EPSG_CODE_METHOD_COORDINATE_FRAME_GEOCENTRIC ||
+             methodCode ==
+                 EPSG_CODE_METHOD_COORDINATE_FRAME_FULL_MATRIX_GEOCENTRIC ||
+             methodCode == EPSG_CODE_METHOD_POSITION_VECTOR_GEOCENTRIC ||
+             methodCode == EPSG_CODE_METHOD_GEOCENTRIC_TRANSLATION_GEOCENTRIC ||
+             methodCode ==
+                 EPSG_CODE_METHOD_TIME_DEPENDENT_POSITION_VECTOR_GEOCENTRIC ||
+             methodCode ==
+                 EPSG_CODE_METHOD_TIME_DEPENDENT_COORDINATE_FRAME_GEOCENTRIC) &&
+            nodeP->lookForChild(WKTConstants::BASEGEODCRS) != nullptr) {
+            forceGeocentricIfNoCs = true;
+        }
+    }
+    auto baseGeodCRS = buildGeodeticCRS(baseGeodCRSNode, forceGeocentricIfNoCs);
 
     auto ellipsoidalCS = nn_dynamic_pointer_cast<EllipsoidalCS>(cs);
     if (ellipsoidalCS) {
@@ -3405,12 +3440,7 @@ CRSNNPtr WKTParser::Private::buildDerivedGeodeticCRS(const WKTNodeNNPtr &node) {
                                       cs->getWKT2Type(true)));
     }
 
-    auto cartesianCS = nn_dynamic_pointer_cast<CartesianCS>(cs);
     if (cartesianCS) {
-        if (cartesianCS->axisList().size() != 3) {
-            throw ParsingException(
-                "Cartesian CS for a GeodeticCRS should have 3 axis");
-        }
         return DerivedGeodeticCRS::create(buildProperties(node), baseGeodCRS,
                                           derivingConversion,
                                           NN_NO_CHECK(cartesianCS));
@@ -6116,8 +6146,13 @@ ObjectDomainPtr JSONParser::buildObjectDomain(const json &j) {
         double west = getNumber(bbox, "west_longitude");
         double north = getNumber(bbox, "north_latitude");
         double east = getNumber(bbox, "east_longitude");
-        geogExtent.emplace_back(
-            GeographicBoundingBox::create(west, south, east, north));
+        try {
+            geogExtent.emplace_back(
+                GeographicBoundingBox::create(west, south, east, north));
+        } catch (const std::exception &e) {
+            throw ParsingException(
+                std::string("Invalid bbox node: ").append(e.what()));
+        }
     }
 
     std::vector<VerticalExtentNNPtr> verticalExtent;
@@ -10172,8 +10207,8 @@ void PROJStringFormatter::addParam(const std::string &paramName, int val) {
 
 // ---------------------------------------------------------------------------
 
-static std::string formatToString(double val) {
-    if (std::abs(val * 10 - std::round(val * 10)) < 1e-8) {
+static std::string formatToString(double val, double precision) {
+    if (std::abs(val * 10 - std::round(val * 10)) < precision) {
         // For the purpose of
         // https://www.epsg-registry.org/export.htm?wkt=urn:ogc:def:crs:EPSG::27561
         // Latitude of natural of origin to be properly rounded from 55 grad
@@ -10191,7 +10226,12 @@ void PROJStringFormatter::addParam(const char *paramName, double val) {
 }
 
 void PROJStringFormatter::addParam(const std::string &paramName, double val) {
-    addParam(paramName, formatToString(val));
+    if (paramName == "dt") {
+        addParam(paramName,
+                 normalizeSerializedString(internal::toString(val, 7)));
+    } else {
+        addParam(paramName, formatToString(val, 1e-8));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -10203,7 +10243,7 @@ void PROJStringFormatter::addParam(const char *paramName,
         if (i > 0) {
             paramValue += ',';
         }
-        paramValue += formatToString(vals[i]);
+        paramValue += formatToString(vals[i], 1e-8);
     }
     addParam(paramName, paramValue);
 }

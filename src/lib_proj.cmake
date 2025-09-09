@@ -193,7 +193,6 @@ set(SRC_LIBPROJ_CORE
   aasincos.cpp
   adjlon.cpp
   area.cpp
-  auth.cpp
   coord_operation.cpp
   coordinates.cpp
   create.cpp
@@ -237,7 +236,6 @@ set(SRC_LIBPROJ_CORE
   proj_json_streaming_writer.hpp
   proj_json_streaming_writer.cpp
   proj_mdist.cpp
-  qsfn.cpp
   release.cpp
   rtodms.cpp
   strerrno.cpp
@@ -357,7 +355,7 @@ add_custom_target(check_wkt2_grammar_md5 ALL
                   COMMAND ${CMAKE_COMMAND}
                       "-DIN_FILE=wkt2_grammar.y"
                       "-DTARGET=generate_wkt2_parser"
-                      "-DEXPECTED_MD5SUM=94337ca471caf74688db939009652ddb"
+                      "-DEXPECTED_MD5SUM=50022470f30e5f95374ee325e3346539"
                       -P "${CMAKE_CURRENT_SOURCE_DIR}/check_md5sum.cmake"
                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/wkt2_grammar.y"

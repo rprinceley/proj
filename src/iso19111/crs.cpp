@@ -2338,6 +2338,36 @@ void GeodeticCRS::addGeocentricUnitConversionIntoPROJString(
 // ---------------------------------------------------------------------------
 
 //! @cond Doxygen_Suppress
+void GeodeticCRS::addAxisSwap(io::PROJStringFormatter *formatter) const {
+    const auto &axisList = coordinateSystem()->axisList();
+
+    const char *order[2] = {nullptr, nullptr};
+    const char *one = "1";
+    const char *two = "2";
+    for (int i = 0; i < 2; i++) {
+        const auto &dir = axisList[i]->direction();
+        if (&dir == &cs::AxisDirection::WEST) {
+            order[i] = "-1";
+        } else if (&dir == &cs::AxisDirection::EAST) {
+            order[i] = one;
+        } else if (&dir == &cs::AxisDirection::SOUTH) {
+            order[i] = "-2";
+        } else if (&dir == &cs::AxisDirection::NORTH) {
+            order[i] = two;
+        }
+    }
+    if (order[0] && order[1] && (order[0] != one || order[1] != two)) {
+        formatter->addStep("axisswap");
+        char orderStr[10];
+        snprintf(orderStr, sizeof(orderStr), "%.2s,%.2s", order[0], order[1]);
+        formatter->addParam("order", orderStr);
+    }
+}
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
 void GeodeticCRS::addAngularUnitConvertAndAxisSwap(
     io::PROJStringFormatter *formatter) const {
     const auto &axisList = coordinateSystem()->axisList();
@@ -2366,27 +2396,7 @@ void GeodeticCRS::addAngularUnitConvertAndAxisSwap(
         }
     }
 
-    const char *order[2] = {nullptr, nullptr};
-    const char *one = "1";
-    const char *two = "2";
-    for (int i = 0; i < 2; i++) {
-        const auto &dir = axisList[i]->direction();
-        if (&dir == &cs::AxisDirection::WEST) {
-            order[i] = "-1";
-        } else if (&dir == &cs::AxisDirection::EAST) {
-            order[i] = one;
-        } else if (&dir == &cs::AxisDirection::SOUTH) {
-            order[i] = "-2";
-        } else if (&dir == &cs::AxisDirection::NORTH) {
-            order[i] = two;
-        }
-    }
-    if (order[0] && order[1] && (order[0] != one || order[1] != two)) {
-        formatter->addStep("axisswap");
-        char orderStr[10];
-        snprintf(orderStr, sizeof(orderStr), "%.2s,%.2s", order[0], order[1]);
-        formatter->addParam("order", orderStr);
-    }
+    addAxisSwap(formatter);
 }
 //! @endcond
 
@@ -6384,6 +6394,10 @@ void DerivedGeodeticCRS::_exportToWKT(io::WKTFormatter *formatter) const {
         l_datumEnsemble->_exportToWKT(formatter);
     }
     l_baseCRS->primeMeridian()->_exportToWKT(formatter);
+    if (formatter->use2019Keywords() &&
+        !(formatter->idOnTopLevelOnly() && formatter->topLevelHasId())) {
+        l_baseCRS->formatID(formatter);
+    }
     formatter->endNode();
 
     formatter->setUseDerivingConversion(true);
@@ -6522,6 +6536,10 @@ void DerivedGeographicCRS::_exportToWKT(io::WKTFormatter *formatter) const {
     formatter->addQuotedString(l_baseCRS->nameStr());
     l_baseCRS->exportDatumOrDatumEnsembleToWkt(formatter);
     l_baseCRS->primeMeridian()->_exportToWKT(formatter);
+    if (formatter->use2019Keywords() &&
+        !(formatter->idOnTopLevelOnly() && formatter->topLevelHasId())) {
+        l_baseCRS->formatID(formatter);
+    }
     formatter->endNode();
 
     formatter->setUseDerivingConversion(true);

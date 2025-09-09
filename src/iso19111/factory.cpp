@@ -131,7 +131,7 @@ constexpr const char *CS_TYPE_ORDINAL = cs::OrdinalCS::WKT2_TYPE;
 constexpr int DATABASE_LAYOUT_VERSION_MAJOR = 1;
 // If the code depends on the new additions, then DATABASE_LAYOUT_VERSION_MINOR
 // must be incremented.
-constexpr int DATABASE_LAYOUT_VERSION_MINOR = 5;
+constexpr int DATABASE_LAYOUT_VERSION_MINOR = 6;
 
 constexpr size_t N_MAX_PARAMS = 7;
 
@@ -494,12 +494,13 @@ SQLResultSet SQLiteHandle::run(sqlite3_stmt *stmt, const std::string &sql,
         } else if (ret == SQLITE_DONE) {
             break;
         } else {
-            throw FactoryException(std::string("SQLite error on ")
-                                       .append(sql)
-                                       .append(": code = ")
+            throw FactoryException(std::string("SQLite error [ ")
+                                       .append("code = ")
                                        .append(internal::toString(ret))
                                        .append(", msg = ")
-                                       .append(sqlite3_errmsg(sqlite_handle_)));
+                                       .append(sqlite3_errmsg(sqlite_handle_))
+                                       .append(" ] on ")
+                                       .append(sql));
         }
     }
     return result;
@@ -515,8 +516,10 @@ SQLResultSet SQLiteHandle::run(const std::string &sql,
         if (sqlite3_prepare_v2(sqlite_handle_, sql.c_str(),
                                static_cast<int>(sql.size()), &stmt,
                                nullptr) != SQLITE_OK) {
-            throw FactoryException("SQLite error on " + sql + ": " +
-                                   sqlite3_errmsg(sqlite_handle_));
+            throw FactoryException(std::string("SQLite error [ ")
+                                       .append(sqlite3_errmsg(sqlite_handle_))
+                                       .append(" ] on ")
+                                       .append(sql));
         }
         auto ret = run(stmt, sql, parameters, useMaxFloatPrecision);
         sqlite3_finalize(stmt);
@@ -1443,8 +1446,11 @@ SQLResultSet DatabaseContext::Private::run(const std::string &sql,
         if (sqlite3_prepare_v2(l_handle->handle(), sql.c_str(),
                                static_cast<int>(sql.size()), &stmt,
                                nullptr) != SQLITE_OK) {
-            throw FactoryException("SQLite error on " + sql + ": " +
-                                   sqlite3_errmsg(l_handle->handle()));
+            throw FactoryException(
+                std::string("SQLite error [ ")
+                    .append(sqlite3_errmsg(l_handle->handle()))
+                    .append(" ] on ")
+                    .append(sql));
         }
         mapSqlToStatement_.insert(
             std::pair<std::string, sqlite3_stmt *>(sql, stmt));
@@ -4005,8 +4011,8 @@ bool DatabaseContext::toWGS84AutocorrectWrongValues(
     double &scale_difference) const {
     if (rx == 0 && ry == 0 && rz == 0)
         return false;
-    // 9606: Coordinate Frame rotation (geog2D domain)
-    // 9607: Position Vector transformation (geog2D domain)
+    // 9606: Position Vector transformation (geog2D domain)
+    // 9607: Coordinate Frame rotation (geog2D domain)
     std::string sql(
         "SELECT DISTINCT method_code "
         "FROM helmert_transformation_table WHERE "
@@ -6480,6 +6486,10 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
             "grid_name, "
             "grid2_param_auth_name, grid2_param_code, grid2_param_name, "
             "grid2_name, "
+            "param1_auth_name, param1_code, param1_name, param1_value, "
+            "param1_uom_auth_name, param1_uom_code, "
+            "param2_auth_name, param2_code, param2_name, param2_value, "
+            "param2_uom_auth_name, param2_uom_code, "
             "interpolation_crs_auth_name, interpolation_crs_code, "
             "operation_version, deprecated FROM "
             "grid_transformation WHERE auth_name = ? AND code = ?",
@@ -6510,27 +6520,6 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
             const auto &grid2_param_code = row[idx++];
             const auto &grid2_param_name = row[idx++];
             const auto &grid2_name = row[idx++];
-            const auto &interpolation_crs_auth_name = row[idx++];
-            const auto &interpolation_crs_code = row[idx++];
-            const auto &operation_version = row[idx++];
-            const auto &deprecated_str = row[idx++];
-            const bool deprecated = deprecated_str == "1";
-            assert(idx == row.size());
-
-            auto sourceCRS =
-                d->createFactory(source_crs_auth_name)
-                    ->createCoordinateReferenceSystem(source_crs_code);
-            auto targetCRS =
-                d->createFactory(target_crs_auth_name)
-                    ->createCoordinateReferenceSystem(target_crs_code);
-            auto interpolationCRS =
-                interpolation_crs_auth_name.empty()
-                    ? nullptr
-                    : d->createFactory(interpolation_crs_auth_name)
-                          ->createCoordinateReferenceSystem(
-                              interpolation_crs_code)
-                          .as_nullable();
-
             std::vector<operation::OperationParameterNNPtr> parameters;
             std::vector<operation::ParameterValueNNPtr> values;
 
@@ -6554,6 +6543,56 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
                 values.emplace_back(
                     operation::ParameterValue::createFilename(grid2_name));
             }
+
+            const size_t base_param_idx = idx;
+            constexpr size_t N_MAX_PARAMS_GRID_TRANSFORMATION = 2;
+            for (size_t i = 0; i < N_MAX_PARAMS_GRID_TRANSFORMATION; ++i) {
+                const auto &param_auth_name = row[base_param_idx + i * 6 + 0];
+                if (param_auth_name.empty()) {
+                    break;
+                }
+                const auto &param_code = row[base_param_idx + i * 6 + 1];
+                const auto &param_name = row[base_param_idx + i * 6 + 2];
+                const auto &param_value = row[base_param_idx + i * 6 + 3];
+                const auto &param_uom_auth_name =
+                    row[base_param_idx + i * 6 + 4];
+                const auto &param_uom_code = row[base_param_idx + i * 6 + 5];
+                parameters.emplace_back(operation::OperationParameter::create(
+                    util::PropertyMap()
+                        .set(metadata::Identifier::CODESPACE_KEY,
+                             param_auth_name)
+                        .set(metadata::Identifier::CODE_KEY, param_code)
+                        .set(common::IdentifiedObject::NAME_KEY, param_name)));
+                std::string normalized_uom_code(param_uom_code);
+                const double normalized_value = normalizeMeasure(
+                    param_uom_code, param_value, normalized_uom_code);
+                auto uom = d->createUnitOfMeasure(param_uom_auth_name,
+                                                  normalized_uom_code);
+                values.emplace_back(operation::ParameterValue::create(
+                    common::Measure(normalized_value, uom)));
+            }
+            idx = base_param_idx + 6 * N_MAX_PARAMS_GRID_TRANSFORMATION;
+
+            const auto &interpolation_crs_auth_name = row[idx++];
+            const auto &interpolation_crs_code = row[idx++];
+            const auto &operation_version = row[idx++];
+            const auto &deprecated_str = row[idx++];
+            const bool deprecated = deprecated_str == "1";
+            assert(idx == row.size());
+
+            auto sourceCRS =
+                d->createFactory(source_crs_auth_name)
+                    ->createCoordinateReferenceSystem(source_crs_code);
+            auto targetCRS =
+                d->createFactory(target_crs_auth_name)
+                    ->createCoordinateReferenceSystem(target_crs_code);
+            auto interpolationCRS =
+                interpolation_crs_auth_name.empty()
+                    ? nullptr
+                    : d->createFactory(interpolation_crs_auth_name)
+                          ->createCoordinateReferenceSystem(
+                              interpolation_crs_code)
+                          .as_nullable();
 
             auto props = d->createPropertiesSearchUsages(
                 type, code, name, deprecated, description);
@@ -6614,9 +6653,12 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
                "method_auth_name, method_code, method_name, "
                "source_crs_auth_name, source_crs_code, target_crs_auth_name, "
                "target_crs_code, "
+               "grid_param_auth_name, grid_param_code, grid_param_name, "
+               "grid_name, "
                "interpolation_crs_auth_name, interpolation_crs_code, "
                "operation_version, accuracy, deprecated";
-        for (size_t i = 1; i <= N_MAX_PARAMS; ++i) {
+        constexpr int N_MAX_PARAMS_OTHER_TRANSFORMATION = 9;
+        for (size_t i = 1; i <= N_MAX_PARAMS_OTHER_TRANSFORMATION; ++i) {
             buffer << ", param" << i << "_auth_name";
             buffer << ", param" << i << "_code";
             buffer << ", param" << i << "_name";
@@ -6645,6 +6687,10 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
             const auto &source_crs_code = row[idx++];
             const auto &target_crs_auth_name = row[idx++];
             const auto &target_crs_code = row[idx++];
+            const auto &grid_param_auth_name = row[idx++];
+            const auto &grid_param_code = row[idx++];
+            const auto &grid_param_name = row[idx++];
+            const auto &grid_name = row[idx++];
             const auto &interpolation_crs_auth_name = row[idx++];
             const auto &interpolation_crs_code = row[idx++];
             const auto &operation_version = row[idx++];
@@ -6655,7 +6701,7 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
             const size_t base_param_idx = idx;
             std::vector<operation::OperationParameterNNPtr> parameters;
             std::vector<operation::ParameterValueNNPtr> values;
-            for (size_t i = 0; i < N_MAX_PARAMS; ++i) {
+            for (size_t i = 0; i < N_MAX_PARAMS_OTHER_TRANSFORMATION; ++i) {
                 const auto &param_auth_name = row[base_param_idx + i * 6 + 0];
                 if (param_auth_name.empty()) {
                     break;
@@ -6666,6 +6712,7 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
                 const auto &param_uom_auth_name =
                     row[base_param_idx + i * 6 + 4];
                 const auto &param_uom_code = row[base_param_idx + i * 6 + 5];
+
                 parameters.emplace_back(operation::OperationParameter::create(
                     util::PropertyMap()
                         .set(metadata::Identifier::CODESPACE_KEY,
@@ -6680,9 +6727,21 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
                 values.emplace_back(operation::ParameterValue::create(
                     common::Measure(normalized_value, uom)));
             }
-            idx = base_param_idx + 6 * N_MAX_PARAMS;
+            idx = base_param_idx + 6 * N_MAX_PARAMS_OTHER_TRANSFORMATION;
             (void)idx;
             assert(idx == row.size());
+
+            if (!grid_name.empty()) {
+                parameters.emplace_back(operation::OperationParameter::create(
+                    util::PropertyMap()
+                        .set(common::IdentifiedObject::NAME_KEY,
+                             grid_param_name)
+                        .set(metadata::Identifier::CODESPACE_KEY,
+                             grid_param_auth_name)
+                        .set(metadata::Identifier::CODE_KEY, grid_param_code)));
+                values.emplace_back(
+                    operation::ParameterValue::createFilename(grid_name));
+            }
 
             auto sourceCRS =
                 d->createFactory(source_crs_auth_name)
@@ -6749,9 +6808,13 @@ operation::CoordinateOperationNNPtr AuthorityFactory::createCoordinateOperation(
                     return op;
                 }
             }
-            return operation::Transformation::create(
+            auto transf = operation::Transformation::create(
                 props, sourceCRS, targetCRS, interpolationCRS, propsMethod,
                 parameters, values, accuracies);
+            if (usePROJAlternativeGridNames) {
+                return transf->substitutePROJAlternativeGridNames(d->context());
+            }
+            return transf;
 
         } catch (const std::exception &ex) {
             throw buildFactoryException("transformation", d->authority(), code,
@@ -9411,12 +9474,11 @@ AuthorityFactory::createObjectsFromNameEx(
             for (const auto &row : listOfRow) {
                 const auto &auth_name = row[1];
                 const auto &code = row[2];
-                const auto key =
-                    std::pair<std::string, std::string>(auth_name, code);
+                auto key = std::pair<std::string, std::string>(auth_name, code);
                 if (setIdentified.find(key) != setIdentified.end()) {
                     continue;
                 }
-                setIdentified.insert(key);
+                setIdentified.insert(std::move(key));
                 auto factory = d->createFactory(auth_name);
                 const auto &name = row[3];
                 res.emplace_back(

@@ -172,6 +172,8 @@ VALUES
 -- eur_nkg - Nordic Geodetic Commission
 ('eur_nkg_nkgrf03vel_realigned.tif','eur_nkg_nkgrf03vel_realigned.tif',NULL,'GTiff','velocity_grid',0,NULL,'https://cdn.proj.org/eur_nkg_nkgrf03vel_realigned.tif',1,1,NULL),
 ('eur_nkg_nkgrf17vel.tif','eur_nkg_nkgrf17vel.tif',NULL,'GTiff','velocity_grid',0,NULL,'https://cdn.proj.org/eur_nkg_nkgrf17vel.tif',1,1,NULL),
+('NKG_RF17vel_N.GRI','eur_nkg_nkgrf17vel.tif',NULL,'GTiff','velocity_grid',0,NULL,'https://cdn.proj.org/eur_nkg_nkgrf17vel.tif',1,1,NULL),
+('NKG_RF17vel.tif','eur_nkg_nkgrf17vel.tif',NULL,'GTiff','velocity_grid',0,NULL,'https://cdn.proj.org/eur_nkg_nkgrf17vel.tif',1,1,NULL),
 
 -- fi_nls - National Land Survey of Finland (MML)
 ('fi_nls_fin2000.tif','fi_nls_fin2000.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/fi_nls_fin2000.tif',1,1,NULL),
@@ -275,6 +277,9 @@ VALUES
 ('NOT-YET-IN-GRID-TRANSFORMATION-rdcorr2018.gsb','nl_nsgi_rdcorr2018.tif','rdcorr2018.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/nl_nsgi_rdcorr2018.tif',1,1,NULL),
 ('naptrans2008.gtx','','naptrans2008.gtx','GTX','geoid_like',0,NULL,'https://salsa.debian.org/debian-gis-team/proj-rdnap/raw/upstream/2008/naptrans2008.gtx',1,0,NULL),
 ('rdtrans2008.gsb','','rdtrans2008.gsb','NTv2','hgridshift',0,NULL,'https://salsa.debian.org/debian-gis-team/proj-rdnap/raw/upstream/2008/rdtrans2008.gsb',1,0,NULL),
+('nllat2018.gtx','nl_nsgi_nllat2018.tif','nllat2018.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/nl_nsgi_nllat2018.tif',1,1,NULL),
+-- Bonaire
+('bongeo2004.gtx','nl_nsgi_bongeo2004.tif','bongeo2004.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/nl_nsgi_bongeo2004.tif',1,1,NULL),
 
 -- no_kv - Kartverket
 -- Norwegian grids
@@ -285,6 +290,7 @@ VALUES
 ('ChartDatum_above_Ellipsoid_EUREF89_v2023b.bin','no_kv_CD_above_Ell_ETRS89_v2023b.tif',NULL,'GTiff','vgridshift',0,NULL,'https://cdn.proj.org/no_kv_CD_above_Ell_ETRS89_v2023b.tif',1,1,NULL),
 ('no_kv_ETRS89NO_NGO48_TIN.json','no_kv_ETRS89NO_NGO48_TIN.json',NULL,'JSON','tinshift',0,NULL,'https://cdn.proj.org/no_kv_ETRS89NO_NGO48_TIN.json',1,1,NULL),
 ('arcgp-2006-sk.bin','no_kv_arcgp-2006-sk.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/no_kv_arcgp-2006-sk.tif',1,1,NULL),
+('Href_Svalbard_EUREF89_EGG2015_2024.bin','no_kv_Svalbard_EUREF89_SVD2024.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/no_kv_Svalbard_EUREF89_SVD2024.tif',1,1,NULL),
 
 -- nz_linz - New Zealand
 ('nzgd2kgrid0005.gsb','nz_linz_nzgd2kgrid0005.tif','nzgd2kgrid0005.gsb','GTiff','hgridshift',0,NULL,'https://cdn.proj.org/nz_linz_nzgd2kgrid0005.tif',1,1,NULL),
@@ -345,6 +351,7 @@ VALUES
 
 -- si_gurs - Slovenia
 ('https://isgeoid.polimi.it/Geoid/Europe/Slovenia/public/Slovenia_2016_SLO_VRP2016_Koper_hybrQ_20221122.isg','si_gurs_SLO-VRP2016-Koper.tif',NULL,'GTiff','geoid_like',0,NULL,'https://cdn.proj.org/si_gurs_SLO-VRP2016-Koper.tif',1,1,NULL),
+('SLO-VTP2024.xyz','si_gurs_SLO-VTP2024.tif',NULL,'GTiff','vgridshift',0,NULL,'https://cdn.proj.org/si_gurs_SLO-VTP2024.tif',1,1,NULL),
 
 -- sk_gku - Geodetický a kartografický ústav Bratislava (GKU)
 ('Slovakia_JTSK03_to_JTSK.LAS','sk_gku_JTSK03_to_JTSK.tif',NULL,'GTiff','hgridshift',0,NULL,'https://cdn.proj.org/sk_gku_JTSK03_to_JTSK.tif',1,1,NULL),
@@ -362,6 +369,7 @@ VALUES
 
 -- us_nga - US National Geospatial Intelligence Agency (NGA)
 ('WW15MGH.GRD','us_nga_egm96_15.tif','egm96_15.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/us_nga_egm96_15.tif',1,1,NULL),
+('Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree','us_nga_egm08_25.tif','egm08_25.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/us_nga_egm08_25.tif',1,1,NULL),
 ('Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree.gz','us_nga_egm08_25.tif','egm08_25.gtx','GTiff','geoid_like',0,NULL,'https://cdn.proj.org/us_nga_egm08_25.tif',1,1,NULL),
 
 -- us_noaa - United States

@@ -217,7 +217,16 @@ TEST_F(CApi, proj_create) {
                   std::numeric_limits<double>::infinity());
 
         // and those ones actually work just fine
-        EXPECT_NEAR(proj_geod(obj, coord1, coord2).xyzt.x, 111219.409, 1e-3);
+        PJ_XYZT geod = proj_geod(obj, coord1, coord2).xyzt;
+        EXPECT_NEAR(geod.x, 111219.409, 1e-3);
+        EXPECT_NEAR(geod.y, 0, 1e-3);
+
+        // also test that direct geodesic problem returns original results
+        PJ_XYZT coord3 = proj_geod_direct(obj, coord1, geod.y, geod.x).xyzt;
+        EXPECT_NEAR(coord3.x, coord2.xyzt.x, 1e-3);
+        EXPECT_NEAR(coord3.y, coord2.xyzt.y, 1e-3);
+
+        // Test distance
         EXPECT_NEAR(proj_lp_dist(obj, coord1, coord2), 111219.409, 1e-3);
 
         auto info = proj_pj_info(obj);
@@ -5621,7 +5630,8 @@ TEST_F(CApi, proj_create_derived_geographic_crs) {
         "                LENGTHUNIT[\"metre\",1]],\n"
         "            ENSEMBLEACCURACY[2.0]],\n"
         "        PRIMEM[\"Greenwich\",0,\n"
-        "            ANGLEUNIT[\"degree\",0.0174532925199433]]],\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "        ID[\"EPSG\",4326]],\n"
         "    DERIVINGCONVERSION[\"Pole rotation (GRIB convention)\",\n"
         "        METHOD[\"Pole rotation (GRIB convention)\"],\n"
         "        PARAMETER[\"Latitude of the southern pole (GRIB "
@@ -5685,7 +5695,8 @@ TEST_F(CApi, proj_create_derived_geographic_crs_netcdf_cf) {
         "            ELLIPSOID[\"GRS 1980\",6378137,298.257222101,\n"
         "                LENGTHUNIT[\"metre\",1]]],\n"
         "        PRIMEM[\"Greenwich\",0,\n"
-        "            ANGLEUNIT[\"degree\",0.0174532925199433]]],\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "        ID[\"EPSG\",4019]],\n"
         "    DERIVINGCONVERSION[\"Pole rotation (netCDF CF convention)\",\n"
         "        METHOD[\"Pole rotation (netCDF CF convention)\"],\n"
         "        PARAMETER[\"Grid north pole latitude (netCDF CF "
@@ -6223,8 +6234,8 @@ TEST_F(CApi, proj_trans_bounds_antimeridian_xy) {
                                     &out_right, &out_top, 21);
     EXPECT_TRUE(success == 1);
     EXPECT_NEAR(out_left, 1722483.900174921, 1);
-    EXPECT_NEAR(out_bottom, 4795714.1718160734, 1);
-    EXPECT_NEAR(out_right, 7095599.9757999768, 1);
+    EXPECT_NEAR(out_bottom, 5228058.6143420935, 1);
+    EXPECT_NEAR(out_right, 4624385.4948085546, 1);
     EXPECT_NEAR(out_top, 8692574.544944234, 1);
     double out_left_inv;
     double out_bottom_inv;
@@ -6255,10 +6266,10 @@ TEST_F(CApi, proj_trans_bounds_antimeridian) {
         proj_trans_bounds(m_ctxt, P, PJ_FWD, -55.95, 160.6, -25.88, -171.2,
                           &out_left, &out_bottom, &out_right, &out_top, 21);
     EXPECT_TRUE(success == 1);
-    EXPECT_NEAR(out_left, 4695514.1225397848, 1);
+    EXPECT_NEAR(out_left, 5228058.6143420935, 1);
     EXPECT_NEAR(out_bottom, 1722483.900174921, 1);
     EXPECT_NEAR(out_right, 8692574.544944234, 1);
-    EXPECT_NEAR(out_top, 7053083.9457852989, 1);
+    EXPECT_NEAR(out_top, 4624385.4948085546, 1);
     double out_left_inv;
     double out_bottom_inv;
     double out_right_inv;

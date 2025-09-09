@@ -6205,3 +6205,219 @@ TEST(operation,
         op->inverse()->exportToPROJString(PROJStringFormatter::create().get()),
         "+proj=noop");
 }
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, helmert_between_geog3D_and_compound) {
+
+    auto wkt =
+        "COORDINATEOPERATION[\"ETRS89/DREF91/2016 to Asse 2025 + Asse 2025 "
+        "height (1)\",\n"
+        "    VERSION[\"BGE-Deu Asse\"],\n"
+        "    SOURCECRS[\n"
+        "        GEOGCRS[\"ETRS89/DREF91/2016\",\n"
+        "            DATUM[\"ETRS89/DREF91 Realization 2016\",\n"
+        "                ELLIPSOID[\"GRS 1980\",6378137,298.257222101,\n"
+        "                    LENGTHUNIT[\"metre\",1]]],\n"
+        "            PRIMEM[\"Greenwich\",0,\n"
+        "                ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "            CS[ellipsoidal,3],\n"
+        "                AXIS[\"geodetic latitude (Lat)\",north,\n"
+        "                    ORDER[1],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "                AXIS[\"geodetic longitude (Lon)\",east,\n"
+        "                    ORDER[2],\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "                AXIS[\"ellipsoidal height (h)\",up,\n"
+        "                    ORDER[3],\n"
+        "                    LENGTHUNIT[\"metre\",1]],\n"
+        "            ID[\"EPSG\",10283]]],\n"
+        "    TARGETCRS[\n"
+        "        COMPOUNDCRS[\"Asse 2025 + Asse 2025 height\",\n"
+        "            GEOGCRS[\"Asse 2025\",\n"
+        "                DATUM[\"Asse geodetic datum 2025\",\n"
+        "                    ELLIPSOID[\"Bessel "
+        "1841\",6377397.155,299.1528128,\n"
+        "                        LENGTHUNIT[\"metre\",1]]],\n"
+        "                PRIMEM[\"Greenwich\",0,\n"
+        "                    ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "                CS[ellipsoidal,2],\n"
+        "                    AXIS[\"geodetic latitude (Lat)\",north,\n"
+        "                        ORDER[1],\n"
+        "                        ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "                    AXIS[\"geodetic longitude (Lon)\",east,\n"
+        "                        ORDER[2],\n"
+        "                        ANGLEUNIT[\"degree\",0.0174532925199433]]],\n"
+        "            VERTCRS[\"Asse 2025 height\",\n"
+        "                VDATUM[\"Asse vertical datum 2025\"],\n"
+        "                CS[vertical,1],\n"
+        "                    AXIS[\"gravity-related height (H)\",up,\n"
+        "                        LENGTHUNIT[\"metre\",1]]],\n"
+        "            ID[\"EPSG\",10904]]],\n"
+        "    METHOD[\"Coordinate Frame rotation (geog3D domain)\",\n"
+        "        ID[\"EPSG\",1038]],\n"
+        "    PARAMETER[\"X-axis translation\",-646.6552,\n"
+        "        LENGTHUNIT[\"metre\",1],\n"
+        "        ID[\"EPSG\",8605]],\n"
+        "    PARAMETER[\"Y-axis translation\",-165.0859,\n"
+        "        LENGTHUNIT[\"metre\",1],\n"
+        "        ID[\"EPSG\",8606]],\n"
+        "    PARAMETER[\"Z-axis translation\",-437.6858,\n"
+        "        LENGTHUNIT[\"metre\",1],\n"
+        "        ID[\"EPSG\",8607]],\n"
+        "    PARAMETER[\"X-axis rotation\",4.77773,\n"
+        "        ANGLEUNIT[\"arc-second\",4.84813681109536E-06],\n"
+        "        ID[\"EPSG\",8608]],\n"
+        "    PARAMETER[\"Y-axis rotation\",-0.39139,\n"
+        "        ANGLEUNIT[\"arc-second\",4.84813681109536E-06],\n"
+        "        ID[\"EPSG\",8609]],\n"
+        "    PARAMETER[\"Z-axis rotation\",-1.07485,\n"
+        "        ANGLEUNIT[\"arc-second\",4.84813681109536E-06],\n"
+        "        ID[\"EPSG\",8610]],\n"
+        "    PARAMETER[\"Scale difference\",2.0025,\n"
+        "        SCALEUNIT[\"parts per million\",1E-06],\n"
+        "        ID[\"EPSG\",8611]],\n"
+        "    OPERATIONACCURACY[0.04],\n"
+        "    USAGE[\n"
+        "        SCOPE[\"Engineering survey, GIS, topographic mapping.\"],\n"
+        "        AREA[\"Germany - Lower Saxony - Asse mining area.\"],\n"
+        "        BBOX[52.11,10.6,52.16,10.7]],\n"
+        "    ID[\"EPSG\",10905],\n"
+        "    REMARK[\"3-dimensional transformation defining the  horizontal "
+        "and vertical CRSs for the Asse 2 mining area.\"]]";
+
+    auto obj = WKTParser().createFromWKT(wkt);
+    auto transf = nn_dynamic_pointer_cast<Transformation>(obj);
+    ASSERT_TRUE(transf != nullptr);
+    EXPECT_EQ(transf->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m "
+              "+step +proj=cart +ellps=GRS80 "
+              "+step +proj=helmert +x=-646.6552 +y=-165.0859 +z=-437.6858 "
+              "+rx=4.77773 +ry=-0.39139 +rz=-1.07485 +s=2.0025 "
+              "+convention=coordinate_frame "
+              "+step +inv +proj=cart +ellps=bessel "
+              "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
+              "+step +proj=axisswap +order=2,1");
+
+    EXPECT_EQ(transf->inverse()->exportToPROJString(
+                  PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
+              "+step +proj=cart +ellps=bessel "
+              "+step +inv +proj=helmert +x=-646.6552 +y=-165.0859 +z=-437.6858 "
+              "+rx=4.77773 +ry=-0.39139 +rz=-1.07485 +s=2.0025 "
+              "+convention=coordinate_frame "
+              "+step +inv +proj=cart +ellps=GRS80 "
+              "+step +proj=unitconvert +xy_in=rad +z_in=m +xy_out=deg +z_out=m "
+              "+step +proj=axisswap +order=2,1");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, operation_Geographic2D_Offsets_by_TIN_Interpolation_JSON) {
+    auto factory = AuthorityFactory::create(DatabaseContext::create(), "EPSG");
+    auto op = factory->createCoordinateOperation("10854", false);
+
+    EXPECT_EQ(op->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=tinshift +file=no_kv_ETRS89NO_NGO48_TIN.json "
+              "+step +proj=axisswap +order=2,1");
+
+    EXPECT_EQ(
+        op->inverse()->exportToPROJString(PROJStringFormatter::create().get()),
+        "+proj=pipeline "
+        "+step +proj=axisswap +order=2,1 "
+        "+step +inv +proj=tinshift +file=no_kv_ETRS89NO_NGO48_TIN.json "
+        "+step +proj=axisswap +order=2,1");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(
+    operation,
+    operation_Position_Vector_geocen_and_geocen_translations_NEU_velocities_gtg_with_source_epoch) {
+    auto dbContext = DatabaseContext::create();
+    auto factory = AuthorityFactory::create(dbContext, "EPSG");
+    auto op = factory->createCoordinateOperation("10814", false);
+
+    EXPECT_EQ(op->exportToPROJString(
+                  PROJStringFormatter::create(
+                      PROJStringFormatter::Convention::PROJ_5, dbContext)
+                      .get()),
+              "+proj=pipeline "
+              "+step +proj=helmert +x=-0.05027 +y=-0.11595 +z=0.03012 "
+              "+rx=-0.00310814 +ry=0.00457237 +rz=0.00472406 +s=0.003191 "
+              "+convention=position_vector "
+              "+step +proj=deformation +dt=-2.44 +grids=eur_nkg_nkgrf17vel.tif "
+              "+ellps=GRS80");
+
+    EXPECT_EQ(
+        op->inverse()->exportToPROJString(
+            PROJStringFormatter::create(PROJStringFormatter::Convention::PROJ_5,
+                                        dbContext)
+                .get()),
+        "+proj=pipeline "
+        "+step +inv +proj=deformation +dt=-2.44 +grids=eur_nkg_nkgrf17vel.tif "
+        "+ellps=GRS80 "
+        "+step +inv +proj=helmert +x=-0.05027 +y=-0.11595 +z=0.03012 "
+        "+rx=-0.00310814 +ry=0.00457237 +rz=0.00472406 +s=0.003191 "
+        "+convention=position_vector");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(
+    operation,
+    operation_geocen_translations_by_grid_and_geocen_translations_NEU_velocities_gtg) {
+    auto dbContext = DatabaseContext::create();
+    auto factory = AuthorityFactory::create(dbContext, "EPSG");
+    auto op = factory->createCoordinateOperation("10811", false);
+
+    EXPECT_EQ(op->exportToPROJString(
+                  PROJStringFormatter::create(
+                      PROJStringFormatter::Convention::PROJ_5, dbContext)
+                      .get()),
+              "+proj=pipeline "
+              "+step +proj=xyzgridshift "
+              "+grids=no_kv_NKGETRF14_EPSG7922_2000.tif "
+              "+step +proj=deformation +dt=-5 +grids=eur_nkg_nkgrf17vel.tif "
+              "+ellps=GRS80");
+
+    EXPECT_EQ(
+        op->inverse()->exportToPROJString(
+            PROJStringFormatter::create(PROJStringFormatter::Convention::PROJ_5,
+                                        dbContext)
+                .get()),
+        "+proj=pipeline "
+        "+step +inv +proj=deformation +dt=-5 +grids=eur_nkg_nkgrf17vel.tif "
+        "+ellps=GRS80 "
+        "+step +inv +proj=xyzgridshift "
+        "+grids=no_kv_NKGETRF14_EPSG7922_2000.tif");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation, operation_geocen_translations_NEU_velocities_gtg) {
+    auto dbContext = DatabaseContext::create();
+    auto factory = AuthorityFactory::create(dbContext, "EPSG");
+    auto op = factory->createCoordinateOperation("10809", false);
+
+    EXPECT_EQ(op->exportToPROJString(
+                  PROJStringFormatter::create(
+                      PROJStringFormatter::Convention::PROJ_5, dbContext)
+                      .get()),
+              "+proj=pipeline "
+              "+step +inv +proj=deformation +t_epoch=2000 "
+              "+grids=eur_nkg_nkgrf17vel.tif +ellps=GRS80");
+
+    EXPECT_EQ(op->inverse()->exportToPROJString(
+                  PROJStringFormatter::create(
+                      PROJStringFormatter::Convention::PROJ_5, dbContext)
+                      .get()),
+              "+proj=deformation +t_epoch=2000 +grids=eur_nkg_nkgrf17vel.tif "
+              "+ellps=GRS80");
+}
