@@ -285,6 +285,16 @@ endif()
 set(SQLITE3_INCLUDE_DIR ${PROJ_SOURCE_DIR}/sqlite3)
 set(EXE_SQLITE3 ${PROJ_BINARY_DIR}/bin/sqlite3)
 ################################################################################
+# Check for Emscripten fetch
+################################################################################
+
+option(ENABLE_EMSCRIPTEN_FETCH "Enable Emscripten fetch support" OFF)
+set(EMSCRIPTEN_FETCH_ENABLED FALSE)
+if(ENABLE_EMSCRIPTEN_FETCH)
+  set(EMSCRIPTEN_FETCH_ENABLED TRUE)
+endif()
+
+################################################################################
 
 option(EMBED_PROJ_DATA_PATH "Whether the PROJ_DATA_PATH should be embedded" OFF)
 
@@ -365,8 +375,9 @@ endif()
 # Whether we should embed resources
 ################################################################################
 
+include(CheckCSourceCompiles)
 function (is_sharp_embed_available res)
-    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.21 AND
+    if (NOT EMSCRIPTEN AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.21 AND
         ((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0) OR
          (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 19.0)))
         # CMAKE_C_STANDARD=23 only supported since CMake 3.21

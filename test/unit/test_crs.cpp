@@ -870,6 +870,22 @@ TEST(crs, implicit_compound_ESRI_104971_to_3D_as_WKT1_ESRI_with_database) {
 
 // ---------------------------------------------------------------------------
 
+TEST(crs, ITRF2020_as_WKT1_ESRI_with_database) {
+    auto dbContext = DatabaseContext::create();
+    auto factory = AuthorityFactory::create(dbContext, "EPSG");
+    auto crs = factory->createCoordinateReferenceSystem("9990");
+    WKTFormatterNNPtr f(
+        WKTFormatter::create(WKTFormatter::Convention::WKT1_ESRI, dbContext));
+    EXPECT_EQ(crs->exportToWKT(f.get()),
+              "GEOGCS[\"ITRF2020\","
+              "DATUM[\"International_Terrestrial_Reference_Frame_2020\","
+              "SPHEROID[\"GRS_1980\",6378137.0,298.257222101]],"
+              "PRIMEM[\"Greenwich\",0.0],"
+              "UNIT[\"Degree\",0.0174532925199433]]");
+}
+
+// ---------------------------------------------------------------------------
+
 TEST(crs, IAU_1000_as_WKT2) {
     auto dbContext = DatabaseContext::create();
     auto factory = AuthorityFactory::create(dbContext, "IAU_2015");
@@ -2635,10 +2651,10 @@ TEST(crs, projectedCRS_from_EPSG_with_deprecated_ESRI_name_as_WKT1_ESRI) {
 
     // Check we use the non-deprecated ESRI names, so:
     // "KGD2002_Central_Belt_2010" and not "Korea_2000_Korea_Central_Belt_2010"
-    // "GCS_KGD2002" and not "GCS_Korea_2000"
+    // "KGD2002" and not "GCS_Korea_2000"
     // "D_Korea_Geodetic_Datum_2002" and not "D_Korea_2000"
     auto esri_wkt =
-        "PROJCS[\"KGD2002_Central_Belt_2010\",GEOGCS[\"GCS_KGD2002\","
+        "PROJCS[\"KGD2002_Central_Belt_2010\",GEOGCS[\"KGD2002\","
         "DATUM[\"D_Korea_Geodetic_Datum_2002\","
         "SPHEROID[\"GRS_1980\",6378137.0,298.257222101]],"
         "PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]],"
@@ -2655,6 +2671,70 @@ TEST(crs, projectedCRS_from_EPSG_with_deprecated_ESRI_name_as_WKT1_ESRI) {
             WKTFormatter::create(WKTFormatter::Convention::WKT1_ESRI, dbContext)
                 .get()),
         esri_wkt);
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(crs, projectedCRS_from_WKT1_ETRS89_with_db) {
+
+    auto wkt = "PROJCS[\"ETRS89 / UTM zone 32N (N-E)\","
+               "GEOGCS[\"ETRS89\","
+               "    DATUM[\"European_Terrestrial_Reference_System_1989\","
+               "        SPHEROID[\"GRS 1980\",6378137,298.257222101,"
+               "            AUTHORITY[\"EPSG\",\"7019\"]],"
+               "        AUTHORITY[\"EPSG\",\"6258\"]],"
+               "    PRIMEM[\"Greenwich\",0,"
+               "        AUTHORITY[\"EPSG\",\"8901\"]],"
+               "    UNIT[\"degree\",0.0174532925199433,"
+               "        AUTHORITY[\"EPSG\",\"9122\"]],"
+               "    AUTHORITY[\"EPSG\",\"4258\"]],"
+               "PROJECTION[\"Transverse_Mercator\"],"
+               "PARAMETER[\"latitude_of_origin\",0],"
+               "PARAMETER[\"central_meridian\",9],"
+               "PARAMETER[\"scale_factor\",0.9996],"
+               "PARAMETER[\"false_easting\",500000],"
+               "PARAMETER[\"false_northing\",0],"
+               "UNIT[\"metre\",1,"
+               "    AUTHORITY[\"EPSG\",\"9001\"]],"
+               "AXIS[\"Northing\",NORTH],"
+               "AXIS[\"Easting\",EAST]]";
+
+    auto dbContext = DatabaseContext::create();
+    auto obj = WKTParser().attachDatabaseContext(dbContext).createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    auto datum = crs->baseCRS()->datum();
+    ASSERT_TRUE(datum != nullptr);
+    EXPECT_STREQ(datum->nameStr().c_str(),
+                 "European Terrestrial Reference System 1989");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(crs, projectedCRS_from_WKT1_ESRI_ETRS89_with_db) {
+
+    auto wkt = "PROJCS[\"ETRS89 / ETRS-LAEA\","
+               "GEOGCS[\"ETRS89\","
+               "DATUM[\"European_Terrestrial_Reference_System_1989\","
+               "SPHEROID[\"GRS 1980\",6378137,298.257222101]],"
+               "PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.01745329251994328]],"
+               "PROJECTION[\"Lambert_Azimuthal_Equal_Area\"],"
+               "PARAMETER[\"latitude_of_center\",52],"
+               "PARAMETER[\"longitude_of_center\",10],"
+               "PARAMETER[\"false_easting\",4321000],"
+               "PARAMETER[\"false_northing\",3210000],"
+               "UNIT[\"metre\",1]]";
+
+    auto dbContext = DatabaseContext::create();
+    auto obj = WKTParser().attachDatabaseContext(dbContext).createFromWKT(wkt);
+    auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+    ASSERT_TRUE(crs != nullptr);
+
+    auto datum = crs->baseCRS()->datum();
+    ASSERT_TRUE(datum != nullptr);
+    EXPECT_STREQ(datum->nameStr().c_str(),
+                 "European Terrestrial Reference System 1989");
 }
 
 // ---------------------------------------------------------------------------
@@ -3650,6 +3730,85 @@ TEST(crs, projectedCRS_identify_db) {
         EXPECT_EQ(res.front().first->identifiers()[0]->code(), "2223");
         EXPECT_EQ(*(res.front().first->identifiers()[0]->codeSpace()), "EPSG");
         EXPECT_EQ(res.front().second, 70);
+    }
+
+    {
+        // Identify a CRS after ETRS89 -> ETRS89-PRT [1995] changes
+        auto obj = WKTParser().attachDatabaseContext(dbContext).createFromWKT(
+            "PROJCS[\"ETRS89 / Portugal TM06\","
+            "GEOGCS[\"ETRS89\","
+            "DATUM[\"European Terrestrial Reference System 1989\","
+            "SPHEROID[\"GRS 1980\", 6378137.0, 298.257222101,"
+            "AUTHORITY[\"EPSG\",\"7019\"]],"
+            "AUTHORITY[\"EPSG\",\"6258\"]],"
+            "PRIMEM[\"Greenwich\", 0.0, AUTHORITY[\"EPSG\",\"8901\"]],"
+            "UNIT[\"degree\", 0.017453292519943295],"
+            "AXIS[\"Geodetic latitude\", NORTH],"
+            "AXIS[\"Geodetic longitude\", EAST],"
+            "AUTHORITY[\"EPSG\",\"4258\"]],"
+            "PROJECTION[\"Transverse_Mercator\","
+            "AUTHORITY[\"EPSG\",\"9807\"]],"
+            "PARAMETER[\"central_meridian\", -8.133108333333334],"
+            "PARAMETER[\"latitude_of_origin\", 39.66825833333334],"
+            "PARAMETER[\"scale_factor\", 1.0],"
+            "PARAMETER[\"false_easting\", 0.0],"
+            "PARAMETER[\"false_northing\", 0.0],"
+            "UNIT[\"m\", 1.0],"
+            "AXIS[\"Easting\", EAST],"
+            "AXIS[\"Northing\", NORTH],"
+            "AUTHORITY[\"EPSG\",\"3763\"]]");
+        auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+        ASSERT_TRUE(crs != nullptr);
+        auto res = crs->identify(factoryEPSG);
+        ASSERT_GE(res.size(), 1U);
+        EXPECT_EQ(res.front().first->identifiers()[0]->code(), "3763");
+        EXPECT_EQ(*(res.front().first->identifiers()[0]->codeSpace()), "EPSG");
+        EXPECT_EQ(res.front().second, 100);
+    }
+    {
+        // The ellipsoid definition uses a unusual value for the inverse
+        // flattening Check that we only identify CRS whose ellipsoid shape is
+        // close to the input one (in particular no IAU_2015...)
+        auto obj = WKTParser().attachDatabaseContext(dbContext).createFromWKT(
+            "PROJCRS[\"Transverse Mercator\",\n"
+            "    BASEGEOGCRS[\"DE_DHDN (whole country, 2001) to ETRS89\",\n"
+            "        DATUM[\"DE_DHDN (whole country, 2001) to ETRS89\",\n"
+            "            ELLIPSOID[\"Bessel\",6377397.155,299.15281310608,\n"
+            "                LENGTHUNIT[\"metre\",1,\n"
+            "                    ID[\"EPSG\",9001]]]],\n"
+            "        PRIMEM[\"Greenwich\",0,\n"
+            "            ANGLEUNIT[\"degree\",0.0174532925199433,\n"
+            "                ID[\"EPSG\",9122]]]],\n"
+            "    CONVERSION[\"Transverse Mercator\",\n"
+            "        METHOD[\"Transverse Mercator\",\n"
+            "            ID[\"EPSG\",9807]],\n"
+            "        PARAMETER[\"Latitude of natural origin\",0,\n"
+            "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+            "            ID[\"EPSG\",8801]],\n"
+            "        PARAMETER[\"Longitude of natural origin\",12,\n"
+            "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+            "            ID[\"EPSG\",8802]],\n"
+            "        PARAMETER[\"Scale factor at natural origin\",1,\n"
+            "            SCALEUNIT[\"unity\",1],\n"
+            "            ID[\"EPSG\",8805]],\n"
+            "        PARAMETER[\"False easting\",4500000,\n"
+            "            LENGTHUNIT[\"metre\",1],\n"
+            "            ID[\"EPSG\",8806]],\n"
+            "        PARAMETER[\"False northing\",0,\n"
+            "            LENGTHUNIT[\"metre\",1],\n"
+            "            ID[\"EPSG\",8807]]],\n"
+            "    CS[Cartesian,2],\n"
+            "        AXIS[\"easting\",east,\n"
+            "            ORDER[1],\n"
+            "            LENGTHUNIT[\"meters\",1]],\n"
+            "        AXIS[\"northing\",north,\n"
+            "            ORDER[2],\n"
+            "            LENGTHUNIT[\"meters\",1]]]");
+        auto crs = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+        ASSERT_TRUE(crs != nullptr);
+        auto factoryAll = AuthorityFactory::create(dbContext, std::string());
+        auto res = crs->identify(factoryAll);
+        EXPECT_EQ(res.size(), 13U);
     }
 }
 
@@ -7812,7 +7971,12 @@ TEST(crs, norway_ntm) {
         auto obj = createFromUserInput(esri_wkt, dbContext, true);
         auto crs_from_esri = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
         ASSERT_TRUE(crs_from_esri != nullptr);
-
+        EXPECT_STREQ(crs_from_esri->nameStr().c_str(),
+                     "ETRS89-NOR [EUREF89] / NTM zone 5");
+        EXPECT_STREQ(crs_from_esri->baseCRS()->nameStr().c_str(),
+                     "ETRS89-NOR [EUREF89]");
+        EXPECT_STREQ(crs_from_esri->baseCRS()->datum()->nameStr().c_str(),
+                     "ETRS89-NOR [EUREF89]");
         auto res = crs_from_esri->identify(factory);
         ASSERT_EQ(res.size(), 1U);
         EXPECT_EQ(res.front().first.get(), crs.get());
@@ -7878,6 +8042,74 @@ TEST(crs, norway_ntm) {
             createFromUserInput(wkt2_before_epsg_12_025, dbContext, true);
         auto crs_from_wkt2 = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
         ASSERT_TRUE(crs_from_wkt2 != nullptr);
+        EXPECT_TRUE(crs->isEquivalentTo(crs_from_wkt2.get(),
+                                        IComparable::Criterion::EQUIVALENT));
+        EXPECT_TRUE(crs_from_wkt2->isEquivalentTo(
+            crs.get(), IComparable::Criterion::EQUIVALENT));
+
+        auto res = crs_from_wkt2->identify(factory);
+        ASSERT_EQ(res.size(), 1U);
+        EXPECT_EQ(res.front().first.get(), crs.get());
+        EXPECT_EQ(res.front().second, 100);
+    }
+}
+// ---------------------------------------------------------------------------
+
+TEST(crs, ETRF2000_PL_CS92) {
+
+    auto dbContext = DatabaseContext::create();
+    auto factory = AuthorityFactory::create(dbContext, "EPSG");
+    // "ETRS89 / PL-1992" (formerly ETRF2000-PL / CS92)
+    auto crs = factory->createCoordinateReferenceSystem("2180");
+
+    auto wkt2_before_epsg_12_041 =
+        "PROJCRS[\"ETRF2000-PL / CS92\",\n"
+        "    BASEGEOGCRS[\"ETRF2000-PL\",\n"
+        "        DATUM[\"ETRF2000 Poland\",\n"
+        "            ELLIPSOID[\"GRS 1980\",6378137,298.257222101,\n"
+        "                LENGTHUNIT[\"metre\",1]]],\n"
+        "        PRIMEM[\"Greenwich\",0,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+        "        ID[\"EPSG\",9702]],\n"
+        "    CONVERSION[\"Poland CS92\",\n"
+        "        METHOD[\"Transverse Mercator\",\n"
+        "            ID[\"EPSG\",9807]],\n"
+        "        PARAMETER[\"Latitude of natural origin\",0,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+        "            ID[\"EPSG\",8801]],\n"
+        "        PARAMETER[\"Longitude of natural origin\",19,\n"
+        "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+        "            ID[\"EPSG\",8802]],\n"
+        "        PARAMETER[\"Scale factor at natural origin\",0.9993,\n"
+        "            SCALEUNIT[\"unity\",1],\n"
+        "            ID[\"EPSG\",8805]],\n"
+        "        PARAMETER[\"False easting\",500000,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8806]],\n"
+        "        PARAMETER[\"False northing\",-5300000,\n"
+        "            LENGTHUNIT[\"metre\",1],\n"
+        "            ID[\"EPSG\",8807]]],\n"
+        "    CS[Cartesian,2],\n"
+        "        AXIS[\"northing (x)\",north,\n"
+        "            ORDER[1],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "        AXIS[\"easting (y)\",east,\n"
+        "            ORDER[2],\n"
+        "            LENGTHUNIT[\"metre\",1]],\n"
+        "    USAGE[\n"
+        "        SCOPE[\"Topographic mapping (medium and small scale).\"],\n"
+        "        AREA[\"Poland - onshore and offshore.\"],\n"
+        "        BBOX[49,14.14,55.93,24.15]],\n"
+        "    ID[\"EPSG\",2180]]";
+
+    {
+        auto obj =
+            createFromUserInput(wkt2_before_epsg_12_041, dbContext, true);
+        auto crs_from_wkt2 = nn_dynamic_pointer_cast<ProjectedCRS>(obj);
+        ASSERT_TRUE(crs_from_wkt2 != nullptr);
+        EXPECT_STREQ(crs_from_wkt2->nameStr().c_str(), "ETRS89 / PL-1992");
+        EXPECT_STREQ(crs_from_wkt2->baseCRS()->nameStr().c_str(), "ETRS89");
+
         EXPECT_TRUE(crs->isEquivalentTo(crs_from_wkt2.get(),
                                         IComparable::Criterion::EQUIVALENT));
         EXPECT_TRUE(crs_from_wkt2->isEquivalentTo(

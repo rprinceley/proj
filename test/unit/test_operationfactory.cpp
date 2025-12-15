@@ -97,7 +97,7 @@ TEST(operation, geogCRS_to_geogCRS_context_default) {
             ctxt);
         ASSERT_EQ(list.size(), 3U);
         // Romania has a larger area than Poland (given our approx formula)
-        EXPECT_EQ(list[0]->getEPSGCode(), 15994); // Romania - 3m
+        EXPECT_EQ(list[0]->getEPSGCode(), 15993); // Romania - 10m
         EXPECT_EQ(list[1]->getEPSGCode(), 1644);  // Poland - 1m
         EXPECT_EQ(list[2]->nameStr(),
                   "Ballpark geographic offset from Pulkovo 1942(58) to ETRS89");
@@ -106,9 +106,9 @@ TEST(operation, geogCRS_to_geogCRS_context_default) {
             list[0]->exportToPROJString(PROJStringFormatter::create().get()),
             "+proj=pipeline +step +proj=axisswap +order=2,1 +step "
             "+proj=unitconvert +xy_in=deg +xy_out=rad +step +proj=push +v_3 "
-            "+step +proj=cart +ellps=krass +step +proj=helmert +x=2.3287 "
-            "+y=-147.0425 +z=-92.0802 +rx=0.3092483 +ry=-0.32482185 "
-            "+rz=-0.49729934 +s=5.68906266 +convention=coordinate_frame +step "
+            "+step +proj=cart +ellps=krass +step +proj=helmert +x=68.1564 "
+            "+y=32.7756 +z=80.2249 +rx=2.20333014 +ry=2.19256447 "
+            "+rz=-2.54166911 +s=-0.14155333 +convention=coordinate_frame +step "
             "+inv +proj=cart +ellps=GRS80 +step +proj=pop +v_3 +step "
             "+proj=unitconvert +xy_in=rad +xy_out=deg +step +proj=axisswap "
             "+order=2,1");
@@ -122,15 +122,15 @@ TEST(operation, geogCRS_to_geogCRS_context_default) {
         ASSERT_EQ(list.size(), 3U);
         // Romania has a larger area than Poland (given our approx formula)
         EXPECT_EQ(list[0]->nameStr(),
-                  "Inverse of Pulkovo 1942(58) to ETRS89 (4)"); // Romania - 3m
+                  "Inverse of Pulkovo 1942(58) to ETRS89 (3)"); // Romania - 10m
 
         EXPECT_EQ(
             list[0]->exportToPROJString(PROJStringFormatter::create().get()),
             "+proj=pipeline +step +proj=axisswap +order=2,1 +step "
             "+proj=unitconvert +xy_in=deg +xy_out=rad +step +proj=push +v_3 "
-            "+step +proj=cart +ellps=GRS80 +step +inv +proj=helmert +x=2.3287 "
-            "+y=-147.0425 +z=-92.0802 +rx=0.3092483 +ry=-0.32482185 "
-            "+rz=-0.49729934 +s=5.68906266 +convention=coordinate_frame +step "
+            "+step +proj=cart +ellps=GRS80 +step +inv +proj=helmert +x=68.1564 "
+            "+y=32.7756 +z=80.2249 +rx=2.20333014 +ry=2.19256447 "
+            "+rz=-2.54166911 +s=-0.14155333 +convention=coordinate_frame +step "
             "+inv +proj=cart +ellps=krass +step +proj=pop +v_3 +step "
             "+proj=unitconvert +xy_in=rad +xy_out=deg +step +proj=axisswap "
             "+order=2,1");
@@ -209,7 +209,7 @@ TEST(operation, geogCRS_to_geogCRS_context_filter_bbox) {
             authFactory->createCoordinateReferenceSystem("4179"),
             authFactory->createCoordinateReferenceSystem("4258"), ctxt);
         ASSERT_EQ(list.size(), 1U);
-        EXPECT_EQ(list[0]->getEPSGCode(), 15994); // Romania - 3m
+        EXPECT_EQ(list[0]->getEPSGCode(), 15993); // Romania - 10m
     }
     {
         auto ctxt = CoordinateOperationContext::create(
@@ -221,7 +221,7 @@ TEST(operation, geogCRS_to_geogCRS_context_filter_bbox) {
             authFactory->createCoordinateReferenceSystem("4179"),
             authFactory->createCoordinateReferenceSystem("4258"), ctxt);
         ASSERT_EQ(list.size(), 1U);
-        EXPECT_EQ(list[0]->getEPSGCode(), 15994); // Romania - 3m
+        EXPECT_EQ(list[0]->getEPSGCode(), 15993); // Romania - 10m
     }
     {
         auto ctxt = CoordinateOperationContext::create(
@@ -924,19 +924,9 @@ TEST(operation, vertCRS_to_geogCRS_context) {
             authFactory->createCoordinateReferenceSystem("8357"),
             // ETRS89
             authFactory->createCoordinateReferenceSystem("4937"), ctxt);
-        ASSERT_EQ(list.size(), 3U);
+        ASSERT_EQ(list.size(), 2U);
         EXPECT_EQ(
             list[0]->exportToPROJString(PROJStringFormatter::create().get()),
-            "+proj=pipeline "
-            "+step +proj=axisswap +order=2,1 "
-            "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
-            "+step +proj=vgridshift "
-            "+grids=cz_cuzk_CR-2005.tif "
-            "+multiplier=1 "
-            "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
-            "+step +proj=axisswap +order=2,1");
-        EXPECT_EQ(
-            list[1]->exportToPROJString(PROJStringFormatter::create().get()),
             "+proj=pipeline "
             "+step +proj=axisswap +order=2,1 "
             "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
@@ -974,7 +964,7 @@ TEST(operation, geog3DCRS_to_geog2DCRS_plus_vertCRS_context) {
             "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
             "+step +proj=axisswap +order=2,1");
         EXPECT_EQ(list[0]->inverse()->nameStr(),
-                  "Inverse of ETRS89 to Baltic 1957 height (2)");
+                  "Inverse of ETRS89-CZE [2007] to Baltic 1957 height (2)");
 
         EXPECT_EQ(
             list[1]->exportToPROJString(PROJStringFormatter::create().get()),
@@ -1236,7 +1226,7 @@ TEST(operation, geogCRS_to_geogCRS_context_concatenated_operation) {
         ctxt);
     ASSERT_EQ(list.size(), 2U);
 
-    EXPECT_EQ(list[0]->nameStr(), "NTF (Paris) to RGF93 v1 (1)");
+    EXPECT_EQ(list[0]->nameStr(), "NTF (Paris) to ETRS89-FRA [RGF93 v1] (1)");
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=pipeline "
               "+step +proj=axisswap +order=2,1 "
@@ -1251,13 +1241,15 @@ TEST(operation, geogCRS_to_geogCRS_context_concatenated_operation) {
               "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
               "+step +proj=axisswap +order=2,1");
 
-    EXPECT_EQ(list[1]->nameStr(), "NTF (Paris) to RGF93 v1 (2)");
+    EXPECT_EQ(list[1]->nameStr(), "NTF (Paris) to ETRS89-FRA [RGF93 v1] (2)");
     EXPECT_EQ(list[1]->exportToPROJString(PROJStringFormatter::create().get()),
-              "+proj=pipeline +step +proj=axisswap +order=2,1 +step "
-              "+proj=unitconvert +xy_in=grad +xy_out=rad +step +inv "
-              "+proj=longlat +ellps=clrk80ign +pm=paris +step +proj=hgridshift "
-              "+grids=fr_ign_ntf_r93.tif +step +proj=unitconvert +xy_in=rad "
-              "+xy_out=deg +step +proj=axisswap +order=2,1");
+              "+proj=pipeline "
+              "+step +proj=axisswap +order=2,1 "
+              "+step +proj=unitconvert +xy_in=grad +xy_out=rad "
+              "+step +inv +proj=longlat +ellps=clrk80ign +pm=paris "
+              "+step +proj=hgridshift +grids=fr_ign_ntf_r93.tif "
+              "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
+              "+step +proj=axisswap +order=2,1");
 
     EXPECT_TRUE(nn_dynamic_pointer_cast<ConcatenatedOperation>(list[0]) !=
                 nullptr);
@@ -1906,8 +1898,8 @@ TEST(operation, geogCRS_3D_to_geogCRS_3D_different_datum_context) {
             std::string(), dbContext),
         ctxt);
     ASSERT_GE(list.size(), 1U);
-    EXPECT_EQ(list[0]->nameStr(),
-              "RGF93 v1 to ETRS89 (1) + Inverse of CH1903+ to ETRS89 (1)");
+    EXPECT_EQ(list[0]->nameStr(), "ETRS89-FRA [RGF93 v1] to ETRS89 (1) + "
+                                  "Inverse of CH1903+ to ETRS89 (1)");
     // Check that there is no +push +v_3
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=pipeline "
@@ -1948,8 +1940,9 @@ TEST(operation, geocentric_to_geogCRS_3D_different_datum_context) {
         ctxt);
     ASSERT_GE(list.size(), 1U);
     EXPECT_EQ(list[0]->nameStr(),
-              "Conversion from RGF93 v1 (geocentric) to RGF93 v1 (geog3D) + "
-              "RGF93 v1 to ETRS89 (1) + "
+              "Conversion from ETRS89-FRA [RGF93 v1] (geocentric) to "
+              "ETRS89-FRA [RGF93 v1] (geog3D) + "
+              "ETRS89-FRA [RGF93 v1] to ETRS89 (1) + "
               "Inverse of CH1903+ to ETRS89 (1)");
     // Check that there is no +push +v_3
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
@@ -2141,8 +2134,9 @@ TEST(operation, geogCRS_to_geogCRS_with_intermediate_no_ids) {
         EXPECT_EQ(
             list[0]->nameStr(),
             "Conversion from input to ITRF2014 + ITRF2014 to ETRF2014 (2) + "
-            "ETRF2014 to NKG_ETRF14 (1) + NKG_ETRF14 to EST97 (1) + "
-            "Conversion from EST97 to output");
+            "ETRF2014 to NKG_ETRF14 (1) + "
+            "NKG_ETRF14 to ETRS89-EST [EST97] (1) + "
+            "Conversion from ETRS89-EST [EST97] to output");
     }
 }
 
@@ -5833,16 +5827,17 @@ TEST(operation, compoundCRS_to_compoundCRS_WGS84_EGM96_to_ETRS89_Belfast) {
     auto objSrc = createFromUserInput("EPSG:4326+5773", dbContext);
     auto srcCrs = nn_dynamic_pointer_cast<CompoundCRS>(objSrc);
     ASSERT_TRUE(srcCrs != nullptr);
-    // ETRS89 + Belfast height
-    auto objDest = createFromUserInput("EPSG:4258+5732", dbContext);
+    // ETRS89-IRE [ETRF2000] + Belfast height
+    auto objDest = createFromUserInput("EPSG:4173+5732", dbContext);
     auto destCrs = nn_dynamic_pointer_cast<CompoundCRS>(objDest);
     ASSERT_TRUE(destCrs != nullptr);
     auto list = CoordinateOperationFactory::create()->createOperations(
         NN_NO_CHECK(srcCrs), NN_NO_CHECK(destCrs), ctxt);
     ASSERT_GE(list.size(), 1U);
-    EXPECT_EQ(list[0]->nameStr(), "Inverse of WGS 84 to EGM96 height (1) + "
-                                  "Inverse of ETRS89 to WGS 84 (1) + "
-                                  "ETRS89 to Belfast height (2)");
+    EXPECT_EQ(list[0]->nameStr(),
+              "Inverse of WGS 84 to EGM96 height (1) + "
+              "Inverse of ETRS89-IRE [ETRF2000] to WGS 84 (1) + "
+              "ETRS89-IRE [ETRF2000] to Belfast height (2)");
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=pipeline +step +proj=axisswap +order=2,1 "
               "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
@@ -5877,9 +5872,9 @@ TEST(operation, compoundCRS_to_compoundCRS_WGS84_EGM96_to_WGS84_Belfast) {
     auto list = CoordinateOperationFactory::create()->createOperations(
         NN_NO_CHECK(srcCrs), NN_NO_CHECK(destCrs), ctxt);
     ASSERT_GE(list.size(), 1U);
-    EXPECT_EQ(list[0]->nameStr(),
-              "Inverse of WGS 84 to EGM96 height (1) + "
-              "ETRS89 to Belfast height (2) using ETRS89 to WGS 84 (1)");
+    EXPECT_EQ(list[0]->nameStr(), "Inverse of WGS 84 to EGM96 height (1) + "
+                                  "ETRS89-IRE [ETRF2000] to Belfast height (2) "
+                                  "using ETRS89-IRE [ETRF2000] to WGS 84 (1)");
     EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
               "+proj=pipeline +step +proj=axisswap +order=2,1 "
               "+step +proj=unitconvert +xy_in=deg +xy_out=rad "
@@ -5913,11 +5908,12 @@ TEST(operation,
         auto list = CoordinateOperationFactory::create()->createOperations(
             NN_NO_CHECK(src), dst, ctxt);
         ASSERT_GE(list.size(), 1U);
-        EXPECT_EQ(list[0]->nameStr(), "Inverse of British National Grid + "
-                                      "OSGB36 to ETRS89 (2) + "
-                                      "Inverse of ETRS89 to ODN height (2) + "
-                                      "ETRS89 to WGS 84 (1) + "
-                                      "WGS 84 to EGM96 height (1)");
+        EXPECT_EQ(list[0]->nameStr(),
+                  "Inverse of British National Grid + "
+                  "OSGB36 to ETRS89-GBR [OSNet v2009] (2) + "
+                  "Inverse of ETRS89-GBR [OSNet v2009] to ODN height (2) + "
+                  "ETRS89-GBR [OSNet v2009] to WGS 84 (1) + "
+                  "WGS 84 to EGM96 height (1)");
         const char *expected_proj =
             "+proj=pipeline "
             "+step +inv +proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 "
@@ -5937,11 +5933,12 @@ TEST(operation,
         auto list = CoordinateOperationFactory::create()->createOperations(
             dst, NN_NO_CHECK(src), ctxt);
         ASSERT_GE(list.size(), 1U);
-        EXPECT_EQ(list[0]->nameStr(), "Inverse of WGS 84 to EGM96 height (1) + "
-                                      "Inverse of ETRS89 to WGS 84 (1) + "
-                                      "ETRS89 to ODN height (2) + "
-                                      "Inverse of OSGB36 to ETRS89 (2) + "
-                                      "British National Grid");
+        EXPECT_EQ(list[0]->nameStr(),
+                  "Inverse of WGS 84 to EGM96 height (1) + "
+                  "Inverse of ETRS89-GBR [OSNet v2009] to WGS 84 (1) + "
+                  "ETRS89-GBR [OSNet v2009] to ODN height (2) + "
+                  "Inverse of OSGB36 to ETRS89-GBR [OSNet v2009] (2) + "
+                  "British National Grid");
         const char *expected_proj =
             "+proj=pipeline "
             "+step +proj=axisswap +order=2,1 "
@@ -6351,6 +6348,10 @@ TEST(
 
 // ---------------------------------------------------------------------------
 
+#ifdef no_longer_work_since_epsg_12_033
+
+// In EPSG 12.033, for Belgium, ETRS89-BEL [BEREF2011] has been introduced
+// and thus ETRS89 is no longer a pivot between the Belgium and Netherlands.
 TEST(
     operation,
     compoundCRS_to_compoundCRS_concatenated_operation_with_two_vert_transformation_and_different_source_dest_interp) {
@@ -6393,6 +6394,7 @@ TEST(
               "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
               "+step +proj=axisswap +order=2,1");
 }
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -6767,9 +6769,9 @@ TEST(operation,
             NN_NO_CHECK(src), dst, ctxt);
         ASSERT_GE(list.size(), 1U);
         EXPECT_EQ(list[0]->nameStr(),
-                  "BD72 to ETRS89 (3) + "
-                  "Inverse of ETRS89 to Ostend height (1) + "
-                  "ETRS89 to WGS 84 (1) + "
+                  "BD72 to ETRS89-BEL [BEREF2011] (3) + "
+                  "Inverse of ETRS89-BEL [BEREF2011] to Ostend height (1) + "
+                  "ETRS89-BEL [BEREF2011] to WGS 84 (1) + "
                   "WGS 84 to EGM96 height (1)");
         const char *expected_proj =
             "+proj=pipeline "
@@ -6790,10 +6792,11 @@ TEST(operation,
         auto list = CoordinateOperationFactory::create()->createOperations(
             dst, NN_NO_CHECK(src), ctxt);
         ASSERT_GE(list.size(), 1U);
-        EXPECT_EQ(list[0]->nameStr(), "Inverse of WGS 84 to EGM96 height (1) + "
-                                      "Inverse of ETRS89 to WGS 84 (1) + "
-                                      "ETRS89 to Ostend height (1) + "
-                                      "Inverse of BD72 to ETRS89 (3)");
+        EXPECT_EQ(list[0]->nameStr(),
+                  "Inverse of WGS 84 to EGM96 height (1) + "
+                  "Inverse of ETRS89-BEL [BEREF2011] to WGS 84 (1) + "
+                  "ETRS89-BEL [BEREF2011] to Ostend height (1) + "
+                  "Inverse of BD72 to ETRS89-BEL [BEREF2011] (3)");
         const char *expected_proj =
             "+proj=pipeline "
             "+step +proj=axisswap +order=2,1 "
@@ -6967,6 +6970,49 @@ TEST(operation,
                  "Inverse of WGS 84 to EGM96 height (1) + Conv Vertical Offset "
                  "+ UTM zone 30N");
     EXPECT_FALSE(list[0]->hasBallparkTransformation());
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation,
+     compoundCRS_to_compoundCRS_using_intermediate_of_horizontal_transform) {
+    // Related to scenario of https://github.com/OSGeo/PROJ/issues/4618
+    auto dbContext = DatabaseContext::create();
+    auto authFactory = AuthorityFactory::create(dbContext, std::string());
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    ctxt->setSpatialCriterion(
+        CoordinateOperationContext::SpatialCriterion::PARTIAL_INTERSECTION);
+    ctxt->setGridAvailabilityUse(
+        CoordinateOperationContext::GridAvailabilityUse::KNOWN_AVAILABLE);
+    // "PNG94 / PNGMG94 zone 54 + Kumul 34 height"
+    auto objSrc = createFromUserInput("EPSG:5550+7651", dbContext);
+    auto srcCRS = nn_dynamic_pointer_cast<CRS>(objSrc);
+    ASSERT_TRUE(srcCRS != nullptr);
+    // "WGS 84 (G2139) + EGM2008 height
+    auto objDst = createFromUserInput("EPSG:9755+3855", dbContext);
+    auto dstCRS = nn_dynamic_pointer_cast<CRS>(objDst);
+    ASSERT_TRUE(dstCRS != nullptr);
+
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        NN_NO_CHECK(srcCRS), NN_NO_CHECK(dstCRS), ctxt);
+    ASSERT_GE(list.size(), 1U);
+    EXPECT_EQ(
+        list[0]->nameStr(),
+        "Inverse of Papua New Guinea Map Grid 1994 zone 54 + "
+        "PNG94 to WGS 84 (1) + "
+        "Inverse of EGM96 height to Kumul 34 height (1) + "
+        "Inverse of WGS 84 to EGM96 height (1) + "
+        "WGS 84 to WGS 84 (G2139) + "
+        "WGS 84 (G2139) to EGM2008 height (from WGS 84 to EGM2008 height (1))");
+    EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +inv +proj=utm +zone=54 +south +ellps=GRS80 "
+              "+step +proj=geogoffset +dh=0.87 "
+              "+step +proj=vgridshift +grids=us_nga_egm96_15.tif +multiplier=1 "
+              "+step +inv +proj=vgridshift +grids=us_nga_egm08_25.tif "
+              "+multiplier=1 "
+              "+step +proj=unitconvert +xy_in=rad +xy_out=deg "
+              "+step +proj=axisswap +order=2,1");
 }
 
 // ---------------------------------------------------------------------------
@@ -8775,9 +8821,8 @@ TEST(operation,
         createFromUserInput(wkt, authFactory->databaseContext(), false);
     auto src = nn_dynamic_pointer_cast<CRS>(srcObj);
     ASSERT_TRUE(src != nullptr);
-    auto dst =
-        authFactory->createCoordinateReferenceSystem("4936")->promoteTo3D(
-            std::string(), authFactory->databaseContext()); // ETRS89 geocentric
+    auto dst = authFactory->createCoordinateReferenceSystem(
+        "11007"); // ETRS89-GBR [OSNet v2009] geocentric
 
     auto list = CoordinateOperationFactory::create()->createOperations(
         NN_NO_CHECK(src), dst, ctxt);
@@ -9135,6 +9180,44 @@ TEST(operation, compoundCRS_with_non_meter_horiz_and_vertical_to_geog) {
               "+step +inv +proj=utm +zone=31 +ellps=WGS84 "
               "+step +proj=unitconvert +xy_in=rad +z_in=us-ft "
               "+xy_out=deg +z_out=m "
+              "+step +proj=axisswap +order=2,1");
+}
+
+// ---------------------------------------------------------------------------
+
+TEST(operation,
+     compoundCRS_to_geogCRS_3D_using_intermediate_of_horizontal_transform) {
+    // Scenario of https://github.com/OSGeo/PROJ/issues/4618
+    auto dbContext = DatabaseContext::create();
+    auto authFactory = AuthorityFactory::create(dbContext, std::string());
+    auto authFactoryEPSG = AuthorityFactory::create(dbContext, "EPSG");
+    auto ctxt = CoordinateOperationContext::create(authFactory, nullptr, 0.0);
+    ctxt->setSpatialCriterion(
+        CoordinateOperationContext::SpatialCriterion::PARTIAL_INTERSECTION);
+    ctxt->setGridAvailabilityUse(
+        CoordinateOperationContext::GridAvailabilityUse::KNOWN_AVAILABLE);
+    // "PNG94 / PNGMG94 zone 54 + Kumul 34 height"
+    auto objSrc = createFromUserInput("EPSG:5550+7651", dbContext);
+    auto srcCRS = nn_dynamic_pointer_cast<CRS>(objSrc);
+    ASSERT_TRUE(srcCRS != nullptr);
+
+    auto list = CoordinateOperationFactory::create()->createOperations(
+        NN_NO_CHECK(srcCRS),
+        // WGS 84 (G2139) (3D)
+        authFactoryEPSG->createCoordinateReferenceSystem("9754"), ctxt);
+    ASSERT_GE(list.size(), 1U);
+    EXPECT_EQ(list[0]->nameStr(),
+              "Inverse of Papua New Guinea Map Grid 1994 zone 54 + "
+              "PNG94 to WGS 84 (1) + "
+              "Inverse of EGM96 height to Kumul 34 height (1) + "
+              "Inverse of WGS 84 to EGM96 height (1) + "
+              "WGS 84 to WGS 84 (G2139)");
+    EXPECT_EQ(list[0]->exportToPROJString(PROJStringFormatter::create().get()),
+              "+proj=pipeline "
+              "+step +inv +proj=utm +zone=54 +south +ellps=GRS80 "
+              "+step +proj=geogoffset +dh=0.87 "
+              "+step +proj=vgridshift +grids=us_nga_egm96_15.tif +multiplier=1 "
+              "+step +proj=unitconvert +xy_in=rad +z_in=m +xy_out=deg +z_out=m "
               "+step +proj=axisswap +order=2,1");
 }
 

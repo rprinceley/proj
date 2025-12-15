@@ -1397,6 +1397,48 @@ void GeodeticReferenceFrame::_exportToWKT(
                                          )
                                      .size() == 1;
                 }
+                if (!aliasFound && dbContext && !ids.empty()) {
+                    // Case for example for ETRS89-NOR [EUREF89] that has no
+                    // ESRI alias. Fallback to ETRS89
+                    const auto EPSGOldAliases = dbContext->getAliases(
+                        *(ids[0]->codeSpace()), ids[0]->code(),
+                        std::string(), // officialName,
+                        "geodetic_datum", "EPSG_OLD");
+                    if (EPSGOldAliases.size() == 1) {
+                        std::string EPSGName = EPSGOldAliases.front();
+                        if (EPSGName ==
+                            "European Terrestrial Reference System 1989") {
+                            EPSGName += " ensemble";
+                        }
+                        auto authFactoryEPSG = io::AuthorityFactory::create(
+                            NN_NO_CHECK(dbContext), "EPSG");
+                        auto objCandidates =
+                            authFactoryEPSG->createObjectsFromNameEx(
+                                EPSGName,
+                                {io::AuthorityFactory::ObjectType::
+                                     GEODETIC_REFERENCE_FRAME},
+                                false, // approximateMatch
+                                0,     // limitResultCount
+                                false  // useAliases
+                            );
+                        for (const auto &[obj, name] : objCandidates) {
+                            (void)name;
+                            const auto &objIdentifiers = obj->identifiers();
+                            if (!objIdentifiers.empty()) {
+                                const auto ESRIAliases = dbContext->getAliases(
+                                    *(objIdentifiers[0]->codeSpace()),
+                                    objIdentifiers[0]->code(),
+                                    std::string(), // officialName,
+                                    "geodetic_datum", "ESRI");
+                                if (ESRIAliases.size() == 1) {
+                                    l_name = ESRIAliases.front();
+                                    aliasFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
                 if (!aliasFound) {
                     // For now, there's no ESRI alias for this CRS. Fallback to
                     // ETRS89
@@ -1567,9 +1609,57 @@ bool GeodeticReferenceFrame::hasEquivalentNameToUsingAlias(
     const IdentifiedObject *other,
     const io::DatabaseContextPtr &dbContext) const {
 
-    const auto compare = [this, other,
-                          &dbContext](const std::string &thisName,
-                                      const std::string &otherName) {
+    const auto compareFromThisId =
+        [&dbContext](const GeodeticReferenceFrame &self,
+                     const std::string &thisName,
+                     const std::string &otherName) {
+            const auto &id = self.identifiers().front();
+
+            const std::string officialNameFromId = dbContext->getName(
+                "geodetic_datum", *(id->codeSpace()), id->code());
+            const auto aliasesResult =
+                dbContext->getAliases(*(id->codeSpace()), id->code(), thisName,
+                                      "geodetic_datum", std::string());
+
+            const auto isNameMatching =
+                [&aliasesResult, &officialNameFromId](const std::string &name) {
+                    const char *nameCstr = name.c_str();
+                    if (metadata::Identifier::isEquivalentName(
+                            nameCstr, officialNameFromId.c_str())) {
+                        return true;
+                    } else {
+                        for (const auto &aliasResult : aliasesResult) {
+                            if (metadata::Identifier::isEquivalentName(
+                                    nameCstr, aliasResult.c_str())) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                };
+
+            return isNameMatching(thisName) && isNameMatching(otherName);
+        };
+
+    const auto compareFromThisName = [&dbContext](
+                                         const std::string &thisName,
+                                         const std::string &otherName) {
+        auto aliasesResult =
+            dbContext->getAliases(std::string(), std::string(), thisName,
+                                  "geodetic_datum", std::string());
+        const char *otherNamePtr = otherName.c_str();
+        for (const auto &aliasResult : aliasesResult) {
+            if (metadata::Identifier::isEquivalentName(otherNamePtr,
+                                                       aliasResult.c_str())) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const auto compare = [this, other, &dbContext, &compareFromThisId,
+                          &compareFromThisName](const std::string &thisName,
+                                                const std::string &otherName) {
         if (thisName == otherName || thisName == "unknown" ||
             otherName == "unknown") {
             return true;
@@ -1583,52 +1673,23 @@ bool GeodeticReferenceFrame::hasEquivalentNameToUsingAlias(
 
         if (dbContext) {
             if (!identifiers().empty()) {
-                const auto &id = identifiers().front();
-
-                const std::string officialNameFromId = dbContext->getName(
-                    "geodetic_datum", *(id->codeSpace()), id->code());
-                const auto aliasesResult = dbContext->getAliases(
-                    *(id->codeSpace()), id->code(), thisName, "geodetic_datum",
-                    std::string());
-
-                const auto isNameMatching =
-                    [&aliasesResult,
-                     &officialNameFromId](const std::string &name) {
-                        const char *nameCstr = name.c_str();
-                        if (metadata::Identifier::isEquivalentName(
-                                nameCstr, officialNameFromId.c_str())) {
-                            return true;
-                        } else {
-                            for (const auto &aliasResult : aliasesResult) {
-                                if (metadata::Identifier::isEquivalentName(
-                                        nameCstr, aliasResult.c_str())) {
-                                    return true;
-                                }
-                            }
-                        }
-                        return false;
-                    };
-
-                return isNameMatching(thisName) && isNameMatching(otherName);
-            } else if (!other->identifiers().empty()) {
+                if (compareFromThisId(*this, thisName, otherName)) {
+                    return true;
+                }
+            }
+            if (!other->identifiers().empty()) {
                 auto otherGRF =
                     dynamic_cast<const GeodeticReferenceFrame *>(other);
                 if (otherGRF) {
-                    return otherGRF->hasEquivalentNameToUsingAlias(this,
-                                                                   dbContext);
+                    if (compareFromThisId(*otherGRF, otherName, thisName)) {
+                        return true;
+                    }
                 }
-                return false;
             }
 
-            auto aliasesResult =
-                dbContext->getAliases(std::string(), std::string(), thisName,
-                                      "geodetic_datum", std::string());
-            const char *otherNamePtr = otherName.c_str();
-            for (const auto &aliasResult : aliasesResult) {
-                if (metadata::Identifier::isEquivalentName(
-                        otherNamePtr, aliasResult.c_str())) {
-                    return true;
-                }
+            if (compareFromThisName(thisName, otherName) ||
+                compareFromThisName(otherName, thisName)) {
+                return true;
             }
         }
         return false;
@@ -1864,6 +1925,26 @@ DatumEnsemble::positionalAccuracy() const {
 // ---------------------------------------------------------------------------
 
 //! @cond Doxygen_Suppress
+
+/* static */
+std::string DatumEnsemble::ensembleNameToNonEnsembleName(const std::string &s) {
+    if (s == "World Geodetic System 1984 ensemble") {
+        return "World Geodetic System 1984";
+    } else if (s == "European Terrestrial Reference System 1989 ensemble") {
+        return "European Terrestrial Reference System 1989";
+    } else if (s == "Greenland Reference 1996 ensemble") {
+        return "Greenland 1996";
+    }
+    return std::string();
+}
+
+//! @endcond
+
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+
+//! @cond Doxygen_Suppress
 DatumNNPtr
 DatumEnsemble::asDatum(const io::DatabaseContextPtr &dbContext) const {
 
@@ -1890,12 +1971,9 @@ DatumEnsemble::asDatum(const io::DatabaseContextPtr &dbContext) const {
     std::string l_name(nameStr());
     if (grf) {
         // Remap to traditional datum names
-        if (l_name == "World Geodetic System 1984 ensemble") {
-            l_name = "World Geodetic System 1984";
-        } else if (l_name ==
-                   "European Terrestrial Reference System 1989 ensemble") {
-            l_name = "European Terrestrial Reference System 1989";
-        }
+        auto oldName = ensembleNameToNonEnsembleName(l_name);
+        if (!oldName.empty())
+            l_name = std::move(oldName);
     }
     auto props =
         util::PropertyMap().set(common::IdentifiedObject::NAME_KEY, l_name);

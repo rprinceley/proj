@@ -286,6 +286,7 @@ eg
 egm
 ellps
 emphasize
+emscripten
 encodings
 endian
 engsager
@@ -1056,3 +1057,5 @@ Zusätze
 integrators
 IntlFeet
 erroring
+WebP
+ZStd

@@ -2327,7 +2327,7 @@ GeodeticReferenceFrameNNPtr WKTParser::Private::buildGeodeticReferenceFrame(
                     const auto aliases =
                         authFactory->databaseContext()->getAliases(
                             *id->codeSpace(), id->code(), refDatum->nameStr(),
-                            "geodetic_datum", std::string());
+                            "geodetic_datum", "not EPSG_OLD");
                     for (const auto &alias : aliases) {
                         if (metadata::Identifier::isEquivalentName(
                                 l_name.c_str(), alias.c_str())) {
@@ -2377,18 +2377,20 @@ GeodeticReferenceFrameNNPtr WKTParser::Private::buildGeodeticReferenceFrame(
 
     // Remap GDAL WGS_1984 to EPSG v9 "World Geodetic System 1984" official
     // name.
-    // Also remap EPSG v10 datum ensemble names to non-ensemble EPSG v9
     bool nameSet = false;
-    if (name == "WGS_1984" || name == "World Geodetic System 1984 ensemble") {
+    if (name == "WGS_1984") {
         nameSet = true;
         properties.set(IdentifiedObject::NAME_KEY,
                        GeodeticReferenceFrame::EPSG_6326->nameStr());
-    } else if (name == "European Terrestrial Reference System 1989 ensemble") {
-        nameSet = true;
-        properties.set(IdentifiedObject::NAME_KEY,
-                       "European Terrestrial Reference System 1989");
     }
-
+    // Also remap EPSG v10 datum ensemble names to non-ensemble EPSG v9
+    else if (internal::ends_with(name, " ensemble")) {
+        auto massagedName = DatumEnsemble::ensembleNameToNonEnsembleName(name);
+        if (!massagedName.empty()) {
+            nameSet = true;
+            properties.set(IdentifiedObject::NAME_KEY, massagedName);
+        }
+    }
     // If we got hints this might be a ESRI WKT, then check in the DB to
     // confirm
     std::string officialName;
@@ -4648,6 +4650,58 @@ WKTParser::Private::buildProjectedCRS(const WKTNodeNNPtr &node) {
         return buildCS(csNode, node, UnitOfMeasure::NONE);
     }();
     auto cartesianCS = nn_dynamic_pointer_cast<CartesianCS>(cs);
+
+    if (dbContext_ && ((!esriStyle_ && projCRSName == "ETRF2000-PL / CS92" &&
+                        baseGeodCRS->nameStr() == "ETRF2000-PL") ||
+                       (esriStyle_ && projCRSName == "ETRF2000-PL_CS92" &&
+                        (baseGeodCRS->nameStr() == "GCS_ETRF2000-PL" ||
+                         baseGeodCRS->nameStr() == "ETRF2000-PL")))) {
+        // Oddity: "ETRF2000-PL / CS92" (EPSG:2180) has switched back to
+        // "ETRS89 / PL-1992"
+        auto authFactoryEPSG =
+            io::AuthorityFactory::create(NN_NO_CHECK(dbContext_), "EPSG");
+        auto newProjCRS = authFactoryEPSG->createProjectedCRS("2180");
+        props.set(IdentifiedObject::NAME_KEY, newProjCRS->nameStr());
+        baseGeodCRS = newProjCRS->baseCRS();
+    }
+    // In EPSG v12.025, Norway projected systems based on ETRS89 (EPSG:4258)
+    // have switched to use ETRS89-NOR [EUREF89] (EPSG:10875).
+    // Similarly for other ETRS89-like datums in later releases
+    else if (dbContext_ &&
+             (((starts_with(projCRSName, "ETRS89 / ") ||
+                (esriStyle_ && starts_with(projCRSName, "ETRS_1989_"))) &&
+               baseGeodCRS->nameStr() == "ETRS89") ||
+              starts_with(projCRSName, "ETRF2000-PL /")) &&
+             util::isOfExactType<GeographicCRS>(*(baseGeodCRS.get())) &&
+             baseGeodCRS->coordinateSystem()->axisList().size() == 2) {
+        auto authFactoryEPSG =
+            io::AuthorityFactory::create(NN_NO_CHECK(dbContext_), "EPSG");
+        const auto objCandidates = authFactoryEPSG->createObjectsFromNameEx(
+            projCRSName, {io::AuthorityFactory::ObjectType::PROJECTED_CRS},
+            false, // approximateMatch
+            0,     // limit
+            true   // useAliases
+        );
+        for (const auto &[obj, name] : objCandidates) {
+            if (name == projCRSName) {
+                auto candidateProj =
+                    dynamic_cast<const crs::ProjectedCRS *>(obj.get());
+                if (candidateProj &&
+                    candidateProj->baseCRS()->nameStr() !=
+                        baseGeodCRS->nameStr() &&
+                    candidateProj->baseCRS()->_isEquivalentTo(
+                        baseGeodCRS.get(),
+                        util::IComparable::Criterion::
+                            EQUIVALENT_EXCEPT_AXIS_ORDER_GEOGCRS,
+                        dbContext_)) {
+                    props.set(IdentifiedObject::NAME_KEY,
+                              candidateProj->nameStr());
+                    baseGeodCRS = candidateProj->baseCRS();
+                    break;
+                }
+            }
+        }
+    }
 
     if (esriStyle_ && dbContext_) {
         if (cartesianCS) {
